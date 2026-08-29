@@ -33,7 +33,7 @@ git add .
 git status --short
 git commit -m "Prepare SAVERPOS staging build"
 git branch -M staging
-git remote add origin https://github.com/ORG/saverpos-staging.git
+git remote add origin https://github.com/nandayo9/saverpos-staging.git
 git push -u origin staging
 ```
 
