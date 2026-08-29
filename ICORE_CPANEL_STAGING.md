@@ -70,7 +70,16 @@ repository's deployment/pull action. If Git Version Control is not available,
 download the repository ZIP from GitHub and upload/extract it in cPanel File
 Manager; repeat that upload when the staging branch changes.
 
-If cPanel Terminal/SSH is available, run from the repository root:
+This repository includes a `.cpanel.yml` deployment task so the **Git Version
+Control** interface can perform this step without cPanel Terminal/SSH. Create
+the server `.env` first, then use **Update from Remote** followed by **Deploy
+HEAD Commit**. The task finds PHP 8.2, runs Composer, prepares writable
+directories, generates an app key only when one is missing, migrates the
+isolated database, and creates the demo fixture only when the database has no
+businesses.
+
+If cPanel Terminal/SSH is available, the equivalent commands from the
+repository root are:
 
 ```bash
 composer install --no-dev --optimize-autoloader
@@ -79,19 +88,20 @@ php artisan storage:link
 chmod -R ug+rwx storage bootstrap/cache
 ```
 
-If Composer or `storage:link` is unavailable, ask iCore support to enable it;
-do not commit `vendor/` as a workaround unless the hosting team explicitly
-approves that artifact strategy.
+If the cPanel deployment log reports that Composer is unavailable, do not
+commit `vendor/` as a workaround. That is the one remaining hosting-level
+blocker.
 
 ## 4. Create the staging environment
 
-Create `.env` on the server using cPanel's file editor. Use the actual cPanel
-database values; never put them in GitHub:
+Create `.env` on the server using cPanel's file editor. Start from
+`.env.cpanel-staging.example`, replace the three `CPANEL_...` values, and type
+the database password directly in cPanel; never put it in GitHub:
 
 ```dotenv
 APP_NAME=SAVERPOS
 APP_ENV=staging
-APP_KEY=GENERATE_A_NEW_KEY
+APP_KEY=
 APP_DEBUG=false
 APP_URL=https://pos.kkcctv.com.my
 APP_TIMEZONE=Asia/Kuching
@@ -117,12 +127,13 @@ RECOMMERCE_COHORT_LOCATION_IDS=DEMO_BRANCH_A_ID,DEMO_BRANCH_B_ID
 RECOMMERCE_COHORT_VARIATION_IDS=DEMO_VARIATION_ID
 ```
 
-Generate the key once on the server with `php artisan key:generate --show` and
-paste the result into `APP_KEY`. Do not reuse the local `.env` key.
+The first cPanel deployment generates the key in this server-only file. Do not
+reuse the local `.env` key.
 
 ## 5. Build the fictional demo estate
 
-Run these commands against the new staging database only:
+The first cPanel deployment runs these commands against the new staging
+database only; it will not reseed if a business already exists:
 
 ```bash
 php artisan migrate --force

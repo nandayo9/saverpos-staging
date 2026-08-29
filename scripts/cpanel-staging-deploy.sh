@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# cPanel Git deployment entry point for the isolated SAVERPOS staging estate.
+# It intentionally refuses to run without the untracked server .env file.
+set -euo pipefail
+
+ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ ! -f .env ]]; then
+    echo "Missing .env. Create the server-only staging .env before deploying."
+    exit 1
+fi
+
+php_version_is_82() {
+    "$1" -r 'exit((PHP_VERSION_ID >= 80200 && PHP_VERSION_ID < 80300) ? 0 : 1);' >/dev/null 2>&1
+}
+
+PHP_BIN=""
+for candidate in /opt/alt/php82/usr/bin/php /opt/cpanel/ea-php82/root/usr/bin/php php; do
+    if command -v "$candidate" >/dev/null 2>&1 && php_version_is_82 "$candidate"; then
+        PHP_BIN="$(command -v "$candidate")"
+        break
+    fi
+done
+
+if [[ -z "$PHP_BIN" ]]; then
+    echo "PHP 8.2 CLI was not found. Select PHP 8.2 in cPanel, then deploy again."
+    exit 1
+fi
+
+COMPOSER_BIN=""
+for candidate in /usr/local/bin/composer "$HOME/bin/composer" composer; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+        COMPOSER_BIN="$(command -v "$candidate")"
+        break
+    fi
+done
+
+if [[ -z "$COMPOSER_BIN" ]]; then
+    echo "Composer was not found in this cPanel deployment environment."
+    exit 1
+fi
+
+"$PHP_BIN" "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction
+
+mkdir -p storage/app/public storage/framework/cache storage/framework/sessions \
+    storage/framework/testing storage/framework/views storage/logs bootstrap/cache
+chmod -R ug+rwX storage bootstrap/cache
+
+if ! grep -Eq '^APP_KEY=base64:' .env; then
+    "$PHP_BIN" artisan key:generate --force --no-interaction
+fi
+
+if [[ ! -e public/storage ]]; then
+    "$PHP_BIN" artisan storage:link --no-interaction
+fi
+
+"$PHP_BIN" scripts/cpanel-staging-bootstrap.php
+"$PHP_BIN" artisan config:clear --no-interaction
+"$PHP_BIN" artisan view:clear --no-interaction
+
+echo "SAVERPOS cPanel staging deployment completed."
