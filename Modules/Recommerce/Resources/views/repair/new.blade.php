@@ -1,0 +1,219 @@
+@extends('layouts.app')
+
+@section('content')
+<style>
+    .sb-repair-page { max-width: 1180px; margin: 0 auto; }
+    .sb-repair-hero { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:18px; }
+    .sb-repair-hero h1 { margin:0 0 6px; font-size:26px; font-weight:700; color:#172033; }
+    .sb-repair-muted { color:#64748b; }
+    .sb-repair-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 5px 18px rgba(15,23,42,.05); margin-bottom:16px; }
+    .sb-repair-card h2 { font-size:16px; margin:0; padding:15px 18px; border-bottom:1px solid #eef0f4; color:#172033; }
+    .sb-repair-card .card-body { padding:18px; }
+    .sb-repair-card .form-control { min-height:40px; border-radius:6px; }
+    .sb-repair-card textarea.form-control { min-height:92px; }
+    .sb-checklist { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .sb-check { border:1px solid #e5e7eb; border-radius:7px; padding:10px 12px; }
+    .sb-check label { font-weight:600; margin-bottom:7px; display:block; }
+    .sb-check .form-control { min-height:34px; }
+    .sb-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .sb-status { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; }
+    .sb-status-info { background:#eef2ff; color:#4338ca; }
+    @media (max-width: 767px) { .sb-repair-hero { display:block; } .sb-checklist { grid-template-columns:1fr; } }
+</style>
+
+<section class="container-fluid sb-repair-page" aria-labelledby="new-repair-title">
+    <div class="sb-repair-hero">
+        <div>
+            <p class="sb-repair-muted" style="margin:0 0 5px">Recommerce / Repair · Location {{ $locationId }}</p>
+            <h1 id="new-repair-title">New Customer Repair</h1>
+            <p class="sb-repair-muted" style="margin:0">Capture the counter handoff once. The repair code is created after the transaction succeeds.</p>
+        </div>
+        <div class="sb-actions">
+            <span class="sb-status sb-status-info"><span aria-hidden="true">●</span> Customer-owned · no POS stock</span>
+            <a class="btn btn-default" href="{{ route('recommerce.repair.index') }}">Back to Repair</a>
+        </div>
+    </div>
+
+    <div id="repair-intake" data-csrf-token="{{ csrf_token() }}" data-intake-url="{{ route('recommerce.repair.intake') }}" data-device-search-url="{{ route('recommerce.repair.devices.search') }}">
+        <div id="repair-intake-result" class="alert" style="display:none" role="alert" aria-live="polite"></div>
+        <form id="repair-intake-form" novalidate>
+            <div class="row">
+                <div class="col-md-7">
+                    <div class="sb-repair-card">
+                        <h2>1. Customer and device</h2>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="repair-customer">Customer <span class="text-danger">*</span></label>
+                                <input id="repair-customer-search" class="form-control" style="margin-bottom:7px" autocomplete="off" placeholder="Type to filter customers by name, reference, or mobile" aria-describedby="repair-customer-help">
+                                <div class="input-group">
+                                    <select id="repair-customer" class="form-control" required aria-describedby="repair-customer-help">
+                                        <option value="">Select a customer</option>
+                                        @foreach ($customers as $customer)
+                                            <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->contact_id ? ' · '.$customer->contact_id : '' }}{{ $customer->mobile ? ' · '.$customer->mobile : '' }}</option>
+                                        @endforeach
+                                    </select>
+                                    <span class="input-group-btn"><a class="btn btn-default" href="{{ route('contacts.create', ['type' => 'customer']) }}" target="_blank" rel="noopener">Quick create</a></span>
+                                </div>
+                                <span id="repair-customer-help" class="help-block">Search by name, reference, or mobile. Refresh this page after creating a new customer.</span>
+                            </div>
+
+                            <div class="well well-sm" style="margin-bottom:18px">
+                                <div class="row">
+                                    <div class="col-sm-4">
+                                        <label for="repair-identifier-type">Existing device search</label>
+                                        <select id="repair-identifier-type" class="form-control">
+                                            <option value="SERIAL">Serial / service tag</option>
+                                            <option value="IMEI">IMEI</option>
+                                            <option value="DEVICE_CODE">SAVERPOS device code</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-sm-5">
+                                        <label for="repair-identifier-value">Identifier</label>
+                                        <input id="repair-identifier-value" class="form-control" maxlength="255" autocomplete="off" placeholder="Enter an identifier">
+                                    </div>
+                                    <div class="col-sm-3" style="padding-top:25px">
+                                        <button type="button" id="repair-device-search" class="btn btn-default btn-block">Search</button>
+                                    </div>
+                                </div>
+                                <p id="repair-device-result" class="help-block" style="margin:9px 0 0" role="status">Search is exact and scoped to this customer and location.</p>
+                                <input type="hidden" id="repair-device-id">
+                            </div>
+
+                            <div class="row">
+                                <div class="col-sm-4 form-group">
+                                    <label for="repair-category">Device category <span class="text-danger">*</span></label>
+                                    <select id="repair-category" class="form-control" required>
+                                        <option value="">Choose category</option><option value="PHONE">Phone</option><option value="TABLET">Tablet</option><option value="LAPTOP">Laptop</option><option value="DESKTOP">Desktop</option><option value="CONSOLE">Game console</option><option value="OTHER">Other</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-4 form-group"><label for="repair-brand">Brand <span class="text-danger">*</span></label><input id="repair-brand" class="form-control" maxlength="120" required></div>
+                                <div class="col-sm-4 form-group"><label for="repair-model">Model <span class="text-danger">*</span></label><input id="repair-model" class="form-control" maxlength="160" required></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sb-repair-card">
+                        <h2>2. Fault and handoff</h2>
+                        <div class="card-body">
+                            <div class="form-group"><label for="repair-fault">Fault description <span class="text-danger">*</span></label><textarea id="repair-fault" class="form-control" maxlength="10000" required placeholder="What does the customer report? Include symptoms and when it started."></textarea></div>
+                            <div class="form-group"><label for="repair-condition">Cosmetic condition <span class="text-danger">*</span></label><textarea id="repair-condition" class="form-control" maxlength="10000" required placeholder="Record scratches, cracks, dents, liquid indicators, and other visible condition."></textarea></div>
+                            <div class="row">
+                                <div class="col-sm-6 form-group"><label for="repair-access">Device access status <span class="text-danger">*</span></label><select id="repair-access" class="form-control" required><option value="NO_LOCK">No lock</option><option value="CUSTOMER_WILL_UNLOCK">Customer will unlock when needed</option><option value="EXTERNAL_ACCESS_SUPPLIED">Access details supplied externally</option></select><span class="help-block">Never enter a password, PIN, pattern, or credential here.</span></div>
+                                <div class="col-sm-6 form-group"><label for="repair-update">Customer-facing update</label><input id="repair-update" class="form-control" maxlength="1000" value="Device received. We will update you after diagnosis."></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-5">
+                    <div class="sb-repair-card">
+                        <h2>3. Work plan</h2>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-sm-6 form-group"><label for="repair-due">Due date</label><input id="repair-due" type="date" class="form-control"></div>
+                                <div class="col-sm-6 form-group"><label for="repair-priority">Priority <span class="text-danger">*</span></label><select id="repair-priority" class="form-control" required><option value="NORMAL">Normal</option><option value="LOW">Low</option><option value="HIGH">High</option><option value="URGENT">Urgent</option></select></div>
+                            </div>
+                            <div class="form-group"><label for="repair-technician">Assigned technician</label><select id="repair-technician" class="form-control"><option value="">Assign later</option>@foreach ($technicians as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select></div>
+                            <div class="row">
+                                <div class="col-sm-6 form-group"><label for="repair-quote">Estimated quote (RM)</label><input id="repair-quote" type="number" min="0" step="0.01" class="form-control" inputmode="decimal" placeholder="Optional"></div>
+                                <div class="col-sm-6 form-group"><label for="repair-warranty-days">Warranty days</label><input id="repair-warranty-days" type="number" min="0" max="3650" class="form-control" inputmode="numeric" placeholder="Optional"></div>
+                            </div>
+                            <div class="form-group"><label for="repair-warranty-terms">Warranty information</label><textarea id="repair-warranty-terms" class="form-control" maxlength="2000" rows="3" placeholder="Coverage, exclusions, or agreed terms"></textarea></div>
+                        </div>
+                    </div>
+
+                    <div class="sb-repair-card">
+                        <h2>4. Pre-repair checklist</h2>
+                        <div class="card-body">
+                            <p class="help-block" style="margin-top:0">Choose an outcome for every check. Add a short note for exceptions or visible evidence.</p>
+                            <div class="sb-checklist">
+                                @foreach ($checklist as $check)
+                                    <div class="sb-check" data-check-key="{{ $check['key'] }}" data-check-label="{{ $check['label'] }}">
+                                        <label for="check-{{ $check['key'] }}">{{ $check['label'] }} <span class="text-danger">*</span></label>
+                                        <select id="check-{{ $check['key'] }}" class="form-control checklist-outcome" required><option value="">Choose</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option><option value="NOT_APPLICABLE">NOT APPLICABLE</option></select>
+                                        <input class="form-control checklist-note" style="margin-top:7px" maxlength="1000" placeholder="Optional note" aria-label="{{ $check['label'] }} note">
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sb-actions" style="justify-content:flex-end; margin-bottom:24px">
+                        <a class="btn btn-default" href="{{ route('recommerce.repair.index') }}">Cancel</a>
+                        <button id="repair-submit" class="btn btn-primary btn-lg" type="submit">Create customer repair</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script>
+(function () {
+    const root = document.getElementById('repair-intake');
+    const form = document.getElementById('repair-intake-form');
+    const result = document.getElementById('repair-intake-result');
+    const customer = document.getElementById('repair-customer');
+    const customerSearch = document.getElementById('repair-customer-search');
+    const deviceResult = document.getElementById('repair-device-result');
+    const deviceId = document.getElementById('repair-device-id');
+    const identifierType = document.getElementById('repair-identifier-type');
+    const identifierValue = document.getElementById('repair-identifier-value');
+    const csrf = root.dataset.csrfToken;
+    const uuid = function () { return window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { const r = Math.random() * 16 | 0; const v = c === 'x' ? r : (r & 3 | 8); return v.toString(16); }); };
+    const message = function (text, kind) { result.textContent = text; result.className = 'alert alert-' + kind; result.style.display = 'block'; result.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
+    const field = function (id) { return document.getElementById(id).value.trim(); };
+
+    customerSearch.addEventListener('input', function () {
+        const term = this.value.trim().toLowerCase();
+        Array.prototype.forEach.call(customer.options, function (option, index) {
+            option.hidden = index > 0 && term !== '' && option.text.toLowerCase().indexOf(term) === -1;
+        });
+    });
+
+    document.getElementById('repair-device-search').addEventListener('click', async function () {
+        if (!customer.value || identifierValue.value.trim().length < 2) { deviceResult.textContent = 'Select a customer and enter at least 2 identifier characters before searching.'; return; }
+        this.disabled = true; deviceResult.textContent = 'Searching this customer’s devices…';
+        try {
+            const url = new URL(root.dataset.deviceSearchUrl, window.location.origin);
+            url.searchParams.set('contact_id', customer.value); url.searchParams.set('identifier_type', identifierType.value); url.searchParams.set('q', identifierValue.value.trim());
+            const response = await fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+            const data = await response.json(); if (!response.ok) throw new Error('Device search is unavailable.');
+            if (!data.data || !data.data.length) { deviceId.value = ''; deviceResult.textContent = 'No matching customer-owned device. The submitted details will create a new device record.'; return; }
+            const device = data.data[0]; deviceId.value = device.id;
+            document.getElementById('repair-category').value = device.category_code || document.getElementById('repair-category').value;
+            document.getElementById('repair-brand').value = device.brand || document.getElementById('repair-brand').value;
+            document.getElementById('repair-model').value = device.model || document.getElementById('repair-model').value;
+            deviceResult.textContent = 'Existing device selected: ' + device.device_code + '. Intake will reuse this identity.';
+        } catch (error) { deviceResult.textContent = error.message; } finally { this.disabled = false; }
+    });
+
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        result.style.display = 'none';
+        const checklist = Array.prototype.map.call(document.querySelectorAll('.sb-check'), function (row) { return { check_key: row.dataset.checkKey, label: row.dataset.checkLabel, outcome: row.querySelector('.checklist-outcome').value, notes: row.querySelector('.checklist-note').value.trim() }; });
+        const invalid = checklist.some(function (item) { return !item.outcome; });
+        if (!customer.value || !field('repair-category') || !field('repair-brand') || !field('repair-model') || !field('repair-fault') || !field('repair-condition') || invalid) { message('Complete the customer, device, fault, condition, and every checklist outcome before submitting.', 'warning'); return; }
+        const button = document.getElementById('repair-submit'); button.disabled = true;
+        const quote = field('repair-quote'); const warrantyDays = field('repair-warranty-days');
+        const payload = {
+            command_uuid: uuid(), location_id: {{ (int) $locationId }}, device_id: deviceId.value ? Number(deviceId.value) : null, job_type: 'CUSTOMER_REPAIR', contact_id: Number(customer.value), priority: field('repair-priority'), assigned_to: field('repair-technician') ? Number(field('repair-technician')) : null,
+            identifier_type: identifierValue.value.trim() ? identifierType.value : null, identifier_value: identifierValue.value.trim() || null, category_code: field('repair-category'), brand: field('repair-brand'), model: field('repair-model'), reported_fault: field('repair-fault'), cosmetic_condition: field('repair-condition'), due_at: field('repair-due') || null, estimated_quote_amount: quote || null, access_status: field('repair-access'), customer_facing_update: field('repair-update') || null, warranty_json: { days: warrantyDays ? Number(warrantyDays) : null, terms: field('repair-warranty-terms') || null }, intake_snapshot_json: { source: 'customer_repair_counter' }, checklist: checklist
+        };
+        try {
+            const response = await fetch(root.dataset.intakeUrl, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf }, credentials: 'same-origin', body: JSON.stringify(payload) });
+            const raw = await response.text();
+            let data = {};
+            try { data = raw ? JSON.parse(raw) : {}; } catch (parseError) { throw new Error('The server returned an unreadable intake response. No repair code was confirmed.'); }
+            if (!response.ok) { if (data.errors) Object.keys(data.errors).forEach(function (key) { const base = key.split('.')[0]; const element = document.getElementById('repair-' + base.replace('_', '-')); if (element) element.setAttribute('aria-invalid', 'true'); }); throw new Error(data.message || 'Please review the intake fields.'); }
+            const job = data.job || (data.data && data.data.job);
+            if (!job || !job.job_code) throw new Error('The intake was not confirmed with a repair code. Check Repair before retrying.');
+            message('Repair ' + job.job_code + ' created in RECEIVED.', 'success');
+            const detail = document.createElement('a'); detail.className = 'btn btn-success'; detail.href = '{{ url('/recommerce/repair') }}/' + encodeURIComponent(job.job_code); detail.textContent = 'Open repair detail'; result.appendChild(document.createTextNode(' ')); result.appendChild(detail);
+            if (job.lookup_url) { const tracking = document.createElement('a'); tracking.className = 'btn btn-default'; tracking.href = job.lookup_url; tracking.target = '_blank'; tracking.rel = 'noopener'; tracking.textContent = 'Open customer tracking'; result.appendChild(document.createTextNode(' ')); result.appendChild(tracking); }
+            form.reset(); deviceId.value = '';
+        } catch (error) { message(error.message || 'Please review the intake fields.', 'warning'); button.disabled = false; }
+    });
+}());
+</script>
+@endsection

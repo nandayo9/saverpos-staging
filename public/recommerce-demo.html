@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SAVERPOS Recommerce — Local UX Preview</title>
+  <style>
+    :root {
+      --ink: #17202d;
+      --muted: #718096;
+      --line: #e7ebf0;
+      --paper: #f7f9fc;
+      --card: #ffffff;
+      --navy: #13243b;
+      --blue: #2f6fed;
+      --blue-soft: #eef4ff;
+      --green: #1b9a70;
+      --green-soft: #eaf8f2;
+      --amber: #c47a18;
+      --amber-soft: #fff6e6;
+      --red: #c74f5b;
+      --shadow: 0 16px 40px rgba(20, 37, 61, .07);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--paper); }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .shell { display: flex; min-height: 100vh; }
+    .sidebar { width: 250px; background: var(--navy); color: #d9e2f0; padding: 24px 16px; display: flex; flex-direction: column; }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 4px 12px 30px; color: white; font-weight: 750; letter-spacing: -.02em; }
+    .brand-mark { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, #79a7ff, #385ed1); color: white; font-size: 17px; box-shadow: 0 6px 14px rgba(33, 75, 190, .35); }
+    .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #92a7c5; font-weight: 700; }
+    .nav-section { margin: 12px 12px 8px; }
+    .nav { display: grid; gap: 4px; }
+    .nav button { border: 0; text-align: left; color: #b9c7da; background: transparent; padding: 11px 12px; border-radius: 9px; display: flex; align-items: center; gap: 10px; font-weight: 600; }
+    .nav button:hover, .nav button.active { color: white; background: rgba(255,255,255,.11); }
+    .nav-icon { width: 20px; text-align: center; opacity: .9; }
+    .sidebar-foot { margin-top: auto; border-top: 1px solid rgba(255,255,255,.1); padding: 18px 12px 0; color: #9eb0c8; font-size: 12px; line-height: 1.6; }
+    .main { flex: 1; min-width: 0; padding: 28px clamp(20px, 4vw, 54px) 54px; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 24px; }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: clamp(25px, 3vw, 34px); letter-spacing: -.04em; }
+    h2 { font-size: 18px; letter-spacing: -.02em; }
+    h3 { font-size: 14px; }
+    .subtle { color: var(--muted); margin-top: 7px; font-size: 14px; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .pill { border: 1px solid #dce5f2; background: white; color: #50627b; padding: 8px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .pill.preview { background: var(--amber-soft); border-color: #f1d49f; color: #986319; }
+    .button { border: 0; border-radius: 9px; padding: 11px 15px; font-weight: 750; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
+    .button:disabled { cursor: not-allowed; opacity: .55; transform: none !important; box-shadow: none !important; }
+    .button:hover { transform: translateY(-1px); box-shadow: 0 7px 16px rgba(34, 79, 165, .14); }
+    .button.primary { background: var(--blue); color: white; }
+    .button.secondary { color: #315cba; background: var(--blue-soft); }
+    .button.ghost { color: #55677f; background: transparent; border: 1px solid var(--line); }
+    .banner { display: flex; align-items: center; gap: 12px; background: #fff8eb; border: 1px solid #f4dcae; color: #8c621f; padding: 12px 15px; border-radius: 11px; margin-bottom: 24px; font-size: 13px; }
+    .banner strong { color: #704a12; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 13px; box-shadow: var(--shadow); }
+    .stat { padding: 18px; }
+    .stat-top { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .stat-value { font-size: 28px; font-weight: 800; letter-spacing: -.04em; margin-top: 12px; }
+    .stat-note { font-size: 12px; margin-top: 5px; color: var(--green); }
+    .stat-note.warn { color: var(--amber); }
+    .grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(310px, .85fr); gap: 18px; }
+    .panel { padding: 21px; }
+    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+    .panel-head p { font-size: 12px; color: var(--muted); margin-top: 5px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .field { display: grid; gap: 7px; }
+    .field.full { grid-column: 1 / -1; }
+    label { font-size: 12px; font-weight: 750; color: #516178; }
+    input, select { width: 100%; border: 1px solid #dce3ec; border-radius: 8px; padding: 11px 12px; color: var(--ink); background: white; outline: none; }
+    input:focus, select:focus { border-color: #7ba2f5; box-shadow: 0 0 0 3px #eaf1ff; }
+    input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--red); background: #fff7f8; }
+    .receive-row { display: flex; gap: 10px; align-items: end; }
+    .receive-row .field { flex: 1; }
+    .units { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-top: 14px; }
+    .unit-line { display: grid; grid-template-columns: 34px 1fr 1fr 42px; gap: 8px; align-items: center; padding: 9px 11px; border-bottom: 1px solid var(--line); }
+    .unit-line:last-child { border-bottom: 0; }
+    .unit-line.head { background: #fafbfd; color: var(--muted); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+    .unit-line input { padding: 8px 9px; font-size: 13px; }
+    .unit-no { color: var(--muted); font-size: 12px; text-align: center; }
+    .remove { border: 0; background: transparent; color: #9aa7b8; font-size: 17px; }
+    .remove:hover { color: var(--red); }
+    .panel-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
+    .preflight { margin-top: 18px; padding: 15px; background: #fbfcfe; border: 1px solid var(--line); border-radius: 10px; box-shadow: none; }
+    .preflight-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .preflight-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .preflight-title { font-size: 13px; font-weight: 800; }
+    .preflight-copy { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .gate-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .gate { border: 1px solid var(--line); background: white; border-radius: 8px; padding: 9px 10px; }
+    .gate-label { color: var(--muted); font-size: 11px; }
+    .gate-value { font-size: 12px; font-weight: 800; margin-top: 4px; }
+    .gate-value.blocked { color: var(--amber); }
+    .gate-value.ready { color: var(--green); }
+    .contract-output { margin: 13px 0 0; padding: 11px; overflow: auto; background: #17202d; color: #dce7f6; border-radius: 8px; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .label-preview { border: 1px dashed #b7c4d6; border-radius: 11px; background: #fff; padding: 22px; text-align: center; max-width: 290px; margin: 6px auto 0; }
+    .label-brand { font-size: 11px; letter-spacing: .13em; font-weight: 850; color: #315cba; }
+    .qr-placeholder { width: 124px; height: 124px; margin: 18px auto; border: 8px solid #17202d; background: repeating-linear-gradient(45deg, #17202d 0 4px, white 4px 8px), repeating-linear-gradient(-45deg, transparent 0 5px, rgba(23,32,45,.9) 5px 9px); background-blend-mode: multiply; }
+    .barcode-placeholder { height: 42px; margin: 0 10px 15px; border-radius: 3px; background: repeating-linear-gradient(90deg, #17202d 0 2px, transparent 2px 4px, #17202d 4px 5px, transparent 5px 8px, #17202d 8px 12px, transparent 12px 14px); }
+    .label-code { font: 800 16px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; }
+    .label-description { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .safe-note { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--green-soft); color: #147454; font-size: 12px; line-height: 1.45; }
+    .filter-row { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+    .filter-row .field { min-width: 190px; }
+    .result-button { border: 0; background: transparent; padding: 0; }
+    .result-button:hover { filter: brightness(.95); }
+    .reconcile-summary { color: var(--muted); font-size: 12px; margin-top: 13px; }
+    .search-row { display: flex; align-items: end; gap: 12px; margin-bottom: 16px; }
+    .search-row .field { max-width: 390px; flex: 1; }
+    .detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 14px; }
+    .detail-cell { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fbfcfe; }
+    .detail-label { color: var(--muted); font-size: 11px; }
+    .detail-value { font-size: 13px; font-weight: 750; margin-top: 4px; }
+    .masked { color: #986319; }
+    .timeline { display: grid; gap: 8px; margin-top: 14px; }
+    .timeline-event { display: grid; grid-template-columns: 118px 1fr auto; align-items: center; gap: 10px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfe; }
+    .timeline-event-type { font-size: 11px; font-weight: 850; color: var(--blue); letter-spacing: .04em; }
+    .timeline-event-copy { min-width: 0; }
+    .timeline-event-title { font-size: 12px; font-weight: 800; }
+    .timeline-event-note { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .timeline-event-time { color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .audit-filter { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+    .audit-filter .field { max-width: 260px; }
+    button.step { width: 100%; text-align: left; font: inherit; color: inherit; }
+    .control-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .control-item { border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: #fbfcfe; }
+    .control-label { color: var(--muted); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+    .control-value { margin-top: 8px; font-size: 16px; font-weight: 850; }
+    .control-value.closed { color: var(--amber); }
+    .control-value.safe { color: var(--green); }
+    .control-copy { margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    @media print { body * { visibility: hidden !important; } #label-preview, #label-preview * { visibility: visible !important; } #label-preview { position: absolute; left: 0; top: 0; width: 290px; border: 0; box-shadow: none; } #label-preview .safe-note { display: none; } }
+    .steps { display: grid; gap: 10px; }
+    .step { display: flex; gap: 11px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; align-items: flex-start; }
+    .step-dot { width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center; background: #edf1f7; color: #75849a; font-size: 12px; font-weight: 800; flex: 0 0 auto; }
+    .step.done { border-color: #c8ebdc; background: #f8fdfa; }
+    .step.done .step-dot { background: var(--green); color: white; }
+    .step.active { border-color: #c9d9fb; background: #f7faff; }
+    .step.active .step-dot { background: var(--blue); color: white; }
+    .step-title { font-size: 13px; font-weight: 750; }
+    .step-copy { color: var(--muted); font-size: 12px; margin-top: 3px; line-height: 1.45; }
+    .queue { margin-top: 18px; }
+    .queue-row { display: grid; grid-template-columns: 1.4fr 1fr .8fr .8fr; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+    .queue-row:last-child { border-bottom: 0; }
+    .queue-row.head { padding-top: 0; color: var(--muted); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+    .queue-main { font-weight: 750; }
+    .queue-sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .status { display: inline-flex; width: fit-content; padding: 5px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+    .status.green { color: #147454; background: var(--green-soft); }
+    .status.amber { color: #986319; background: var(--amber-soft); }
+    .status.blue { color: #315cba; background: var(--blue-soft); }
+    .status.red { color: #a33845; background: #fff0f1; }
+    .hidden { display: none !important; }
+    .toast { position: fixed; right: 22px; bottom: 22px; background: var(--navy); color: white; padding: 13px 16px; border-radius: 10px; box-shadow: 0 12px 30px rgba(15, 34, 61, .25); font-size: 13px; opacity: 0; transform: translateY(12px); transition: all .2s ease; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    @media (max-width: 1050px) { .sidebar { width: 215px; } .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .gate-grid, .detail-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 760px) { .shell { display: block; } .sidebar { width: auto; max-width: 100vw; overflow-x: hidden; padding: 14px; } .brand { padding-bottom: 14px; } .nav { display: flex; min-width: 0; max-width: 100%; overflow-x: auto; } .nav button { flex: 0 0 auto; } .nav-section, .sidebar-foot { display: none; } .main { min-width: 0; max-width: 100vw; padding: 22px 15px 40px; } .grid > *, .panel, .panel-head > * { min-width: 0; } .stats { grid-template-columns: 1fr 1fr; } .topbar { display: block; } .top-actions { margin-top: 14px; } .form-grid { grid-template-columns: 1fr; } .field.full { grid-column: auto; } .unit-line { grid-template-columns: 25px 1fr 1fr 28px; } .unit-line > input { min-width: 0; } .receive-row { flex-direction: column; align-items: stretch; } .receive-row .field { flex: none; } .receive-row .button { width: 100%; } .panel-actions { flex-wrap: wrap; } .panel-actions .button { flex: 1 1 180px; } .panel-head { flex-wrap: wrap; } .queue { overflow-x: auto; } .queue-row { min-width: 600px; } .timeline-event { grid-template-columns: 1fr auto; } .timeline-event-type { grid-column: 1 / -1; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><img class="brand-mark" src="/img/saverpos-logo.png" alt="SAVERPOS logo"><div>SAVERPOS<br><span style="font-size:11px;color:#9eb7db;font-weight:600">POS + Recommerce</span></div></div>
+      <div class="eyebrow nav-section">Workspace</div>
+      <nav class="nav" aria-label="Primary navigation">
+        <button class="active" data-section="overview" aria-current="page"><span class="nav-icon">◈</span>Overview</button>
+        <button data-section="receiving"><span class="nav-icon">＋</span>Receiving</button>
+        <button data-section="labels"><span class="nav-icon">▤</span>Labels</button>
+        <button data-section="scanning"><span class="nav-icon">⌗</span>Scan center</button>
+        <button data-section="reconcile"><span class="nav-icon">↔</span>Reconciliation</button>
+        <button data-section="devices"><span class="nav-icon">▣</span>Devices</button>
+      </nav>
+      <div class="eyebrow nav-section" style="margin-top:28px">Controls</div>
+      <nav class="nav"><button data-section="audit"><span class="nav-icon">◷</span>Audit trail</button></nav>
+      <nav class="nav"><button data-section="controls"><span class="nav-icon">◎</span>Controls</button></nav>
+      <div class="sidebar-foot"><strong style="color:#dce7f6">Local UX preview</strong><br>No database writes. Use this screen to review the first vertical-slice workflow.</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><div class="eyebrow">Operations / Recommerce</div><h1 id="page-title">Good morning, team</h1><p class="subtle" id="page-subtitle">A calm view of what needs attention across tracked stock.</p></div>
+        <div class="top-actions"><span class="pill preview">SIMULATION ONLY</span><button class="button primary" data-section="receiving">＋ New receiving</button></div>
+      </header>
+
+      <div class="banner"><span style="font-size:18px">◌</span><span><strong>Local UX preview.</strong> Actions below simulate the receive → label → scan → reconcile flow and do not write to SAVERPOS or a database.</span></div>
+
+      <section id="overview" class="view">
+        <div class="stats">
+          <div class="card stat"><div class="stat-top"><span>Tracked devices</span><span>▣</span></div><div class="stat-value">248</div><div class="stat-note">+12 this month</div></div>
+          <div class="card stat"><div class="stat-top"><span>Awaiting receive</span><span>＋</span></div><div class="stat-value">18</div><div class="stat-note warn">3 need review</div></div>
+          <div class="card stat"><div class="stat-top"><span>Scan resolution</span><span>⌗</span></div><div class="stat-value">98.4%</div><div class="stat-note">Last 30 days</div></div>
+          <div class="card stat"><div class="stat-top"><span>Stock exceptions</span><span>!</span></div><div class="stat-value">4</div><div class="stat-note warn">Needs reconciliation</div></div>
+        </div>
+        <div class="grid">
+          <section class="card panel"><div class="panel-head"><div><h2>Receiving queue</h2><p>Tracked batches waiting for a decision or evidence.</p></div><button class="button secondary" data-section="receiving">Open receiving</button></div>
+            <div class="queue"><div class="queue-row head"><div>Batch</div><div>Location</div><div>Units</div><div>Status</div></div>
+              <div class="queue-row"><div><div class="queue-main">QT-260827-014</div><div class="queue-sub">Refurbished laptops · created 12 min ago</div></div><div>HQ warehouse</div><div>8 units</div><span class="status amber">Review</span></div>
+              <div class="queue-row"><div><div class="queue-main">QT-260827-013</div><div class="queue-sub">Monitors · supplier evidence attached</div></div><div>HQ warehouse</div><div>10 units</div><span class="status blue">Prepared</span></div>
+              <div class="queue-row"><div><div class="queue-main">QT-260826-029</div><div class="queue-sub">Network devices · all labels issued</div></div><div>Branch 02</div><div>4 units</div><span class="status green">Complete</span></div>
+            </div>
+          </section>
+          <section class="card panel"><div class="panel-head"><div><h2>First slice</h2><p>Evidence is the product.</p></div><span class="status green">On track</span></div>
+            <div class="steps"><div class="step active" id="slice-step-receive"><div class="step-dot">1</div><div><div class="step-title">Receive into core stock</div><div class="step-copy">One purchase line, exact quantity, same transaction.</div></div></div><div class="step" id="slice-step-label"><div class="step-dot">2</div><div><div class="step-title">Assign device identity</div><div class="step-copy">Stable code and protected identifier evidence.</div></div></div><div class="step" id="slice-step-scan"><div class="step-dot">3</div><div><div class="step-title">Print and scan</div><div class="step-copy">Opaque QR token, clean detail view, no raw secrets.</div></div></div><div class="step" id="slice-step-reconcile"><div class="step-dot">4</div><div><div class="step-title">Reconcile</div><div class="step-copy">Core quantity against tracked device evidence.</div></div></div></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="receiving" class="view hidden"><div class="card panel"><div class="panel-head"><div><div class="eyebrow">Step 1 of 4</div><h2 style="margin-top:5px">Prepare a tracked receiving batch</h2><p>Capture the purchase context once, then register one identity per physical unit.</p></div><span class="status blue" id="receive-status" aria-live="polite">Draft</span></div>
+        <div class="form-grid"><div class="field"><label for="location">Receiving location</label><select id="location"><option>HQ warehouse</option><option>Branch 02</option></select></div><div class="field"><label for="product">Product / variation</label><select id="product"><option>Refurbished laptop · 16GB / 512GB</option><option>27-inch monitor · HDMI</option></select></div><div class="field"><label for="supplier">Supplier</label><input id="supplier" value="Demo supplier" /></div><div class="field"><label for="date">Transaction date</label><input id="date" type="date" value="2026-08-27" /></div><div class="field"><label for="cost">Unit cost (RM)</label><input id="cost" type="number" min="0" step="0.01" value="1850.00" inputmode="decimal" /></div><div class="field"><label for="notes">Evidence note</label><input id="notes" value="Serials checked at receiving desk" /></div></div>
+        <div class="receive-row" style="margin-top:22px"><div class="field"><label for="identifier-type">Identifier type</label><select id="identifier-type"><option>SERIAL</option><option>ASSET_TAG</option><option>IMEI</option></select></div><div class="field"><label for="identifier">Add physical identifier</label><input id="identifier" maxlength="255" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. SN-DEMO-001" /></div><button class="button secondary" id="add-unit">＋ Add unit</button></div>
+        <div class="units" id="units"><div class="unit-line head"><div>#</div><div>Identifier type</div><div>Identifier value</div><div></div></div><div class="unit-line"><div class="unit-no">1</div><input value="SERIAL" maxlength="40" autocomplete="off" aria-label="Identifier type 1"><input value="SN-DEMO-001" maxlength="255" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Identifier value 1"><button class="remove" aria-label="Remove unit">×</button></div><div class="unit-line"><div class="unit-no">2</div><input value="SERIAL" maxlength="40" autocomplete="off" aria-label="Identifier type 2"><input value="SN-DEMO-002" maxlength="255" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Identifier value 2"><button class="remove" aria-label="Remove unit">×</button></div></div>
+        <div class="reconcile-summary" id="unit-count" aria-live="polite">2 of 50 units in draft.</div>
+        <div class="preflight"><div class="preflight-head"><div><div class="preflight-title">Receiving preflight</div><div class="preflight-copy">Review the guarded command before any core-stock write is permitted.</div></div><div class="preflight-actions"><span class="status amber" id="preflight-status" aria-live="polite">Not run</span><button class="button ghost" id="copy-preflight" disabled aria-disabled="true">Copy safe payload</button></div></div><div class="gate-grid"><div class="gate"><div class="gate-label">Module</div><div class="gate-value blocked">Disabled</div></div><div class="gate"><div class="gate-label">Writes</div><div class="gate-value blocked">Disabled</div></div><div class="gate"><div class="gate-label">Context</div><div class="gate-value" id="context-gate">Not checked</div></div><div class="gate"><div class="gate-label">Identifiers</div><div class="gate-value" id="identifier-gate">Not checked</div></div></div><pre class="contract-output" id="command-preview">No command prepared. Run validation to inspect the safe payload.</pre></div>
+        <div class="panel-actions"><button class="button ghost" id="clear-batch">Clear draft</button><button class="button secondary" id="validate-draft">Validate draft</button><button class="button primary" id="prepare-batch">Prepare batch</button><button class="button secondary hidden" id="continue-labels">Continue to labels →</button></div>
+      </div></section>
+
+      <section id="labels" class="view hidden"><div class="grid"><section class="card panel"><div class="panel-head"><div><div class="eyebrow">Step 2 of 4</div><h2 style="margin-top:5px">Issue a print-safe label</h2><p>Return only the payload needed by the print boundary.</p></div><span class="status amber" id="label-status" aria-live="polite">Not issued</span></div><div class="field"><label for="label-device">Device</label><select id="label-device"><option value="SB-DV-00000001-9">SB-DV-00000001-9 · Refurbished laptop</option><option value="SB-DV-00000002-7">SB-DV-00000002-7 · Refurbished laptop</option></select></div><div class="step-copy" id="label-guard-copy" style="margin-top:10px">Prepare a receiving batch before issuing a label.</div><div class="panel-actions"><button class="button primary" id="issue-label" disabled aria-disabled="true">Issue print payload</button><button class="button secondary hidden" id="print-label">Print label</button><button class="button secondary hidden" id="continue-scan">Continue to scan →</button></div><div id="label-result" class="step hidden" style="margin-top:18px" role="status" aria-live="polite"><div class="step-dot" style="background:var(--green);color:white">✓</div><div><div class="step-title">READY_TO_PRINT</div><div class="step-copy">Human code and QR destination prepared.<br><span class="status green" style="margin-top:8px">Raw token hidden from UI</span></div></div></div></section><section class="card panel"><div class="panel-head"><div><h2>Label preview</h2><p>Safe description, Code 128 value, and opaque QR destination.</p></div></div><div class="label-preview" id="label-preview"><div class="label-brand">SAVERBRO · RECOMMERCE</div><div class="qr-placeholder" aria-label="Opaque QR preview"></div><div class="barcode-placeholder" aria-label="Code 128 preview"></div><div class="label-code" id="label-code">SB-DV-00000001-9</div><div class="label-description">Refurbished laptop · 16GB / 512GB</div><div class="safe-note" id="label-safe-note">Preview only. Issue the payload to confirm the print boundary.</div></div></section></div></section>
+
+      <section id="scanning" class="view hidden"><div class="grid"><section class="card panel"><div class="panel-head"><div><div class="eyebrow">Step 3 of 4</div><h2>Scan center</h2><p>Resolve a Device code or approved QR URL.</p></div><span class="status green">Read-only</span></div><div class="field"><label for="scan-value">Scan input</label><input id="scan-value" value="SB-DV-00000001-9" autocomplete="off"><div class="step-copy" id="scan-help">Accepts a checked human code or an HTTPS QR URL from the configured resolver host.</div></div><div class="panel-actions"><button class="button primary" id="resolve-scan">Resolve scan</button><button class="button secondary hidden" id="continue-reconcile">Continue to reconciliation →</button></div><div id="scan-result" class="step hidden" style="margin-top:18px" role="status" aria-live="polite"><div class="step-dot" id="scan-result-dot" style="background:var(--green);color:white">✓</div><div><div class="step-title" id="scan-result-title">Device resolved</div><div class="step-copy" id="scan-result-copy">SB-DV-00000001-9 · Received · HQ warehouse<br><span class="status green" style="margin-top:8px">No mutation performed</span></div></div></div></section><section class="card panel"><div class="panel-head"><div><h2>Scan guidance</h2><p>Keep the operator in flow.</p></div></div><div class="steps"><div class="step active"><div class="step-dot">1</div><div><div class="step-title">Scan the label</div><div class="step-copy">The camera or scanner may provide the QR URL or human code.</div></div></div><div class="step"><div class="step-dot">2</div><div><div class="step-title">Confirm the safe detail</div><div class="step-copy">Only the fields needed for the next decision are shown.</div></div></div></div></section></div></section>
+
+      <section id="reconcile" class="view hidden"><div class="card panel"><div class="panel-head"><div><div class="eyebrow">Step 4 of 4</div><h2>Stock reconciliation</h2><p>Compare core stock, tracked devices, and approved legacy balance.</p></div><button class="button secondary" id="run-reconcile">Run read-only check</button></div><div class="filter-row"><div class="field"><label for="reconcile-filter">Show result state</label><select id="reconcile-filter"><option value="ALL">All results</option><option value="PASS">PASS</option><option value="MISMATCH">MISMATCH</option><option value="EXCEPTION">EXCEPTION</option><option value="UNAVAILABLE">UNAVAILABLE</option></select></div><div class="status green">Read-only</div></div><div class="queue"><div class="queue-row head"><div>Variation</div><div>Core quantity</div><div>Tracked</div><div>Result</div></div><div class="queue-row" data-reconcile-row="PASS"><div><div class="queue-main">Refurbished laptop</div><div class="queue-sub">HQ warehouse</div></div><div>42</div><div>42</div><button class="result-button" data-reconcile-detail="PASS"><span class="status green">PASS</span></button></div><div class="queue-row" data-reconcile-row="MISMATCH"><div><div class="queue-main">27-inch monitor</div><div class="queue-sub">Branch 02 · legacy balance pending</div></div><div>18</div><div>16</div><button class="result-button" data-reconcile-detail="MISMATCH"><span class="status amber">MISMATCH</span></button></div><div class="queue-row" data-reconcile-row="EXCEPTION"><div><div class="queue-main">Network devices</div><div class="queue-sub">HQ warehouse · in-transfer units excluded</div></div><div>12</div><div>10</div><button class="result-button" data-reconcile-detail="EXCEPTION"><span class="status amber">EXCEPTION</span></button></div><div class="queue-row" data-reconcile-row="UNAVAILABLE"><div><div class="queue-main">Tablet devices</div><div class="queue-sub">Branch 03 · core row unavailable</div></div><div>—</div><div>6</div><button class="result-button" data-reconcile-detail="UNAVAILABLE"><span class="status blue">UNAVAILABLE</span></button></div></div><div class="reconcile-summary" id="reconcile-summary" aria-live="polite">Showing 4 result states. Select a result badge to inspect the decision context.</div><div id="reconcile-detail" class="step hidden" style="margin-top:18px" role="status" aria-live="polite"><div class="step-dot" id="reconcile-detail-dot" style="background:var(--blue);color:white">i</div><div><div class="step-title" id="reconcile-detail-title">Result detail</div><div class="step-copy" id="reconcile-detail-copy"></div></div></div><div id="reconcile-note" class="step hidden" style="margin-top:18px" role="status" aria-live="polite"><div class="step-dot" style="background:var(--green);color:white">✓</div><div><div class="step-title">Read-only check complete</div><div class="step-copy">No quantities were changed. Exceptions remain visible for an operator decision.</div><div class="panel-actions"><button class="button secondary" id="return-overview">Return to overview</button></div></div></div></div></section>
+
+      <section id="devices" class="view hidden"><div class="card panel"><div class="panel-head"><div><h2>Devices</h2><p>Identity-first inventory, with sensitive identifiers kept out of list views.</p></div><button class="button secondary" data-section="receiving">＋ Receive devices</button></div><div class="search-row"><div class="field"><label for="device-search">Find a device</label><input id="device-search" placeholder="Search code or product" autocomplete="off"></div><span class="status green">Read-only</span></div><div class="queue"><div class="queue-row head"><div>Device</div><div>Product</div><div>Custody</div><div>State</div></div><div class="queue-row" data-device-row data-device-search="SB-DV-00000001-9 refurbished laptop"><div><div class="queue-main">SB-DV-00000001-9</div><div class="queue-sub">Label issued 12 min ago</div></div><div>Refurbished laptop</div><div>HQ warehouse</div><button class="result-button" data-device-detail="SB-DV-00000001-9"><span class="status green">On hand</span></button></div><div class="queue-row" data-device-row data-device-search="SB-DV-00000002-7 refurbished laptop"><div><div class="queue-main">SB-DV-00000002-7</div><div class="queue-sub">Last scanned today</div></div><div>Refurbished laptop</div><div>HQ warehouse</div><button class="result-button" data-device-detail="SB-DV-00000002-7"><span class="status blue">Reserved</span></button></div></div><div id="device-empty" class="step hidden" role="status" aria-live="polite" style="margin-top:14px"><div class="step-dot" style="background:var(--amber);color:white">?</div><div><div class="step-title">No devices found</div><div class="step-copy">Try a Device code or product name. Protected identifiers are not searchable in this view.</div></div></div><div class="reconcile-summary" id="device-summary" aria-live="polite">Showing 2 devices. Select a state to inspect safe device detail.</div><div id="device-detail" class="step hidden" role="status" aria-live="polite" style="margin-top:18px"><div class="step-dot" style="background:var(--blue);color:white">i</div><div style="width:100%"><div class="step-title" id="device-detail-title">Device detail</div><div class="step-copy" id="device-detail-copy"></div><div class="detail-grid"><div class="detail-cell"><div class="detail-label">Lifecycle</div><div class="detail-value" id="device-lifecycle"></div></div><div class="detail-cell"><div class="detail-label">Custody</div><div class="detail-value" id="device-custody"></div></div><div class="detail-cell"><div class="detail-label">Stock participation</div><div class="detail-value" id="device-stock"></div></div><div class="detail-cell"><div class="detail-label">Location</div><div class="detail-value" id="device-location"></div></div><div class="detail-cell"><div class="detail-label">Identifier evidence</div><div class="detail-value masked">Protected / separate permission</div></div><div class="detail-cell"><div class="detail-label">Operational history</div><div class="detail-value masked">Safe events only</div></div></div><div class="reconcile-summary" id="device-timeline-summary">Showing safe operational events. Protected identifiers and raw tokens are excluded.</div><div id="device-timeline" class="timeline" aria-label="Safe device event timeline"></div></div></div></div></section>
+      <section id="controls" class="view hidden"><div class="card panel"><div class="panel-head"><div><h2>Control state</h2><p>Environment and authorization gates for the current local preview.</p></div><div class="top-actions"><span class="status amber">Not production</span><button class="button ghost" id="reset-preview">Reset preview</button></div></div><div class="control-grid"><div class="control-item"><div class="control-label">Module status</div><div class="control-value closed">Disabled</div><div class="control-copy">Recommerce routes and production surfaces remain closed by default.</div></div><div class="control-item"><div class="control-label">Write switch</div><div class="control-value closed">Disabled</div><div class="control-copy">No purchase, Device, label-token, or stock mutation can run here.</div></div><div class="control-item"><div class="control-label">Runtime</div><div class="control-value safe">Disposable local</div><div class="control-copy">This preview is served locally with synthetic data and no production connection.</div></div></div><div class="steps" style="margin-top:18px"><div class="step done"><div class="step-dot">✓</div><div><div class="step-title">Read-only UX validation allowed</div><div class="step-copy">Receiving preflight, label payload, scan resolution, reconciliation, device detail, and audit views can be exercised.</div></div></div><div class="step active"><div class="step-dot">!</div><div><div class="step-title">Production enablement requires evidence</div><div class="step-copy">Verify database migrations, permissions, cohort scope, core purchase callback, printer/decoder, concurrency, and authenticated browser journeys before enabling writes.</div></div></div></div><div class="safe-note" style="margin-top:18px">Boundary rule: simulation results are not release evidence for the disabled production module.</div></div></section>
+      <section id="audit" class="view hidden"><div class="card panel"><div class="panel-head"><div><h2>Audit trail</h2><p>Every important change points back to an evidence-bearing command.</p></div></div><div class="audit-filter"><div class="field"><label for="audit-filter-select">Show command type</label><select id="audit-filter-select"><option value="ALL">All commands</option><option value="TRACKED_RECEIVE">TRACKED_RECEIVE</option><option value="LABEL_TOKEN_ISSUED">LABEL_TOKEN_ISSUED</option><option value="SCAN_RESOLVE">SCAN_RESOLVE</option><option value="RECONCILE">RECONCILE</option></select></div><span class="status green">Immutable view</span></div><div class="steps"><button class="step done" data-audit-entry="TRACKED_RECEIVE" data-audit-detail="Receive command linked to one core transaction and exact unit quantity."><div class="step-dot">✓</div><div style="text-align:left"><div class="step-title">TRACKED_RECEIVE · QT-260827-014</div><div class="step-copy">Actor: receiving desk · 8 units · core transaction linked · 12 min ago</div></div></button><button class="step done" data-audit-entry="LABEL_TOKEN_ISSUED" data-audit-detail="Print payload returned to the print boundary; raw token material is not retained in this view."><div class="step-dot">✓</div><div style="text-align:left"><div class="step-title">LABEL_TOKEN_ISSUED · SB-DV-00000001-9</div><div class="step-copy">Actor: receiving desk · template alpha-1 · 10 min ago</div></div></button><button class="step" data-audit-entry="SCAN_RESOLVE" data-audit-detail="Read-only scan resolution; no stock or identity mutation performed."><div class="step-dot">3</div><div style="text-align:left"><div class="step-title">SCAN_RESOLVE · SB-DV-00000001-9</div><div class="step-copy">Actor: warehouse operator · human code accepted · 6 min ago</div></div></button><button class="step" data-audit-entry="RECONCILE" data-audit-detail="Read-only reconciliation completed; result states remain available for operator decision."><div class="step-dot">4</div><div style="text-align:left"><div class="step-title">RECONCILE · HQ warehouse</div><div class="step-copy">Actor: control tower · 4 states evaluated · just now</div></div></button></div><div class="reconcile-summary" id="audit-summary" aria-live="polite">Showing 4 commands. Select a command to inspect its evidence boundary.</div><div id="audit-detail" class="step hidden" role="status" aria-live="polite" style="margin-top:18px"><div class="step-dot" style="background:var(--blue);color:white">i</div><div><div class="step-title" id="audit-detail-title">Command detail</div><div class="step-copy" id="audit-detail-copy"></div><div class="safe-note">Protected identifiers, raw scan tokens, and secrets are excluded from this audit view.</div></div></div></div></section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    const titles = { overview: ['Good morning, team', 'A calm view of what needs attention across tracked stock.'], receiving: ['Receive with confidence', 'Create the core purchase and device evidence as one controlled command.'], labels: ['Label desk', 'Prepare a print-safe label without exposing raw token material.'], scanning: ['Scan center', 'Resolve a label into the minimum safe next step.'], reconcile: ['Reconciliation', 'See where core stock and tracked identity evidence agree—or need a decision.'], devices: ['Device registry', 'Find the physical unit behind every tracked stock quantity.'], controls: ['Control state', 'See which environment and authorization gates are currently closed.'], audit: ['Audit trail', 'Follow each decision back to its evidence-bearing command.'] };
+    const toast = document.getElementById('toast');
+    function showToast(message) { toast.textContent = message; toast.classList.add('show'); clearTimeout(window.toastTimer); window.toastTimer = setTimeout(() => toast.classList.remove('show'), 2600); }
+    function showSection(section, updateHash = true) { document.querySelectorAll('.view').forEach(view => view.classList.toggle('hidden', view.id !== section)); document.querySelectorAll('[data-section]').forEach(button => { const current = button.dataset.section === section; button.classList.toggle('active', current); if (current) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current'); }); document.getElementById('page-title').textContent = titles[section][0]; document.getElementById('page-subtitle').textContent = titles[section][1]; document.title = `${titles[section][0]} · SAVERPOS`; if (updateHash) window.history.replaceState(null, '', `#${section}`); }
+    function markSliceProgress(activeIndex) { ['receive', 'label', 'scan', 'reconcile'].forEach((name, index) => { const step = document.getElementById(`slice-step-${name}`); const dot = step.querySelector('.step-dot'); step.classList.remove('done', 'active'); if (index < activeIndex) { step.classList.add('done'); dot.textContent = '✓'; } else if (index === activeIndex) { step.classList.add('active'); dot.textContent = String(index + 1); } else { dot.textContent = String(index + 1); } }); }
+    document.getElementById('reset-preview').addEventListener('click', () => { window.history.replaceState(null, '', window.location.pathname); window.location.reload(); });
+    document.querySelectorAll('[data-section]').forEach(button => button.addEventListener('click', () => showSection(button.dataset.section)));
+    function normalizeIdentifierValue(value) { return value.trim().toUpperCase().replace(/[\s_-]+/g, ''); }
+    function identifierHint(value) { const normalized = normalizeIdentifierValue(value); if (normalized.length <= 2) return '*'.repeat(normalized.length); return '*'.repeat(Math.min(6, normalized.length - 2)) + normalized.slice(-2); }
+    const receiveBatchLimit = 50;
+    function updateUnitCount() { const count = document.querySelectorAll('#units .unit-line:not(.head)').length; const atLimit = count >= receiveBatchLimit; document.getElementById('unit-count').textContent = `${count} of ${receiveBatchLimit} units in draft.`; const addButton = document.getElementById('add-unit'); addButton.disabled = atLimit; addButton.setAttribute('aria-disabled', String(atLimit)); }
+    function syncPreflightCopyAvailability() { const ready = document.getElementById('preflight-status').textContent === 'Ready to review'; const copyButton = document.getElementById('copy-preflight'); copyButton.disabled = !ready; copyButton.setAttribute('aria-disabled', String(!ready)); }
+    document.getElementById('add-unit').addEventListener('click', () => {
+      const units = document.getElementById('units');
+      const identifierType = document.getElementById('identifier-type').value;
+      const identifierInput = document.getElementById('identifier');
+      const value = identifierInput.value.trim();
+      if (!value) { showToast('Enter a physical identifier first.'); identifierInput.focus(); return; }
+      if (units.querySelectorAll('.unit-line:not(.head)').length >= receiveBatchLimit) { showToast(`Batch limit reached — maximum ${receiveBatchLimit} units.`); identifierInput.focus(); return; }
+      const normalizedValue = normalizeIdentifierValue(value);
+      if (!normalizedValue || /[\x00-\x1F\x7F]/.test(value) || normalizedValue.length > 255) { showToast('Enter a supported physical identifier.'); identifierInput.focus(); return; }
+      const duplicate = [...units.querySelectorAll('.unit-line:not(.head)')].some(row => { const inputs = row.querySelectorAll('input'); return inputs[0].value.trim().toUpperCase() === identifierType && normalizeIdentifierValue(inputs[1].value) === normalizedValue; });
+      if (duplicate) { showToast('That identifier is already in this draft.'); identifierInput.focus(); return; }
+      invalidatePreparedDraft();
+      const n = units.querySelectorAll('.unit-line:not(.head)').length + 1;
+      const row = document.createElement('div');
+      row.className = 'unit-line';
+      const number = document.createElement('div'); number.className = 'unit-no'; number.textContent = n;
+      const type = document.createElement('input'); type.value = identifierType; type.maxLength = 40; type.autocomplete = 'off'; type.setAttribute('aria-label', `Identifier type ${n}`);
+      const identifier = document.createElement('input'); identifier.value = value; identifier.maxLength = 255; identifier.autocomplete = 'off'; identifier.autocapitalize = 'characters'; identifier.spellcheck = false; identifier.setAttribute('aria-label', `Identifier value ${n}`);
+      const remove = document.createElement('button'); remove.className = 'remove'; remove.setAttribute('aria-label', 'Remove unit'); remove.textContent = '×';
+      row.append(number, type, identifier, remove); units.appendChild(row); identifierInput.value = ''; updateUnitCount(); showToast('Unit added to draft.');
+    });
+    document.getElementById('identifier').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); document.getElementById('add-unit').click(); } });
+    document.getElementById('units').addEventListener('click', event => { if (event.target.classList.contains('remove')) { invalidatePreparedDraft(); event.target.closest('.unit-line').remove(); [...document.querySelectorAll('#units .unit-line:not(.head)')].forEach((row, i) => row.querySelector('.unit-no').textContent = i + 1); updateUnitCount(); showToast('Unit removed from draft.'); } });
+    function collectDraft() { return { location: document.getElementById('location').value, product: document.getElementById('product').value, supplier: document.getElementById('supplier').value.trim(), transaction_date: document.getElementById('date').value, unit_cost: document.getElementById('cost').value.trim(), note: document.getElementById('notes').value.trim(), units: [...document.querySelectorAll('#units .unit-line:not(.head)')].map(row => ({ type: row.querySelectorAll('input')[0].value.trim().toUpperCase(), value: row.querySelectorAll('input')[1].value.trim() })) }; }
+    function markDraftInvalidFields(draft, invalidUnitCost, duplicates) { const contextInvalid = { location: !draft.location, product: !draft.product, supplier: !draft.supplier, date: !draft.transaction_date, cost: !draft.unit_cost || invalidUnitCost }; Object.entries(contextInvalid).forEach(([id, invalid]) => { const field = document.getElementById(id); if (invalid) field.setAttribute('aria-invalid', 'true'); else field.removeAttribute('aria-invalid'); }); const addIdentifier = document.getElementById('identifier'); addIdentifier.toggleAttribute('aria-invalid', !draft.units.length); [...document.querySelectorAll('#units .unit-line:not(.head)')].forEach((row, index) => { const unit = draft.units[index]; const inputs = row.querySelectorAll('input'); const normalized = normalizeIdentifierValue(unit.value); const invalidType = !unit.type || !/^[A-Z0-9_]{1,40}$/.test(unit.type); const invalidValue = !unit.value || /[\x00-\x1F\x7F]/.test(unit.value) || !normalized || normalized.length > 255; inputs[0].toggleAttribute('aria-invalid', invalidType); inputs[1].toggleAttribute('aria-invalid', invalidValue || duplicates.includes(`${unit.type}|${normalized}`)); }); const firstInvalid = document.querySelector('#receiving [aria-invalid="true"]'); if (firstInvalid) firstInvalid.focus(); }
+    function resetDependentEvidence() { document.getElementById('label-device').selectedIndex = 0; document.getElementById('label-code').textContent = 'SB-DV-00000001-9'; document.getElementById('label-status').textContent = 'Not issued'; document.getElementById('label-status').className = 'status amber'; document.getElementById('label-result').classList.add('hidden'); document.getElementById('print-label').classList.add('hidden'); document.getElementById('continue-scan').classList.add('hidden'); document.getElementById('label-safe-note').textContent = 'Preview only. Issue the payload to confirm the print boundary.'; document.getElementById('scan-value').value = 'SB-DV-00000001-9'; document.getElementById('scan-result').className = 'step hidden'; document.getElementById('continue-reconcile').classList.add('hidden'); document.getElementById('reconcile-filter').value = 'ALL'; applyReconcileFilter(); document.getElementById('reconcile-detail').classList.add('hidden'); document.getElementById('reconcile-note').classList.add('hidden'); }
+    function syncLabelIssueAvailability() { const ready = document.getElementById('receive-status').textContent === 'Prepared'; const issueButton = document.getElementById('issue-label'); issueButton.disabled = !ready; issueButton.setAttribute('aria-disabled', String(!ready)); document.getElementById('label-guard-copy').classList.toggle('hidden', ready); }
+    function invalidatePreparedDraft() { const receiveStatus = document.getElementById('receive-status'); const preflightStatus = document.getElementById('preflight-status'); const wasPrepared = receiveStatus.textContent === 'Prepared'; const wasReviewed = preflightStatus.textContent === 'Ready to review'; if (!wasPrepared && !wasReviewed) return; if (wasPrepared) { receiveStatus.textContent = 'Draft'; receiveStatus.className = 'status blue'; } preflightStatus.textContent = 'Not run'; preflightStatus.className = 'status amber'; document.getElementById('context-gate').textContent = 'Not checked'; document.getElementById('context-gate').className = 'gate-value'; document.getElementById('identifier-gate').textContent = 'Not checked'; document.getElementById('identifier-gate').className = 'gate-value'; document.getElementById('command-preview').textContent = 'No command prepared. Run validation to inspect the safe payload.'; syncPreflightCopyAvailability(); if (wasPrepared) { document.getElementById('continue-labels').classList.add('hidden'); resetDependentEvidence(); syncLabelIssueAvailability(); markSliceProgress(0); } showToast('Draft changed — validate again before continuing.'); }
+    ['location', 'product', 'supplier', 'date', 'cost', 'notes'].forEach(id => { const field = document.getElementById(id); field.addEventListener('input', () => { field.removeAttribute('aria-invalid'); invalidatePreparedDraft(); }); field.addEventListener('change', () => { field.removeAttribute('aria-invalid'); invalidatePreparedDraft(); }); });
+    document.getElementById('identifier').addEventListener('input', () => document.getElementById('identifier').removeAttribute('aria-invalid'));
+    document.getElementById('units').addEventListener('input', event => { event.target.removeAttribute('aria-invalid'); invalidatePreparedDraft(); });
+    function validateDraft() { const draft = collectDraft(); const values = draft.units.map(unit => ({ key: `${unit.type}|${normalizeIdentifierValue(unit.value)}`, value: normalizeIdentifierValue(unit.value) })).filter(item => item.value); const duplicates = values.filter((item, index) => values.findIndex(candidate => candidate.key === item.key) !== index).map(item => item.key); const missingIdentifiers = draft.units.some(unit => !unit.type || !unit.value); const invalidIdentifierTypes = draft.units.some(unit => !/^[A-Z0-9_]{1,40}$/.test(unit.type)); const invalidIdentifierValues = draft.units.some(unit => { const normalized = normalizeIdentifierValue(unit.value); return /[\x00-\x1F\x7F]/.test(unit.value) || !normalized || normalized.length > 255; }); const missingContext = !draft.location || !draft.product || !draft.supplier || !draft.transaction_date || !draft.unit_cost; const numericCost = Number(draft.unit_cost); const invalidUnitCost = !missingContext && (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(draft.unit_cost) || !Number.isFinite(numericCost) || numericCost < 0); markDraftInvalidFields(draft, invalidUnitCost, duplicates); const contextGate = document.getElementById('context-gate'); const identifierGate = document.getElementById('identifier-gate'); const status = document.getElementById('preflight-status'); const output = document.getElementById('command-preview'); contextGate.textContent = missingContext ? 'Missing fields' : invalidUnitCost ? 'Invalid cost' : 'Ready'; contextGate.className = `gate-value ${missingContext || invalidUnitCost ? 'blocked' : 'ready'}`; identifierGate.textContent = !draft.units.length ? 'No units' : missingIdentifiers ? 'Missing values' : invalidIdentifierTypes ? 'Invalid types' : invalidIdentifierValues ? 'Invalid values' : duplicates.length ? 'Duplicates found' : 'Unique'; identifierGate.className = `gate-value ${!draft.units.length || missingIdentifiers || invalidIdentifierTypes || invalidIdentifierValues || duplicates.length ? 'blocked' : 'ready'}`; if (missingContext || invalidUnitCost || !draft.units.length || missingIdentifiers || invalidIdentifierTypes || invalidIdentifierValues || duplicates.length) { status.textContent = 'Blocked'; status.className = 'status amber'; output.textContent = JSON.stringify({ blocked: true, reason: missingContext ? 'complete purchase context' : invalidUnitCost ? 'enter a valid non-negative unit cost' : !draft.units.length ? 'add at least one unit' : missingIdentifiers ? 'complete every identifier type and value' : invalidIdentifierTypes ? 'use identifier types with A-Z, 0-9, or underscore only' : invalidIdentifierValues ? 'use a non-empty identifier without control characters' : `duplicate identifier: ${duplicates[0].split('|').slice(1).join('|')}` }, null, 2); syncPreflightCopyAvailability(); showToast('Preflight blocked — resolve the highlighted boundary.'); return false; } status.textContent = 'Ready to review'; status.className = 'status green'; output.textContent = JSON.stringify({ action: 'prepare_receiving', writes_enabled: false, post_url: null, purchase_context: { location: draft.location, product: draft.product, supplier: draft.supplier, transaction_date: draft.transaction_date, unit_cost: draft.unit_cost, note: draft.note }, units: draft.units.map(unit => ({ identifier_type: unit.type, identifier_hint: identifierHint(unit.value) })) }, null, 2); syncPreflightCopyAvailability(); showToast('Preflight passed — masked payload is ready to review.'); return true; }
+    document.getElementById('validate-draft').addEventListener('click', validateDraft);
+    document.getElementById('copy-preflight').addEventListener('click', async () => { if (document.getElementById('preflight-status').textContent !== 'Ready to review') return; try { await navigator.clipboard.writeText(document.getElementById('command-preview').textContent); showToast('Safe preflight payload copied.'); } catch (error) { showToast('Clipboard unavailable — review the payload in place.'); } });
+    document.getElementById('prepare-batch').addEventListener('click', () => { if (!validateDraft()) return; document.getElementById('receive-status').textContent = 'Prepared'; document.getElementById('receive-status').className = 'status green'; document.getElementById('continue-labels').classList.remove('hidden'); syncLabelIssueAvailability(); markSliceProgress(1); showToast('Batch prepared — no database write performed.'); });
+    document.getElementById('continue-labels').addEventListener('click', () => showSection('labels'));
+    document.getElementById('clear-batch').addEventListener('click', () => {
+      document.getElementById('location').selectedIndex = 0;
+      document.getElementById('product').selectedIndex = 0;
+      document.getElementById('identifier-type').selectedIndex = 0;
+      ['supplier', 'date', 'cost', 'notes', 'identifier'].forEach(id => { document.getElementById(id).value = ''; });
+      document.querySelectorAll('#units .unit-line:not(.head)').forEach(row => row.remove());
+      document.querySelectorAll('#receiving input, #receiving select').forEach(field => field.removeAttribute('aria-invalid'));
+      updateUnitCount();
+      document.getElementById('receive-status').textContent = 'Draft'; document.getElementById('receive-status').className = 'status blue';
+      document.getElementById('preflight-status').textContent = 'Not run'; document.getElementById('preflight-status').className = 'status amber'; syncPreflightCopyAvailability();
+      document.getElementById('context-gate').textContent = 'Not checked'; document.getElementById('context-gate').className = 'gate-value';
+      document.getElementById('identifier-gate').textContent = 'Not checked'; document.getElementById('identifier-gate').className = 'gate-value';
+      document.getElementById('command-preview').textContent = 'No command prepared. Run validation to inspect the safe payload.';
+      resetDependentEvidence(); syncLabelIssueAvailability();
+      document.getElementById('continue-labels').classList.add('hidden'); markSliceProgress(0); showToast('Draft cleared. Add context and identifiers to start again.');
+    });
+    document.getElementById('issue-label').addEventListener('click', () => { if (document.getElementById('receive-status').textContent !== 'Prepared') { showToast('Prepare a receiving batch before issuing a label.'); return; } const deviceCode = document.getElementById('label-device').value; document.getElementById('label-code').textContent = deviceCode; document.getElementById('label-status').textContent = 'READY_TO_PRINT'; document.getElementById('label-status').className = 'status green'; document.getElementById('label-result').classList.remove('hidden'); document.getElementById('label-safe-note').textContent = 'Safe payload prepared. Raw token is not displayed or stored by this preview.'; document.getElementById('print-label').classList.remove('hidden'); document.getElementById('continue-scan').classList.remove('hidden'); markSliceProgress(2); showToast('Print payload issued in simulation mode.'); });
+    document.getElementById('label-device').addEventListener('change', () => { const deviceCode = document.getElementById('label-device').value; document.getElementById('label-code').textContent = deviceCode; if (document.getElementById('label-status').textContent !== 'READY_TO_PRINT') return; document.getElementById('label-status').textContent = 'Not issued'; document.getElementById('label-status').className = 'status amber'; document.getElementById('label-result').classList.add('hidden'); document.getElementById('print-label').classList.add('hidden'); document.getElementById('continue-scan').classList.add('hidden'); document.getElementById('label-safe-note').textContent = 'Preview only. Issue the payload to confirm the print boundary.'; document.getElementById('scan-value').value = 'SB-DV-00000001-9'; document.getElementById('scan-result').className = 'step hidden'; document.getElementById('continue-reconcile').classList.add('hidden'); document.getElementById('reconcile-detail').classList.add('hidden'); document.getElementById('reconcile-note').classList.add('hidden'); markSliceProgress(1); showToast('Device changed — issue the label again before scanning.'); });
+    document.getElementById('print-label').addEventListener('click', () => window.print());
+    document.getElementById('continue-scan').addEventListener('click', () => showSection('scanning'));
+    const deviceDetails = { 'SB-DV-00000001-9': { product: 'Refurbished laptop · 16GB / 512GB', lifecycle: 'RECEIVED', custody: 'WAREHOUSE', stock: 'ON_HAND', location: 'HQ warehouse', events: [{ type: 'RECEIVED', title: 'Received into tracked stock', note: 'Core transaction linked · exact unit quantity', time: '12 min ago' }, { type: 'LABEL', title: 'Print-safe label issued', note: 'Opaque QR destination · raw token hidden', time: '10 min ago' }, { type: 'SCAN', title: 'Label resolved', note: 'Read-only scan · no mutation performed', time: '6 min ago' }] }, 'SB-DV-00000002-7': { product: 'Refurbished laptop · 16GB / 512GB', lifecycle: 'RECEIVED', custody: 'WAREHOUSE', stock: 'RESERVED', location: 'HQ warehouse', events: [{ type: 'RECEIVED', title: 'Received into tracked stock', note: 'Core transaction linked · exact unit quantity', time: '18 min ago' }, { type: 'RESERVED', title: 'Reserved for order', note: 'Stock participation remains visible', time: '8 min ago' }] } };
+    function renderDeviceTimeline(events) { const timeline = document.getElementById('device-timeline'); timeline.replaceChildren(); events.forEach(event => { const row = document.createElement('div'); row.className = 'timeline-event'; const type = document.createElement('div'); type.className = 'timeline-event-type'; type.textContent = event.type; const copy = document.createElement('div'); copy.className = 'timeline-event-copy'; const title = document.createElement('div'); title.className = 'timeline-event-title'; title.textContent = event.title; const note = document.createElement('div'); note.className = 'timeline-event-note'; note.textContent = event.note; copy.append(title, note); const time = document.createElement('div'); time.className = 'timeline-event-time'; time.textContent = event.time; row.append(type, copy, time); timeline.append(row); }); document.getElementById('device-timeline-summary').textContent = `Showing ${events.length} safe operational event${events.length === 1 ? '' : 's'}. Protected identifiers and raw tokens are excluded.`; }
+    const deviceRows = [...document.querySelectorAll('[data-device-row]')];
+    function filterDevices() { const query = document.getElementById('device-search').value.trim().toLowerCase(); const visible = deviceRows.filter(row => { const show = !query || row.dataset.deviceSearch.toLowerCase().includes(query); row.style.display = show ? '' : 'none'; return show; }); document.getElementById('device-empty').classList.toggle('hidden', visible.length > 0); document.getElementById('device-summary').textContent = `Showing ${visible.length} device${visible.length === 1 ? '' : 's'}. Select a state to inspect safe device detail.`; }
+    document.getElementById('device-search').addEventListener('input', () => { filterDevices(); document.getElementById('device-detail').classList.add('hidden'); });
+    document.querySelectorAll('[data-device-detail]').forEach(button => button.setAttribute('aria-label', `Open details for ${button.dataset.deviceDetail}`));
+    document.querySelectorAll('[data-device-detail]').forEach(button => button.addEventListener('click', () => { const code = button.dataset.deviceDetail; const detail = deviceDetails[code]; document.getElementById('device-detail').classList.remove('hidden'); document.getElementById('device-detail-title').textContent = code; document.getElementById('device-detail-copy').textContent = detail.product; document.getElementById('device-lifecycle').textContent = detail.lifecycle; document.getElementById('device-custody').textContent = detail.custody; document.getElementById('device-stock').textContent = detail.stock; document.getElementById('device-location').textContent = detail.location; renderDeviceTimeline(detail.events); showToast('Safe device detail opened — identifiers remain protected.'); }));
+    const auditEntries = [...document.querySelectorAll('[data-audit-entry]')];
+    function filterAudit() { const filter = document.getElementById('audit-filter-select').value; const visible = auditEntries.filter(entry => { const show = filter === 'ALL' || entry.dataset.auditEntry === filter; entry.style.display = show ? 'flex' : 'none'; return show; }); document.getElementById('audit-summary').textContent = `Showing ${visible.length} command${visible.length === 1 ? '' : 's'}. Select a command to inspect its evidence boundary.`; }
+    document.getElementById('audit-filter-select').addEventListener('change', () => { filterAudit(); document.getElementById('audit-detail').classList.add('hidden'); });
+    auditEntries.forEach(entry => entry.addEventListener('click', () => { document.getElementById('audit-detail').classList.remove('hidden'); document.getElementById('audit-detail-title').textContent = entry.dataset.auditEntry; document.getElementById('audit-detail-copy').textContent = entry.dataset.auditDetail; showToast(`${entry.dataset.auditEntry} detail opened — immutable view.`); }));
+    function isValidDeviceCode(value) { const match = /^SB-DV-(\d{8})-([0-9X])$/i.exec(value.trim()); if (!match) return false; let sum = 0; let weight = 2; for (let index = match[1].length - 1; index >= 0; index -= 1) { sum += Number(match[1][index]) * weight; weight = weight === 9 ? 2 : weight + 1; } const remainder = (11 - (sum % 11)) % 11; const check = remainder === 10 ? 'X' : String(remainder); return match[2].toUpperCase() === check; }
+    let lastResolvedScan = { value: '', at: 0 };
+    function shouldIgnoreDuplicateScan(value) { const normalized = value.trim(); const now = Date.now(); const duplicate = normalized !== '' && normalized === lastResolvedScan.value && now - lastResolvedScan.at < 750; lastResolvedScan = { value: normalized, at: now }; return duplicate; }
+    function parseScan(value) { const normalized = value.trim(); if (isValidDeviceCode(normalized)) return { type: 'DEVICE_CODE', value: normalized.toUpperCase() }; const qr = /^https:\/\/scan\.saverbro\.local\/s\/d\/([A-Fa-f0-9]{64})$/.exec(normalized); return qr ? { type: 'DEVICE_TOKEN', value: '[opaque token accepted]' } : null; }
+    function renderScanResult(copy, message, badgeClass) { copy.replaceChildren(); copy.append(document.createTextNode(message)); copy.append(document.createElement('br')); const badge = document.createElement('span'); badge.className = `status ${badgeClass}`; badge.style.marginTop = '8px'; badge.textContent = 'No mutation performed'; copy.append(badge); }
+    document.getElementById('resolve-scan').addEventListener('click', () => {
+      const value = document.getElementById('scan-value').value;
+      if (shouldIgnoreDuplicateScan(value)) { showToast('Duplicate scan ignored — no mutation performed.'); return; }
+      const parsed = parseScan(value);
+      const result = document.getElementById('scan-result');
+      const dot = document.getElementById('scan-result-dot');
+      const title = document.getElementById('scan-result-title');
+      const copy = document.getElementById('scan-result-copy');
+      const matched = parsed && (parsed.type === 'DEVICE_TOKEN' || ['SB-DV-00000001-9', 'SB-DV-00000002-7'].includes(parsed.value));
+      result.classList.remove('hidden', 'done', 'active');
+      if (matched) {
+        result.classList.add('done'); dot.textContent = '✓'; dot.style.background = 'var(--green)'; title.textContent = 'Device resolved';
+        renderScanResult(copy, `${parsed.type === 'DEVICE_CODE' ? parsed.value : 'Opaque QR token'} · Received · HQ warehouse`, 'green');
+        if (parsed.type === 'DEVICE_TOKEN') document.getElementById('scan-value').value = '[opaque QR scan accepted]';
+        document.getElementById('continue-reconcile').classList.remove('hidden');
+        if (document.getElementById('receive-status').textContent === 'Prepared' && document.getElementById('label-status').textContent === 'READY_TO_PRINT') markSliceProgress(3);
+        showToast(`${parsed.type === 'DEVICE_CODE' ? 'Device code' : 'QR URL'} accepted in read-only mode.`);
+      } else if (parsed) {
+        result.classList.add('active'); dot.textContent = '?'; dot.style.background = 'var(--blue)'; title.textContent = 'No device match';
+        renderScanResult(copy, 'The scan format is valid, but no in-scope Device matched this business or location.', 'amber');
+        document.getElementById('continue-reconcile').classList.add('hidden'); showToast('Valid scan, but no in-scope device matched.');
+      } else {
+        result.classList.add('active'); dot.textContent = '!'; dot.style.background = 'var(--amber)'; title.textContent = 'Scan rejected';
+        renderScanResult(copy, 'Use a valid checked Device code or approved HTTPS QR URL.', 'amber');
+        document.getElementById('continue-reconcile').classList.add('hidden'); showToast('Scan rejected — no mutation performed.');
+      }
+    });
+    document.getElementById('scan-value').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); document.getElementById('resolve-scan').click(); } });
+    document.getElementById('scan-value').addEventListener('input', () => { lastResolvedScan = { value: '', at: 0 }; const result = document.getElementById('scan-result'); if (!result.classList.contains('done')) return; result.className = 'step hidden'; document.getElementById('continue-reconcile').classList.add('hidden'); markSliceProgress(2); showToast('Scan changed — resolve the new value before continuing.'); });
+    document.getElementById('continue-reconcile').addEventListener('click', () => showSection('reconcile'));
+    const reconcileDetails = { PASS: 'Core quantity equals tracked devices after persisted approved evidence. No action is required.', MISMATCH: 'Core quantity is higher than tracked evidence. Confirm the persisted evidence or investigate an unregistered unit before changing stock.', EXCEPTION: 'One or more devices are in transfer. Keep them out of on-hand count and resolve custody evidence before deciding.', UNAVAILABLE: 'The core aggregate row or approved evidence is unavailable. This is not treated as zero; restore the source evidence or mark the check unavailable.' };
+    const reconcileRows = [...document.querySelectorAll('[data-reconcile-row]')];
+    function applyReconcileFilter() { const filter = document.getElementById('reconcile-filter').value; const visible = reconcileRows.filter(row => { const show = filter === 'ALL' || row.dataset.reconcileRow === filter; row.style.display = show ? '' : 'none'; return show; }); document.getElementById('reconcile-summary').textContent = `Showing ${visible.length} result${visible.length === 1 ? '' : 's'}${filter === 'ALL' ? ' across all states' : ` for ${filter}`}. Select a result badge to inspect the decision context.`; }
+    document.getElementById('reconcile-filter').addEventListener('change', () => { applyReconcileFilter(); document.getElementById('reconcile-detail').classList.add('hidden'); });
+    document.querySelectorAll('[data-reconcile-detail]').forEach(button => button.addEventListener('click', () => { const state = button.dataset.reconcileDetail; const detail = document.getElementById('reconcile-detail'); const dot = document.getElementById('reconcile-detail-dot'); detail.classList.remove('hidden'); document.getElementById('reconcile-detail-title').textContent = `${state} result`; document.getElementById('reconcile-detail-copy').textContent = reconcileDetails[state]; dot.textContent = state === 'PASS' ? '✓' : state === 'UNAVAILABLE' ? 'i' : '!'; dot.style.background = state === 'PASS' ? 'var(--green)' : state === 'UNAVAILABLE' ? 'var(--blue)' : 'var(--amber)'; showToast(`${state} detail opened — read-only.`); }));
+    document.querySelectorAll('[data-reconcile-detail]').forEach(button => { const row = button.closest('[data-reconcile-row]'); const state = button.dataset.reconcileDetail; const variation = row.querySelector('.queue-main').textContent; button.setAttribute('aria-label', `Inspect ${state} reconciliation result for ${variation}`); });
+    document.getElementById('run-reconcile').addEventListener('click', () => { applyReconcileFilter(); document.getElementById('reconcile-note').classList.remove('hidden'); document.getElementById('return-overview').classList.remove('hidden'); if (document.getElementById('receive-status').textContent === 'Prepared' && document.getElementById('label-status').textContent === 'READY_TO_PRINT' && document.getElementById('scan-result').classList.contains('done')) markSliceProgress(4); showToast('Read-only reconciliation complete.'); });
+    document.getElementById('return-overview').addEventListener('click', () => showSection('overview'));
+    updateUnitCount();
+    syncLabelIssueAvailability();
+    syncPreflightCopyAvailability();
+    function applyHashSection() { const hashSection = window.location.hash.slice(1); if (titles[hashSection]) showSection(hashSection, false); }
+    window.addEventListener('hashchange', applyHashSection);
+    window.addEventListener('load', applyHashSection);
+    document.querySelectorAll('.label-brand').forEach(label => { label.textContent = 'SAVERPOS · RECOMMERCE'; });
+    applyHashSection();
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+    "name": "Recommerce",
+    "alias": "recommerce",
+    "description": "SaverBro Recommerce operations integrated with Ultimate POS; inactive until its gates are cleared.",
+    "keywords": ["recommerce", "saverbro"],
+    "priority": 0,
+    "providers": [
+        "Modules\\Recommerce\\Providers\\RecommerceServiceProvider"
+    ],
+    "files": []
+}
