@@ -65,6 +65,8 @@ Risk levels: **Low**, **Medium**, **High**, **Critical**.
 
 ### RC-006 — Implement permission catalog and tenant/location policies
 
+**Status:** Re-verified 2026-08-29 by authorization sweep of all 51 Recommerce endpoints — acceptance criteria hold for committed code: every authenticated endpoint enforces permission + tenant/location scope through `AuthorizationGate`, and the two public token endpoints are opaque-token scoped, throttled, and minimal-disclosure. One role-editor label gap (`recommerce.warranty.manage`) was found and fixed in `DataController`. The only authorization outlier is the uncommitted, blocked RC-041 `LegacyRepairArchiveService`. A config/label parity test is still owed — see AI_HANDOFF.md.
+
 - **Objective:** Ensure all later features inherit deny-by-default business and location isolation.
 - **Scope:** Register granular permissions; role templates; policy/scope helpers; assignment and segregation-of-duty conventions.
 - **Likely files/modules affected:** `Modules/Recommerce/Config/permissions.php`, providers, policies, middleware/scopes, role seeder/hook, tests.
@@ -436,6 +438,8 @@ Risk levels: **Low**, **Medium**, **High**, **Critical**.
 
 ### RC-039 — Add warranty coverage and claim jobs
 
+**Status:** Implemented locally: coverage source, versioned policy evidence, claim lines, and repeat-job creation are covered; UI smoke and production-policy review remain pending
+
 - **Objective:** Preserve policy evidence and handle repeat service without reopening history.
 - **Scope:** service coverage instance, source sale/job, coverage decision, claim link, covered/chargeable line separation.
 - **Likely files/modules affected:** Recommerce warranty migrations/entities/services/views; read integration with core warranties/sale lines.
@@ -459,6 +463,8 @@ Risk levels: **Low**, **Medium**, **High**, **Critical**.
 - **Risk Level:** Critical.
 
 ### RC-041 — Migrate or archive existing Repair records
+
+**Status:** BLOCKED — do not land. Uncommitted/untracked archive code exists in the working tree (`recommerce_repair_archives` migrations, `RepairArchive`, `LegacyRepairArchiveService`, `LegacyRepairArchiveController`, `recommerce.repair.archive` permission, `POST /recommerce/repair/legacy-archive`, `RecommerceLegacyRepairArchiveTest`). It must not be committed as written: (a) `RCR_001_BASELINE_REPORT.md` §5 records the Repair disposition as UNAVAILABLE/INSUFFICIENT EVIDENCE and forbids implementing any Repair route, migration, or permission under RCR-001; (b) no `Modules/Repair` source exists in this checkout (`modules_statuses.json` has `"Repair": false`), so the archive captures only the POS `transactions` row and cannot meet the status/financial/attachment acceptance criteria; (c) `LegacyRepairArchiveService::assertArchiveAccess()` never calls `AuthorizationGate`/`$user->can()`, so any authenticated cohort user could run the archive — and the existing permission test cannot detect this. See AI_HANDOFF.md "Incoming-agent verification (2026-08-29)".
 
 - **Objective:** Prevent dual writable repair authorities and preserve historical access.
 - **Scope:** Implement the RC-001 disposition: mapped import with source keys, or authorized read-only deep link/archive; attachments/permissions included.

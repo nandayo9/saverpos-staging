@@ -72,6 +72,111 @@ class RecommerceBoundaryTest extends TestCase
         $this->assertFalse($gate->allowsRead(null, 'recommerce.device.view', 7, 11, 13));
     }
 
+    /**
+     * A permission being catalogued in `recommerce.permissions` must never, on
+     * its own, authorize anything. The catalogue says a permission EXISTS; only
+     * `$user->can()` says it was GRANTED. Conflating the two is how an endpoint
+     * ends up open to every authenticated user in the cohort, so this pins the
+     * distinction at the single point every Recommerce endpoint depends on.
+     */
+    public function test_catalogued_permission_is_not_granted_permission()
+    {
+        config([
+            'recommerce.enabled' => true,
+            'recommerce.writes_enabled' => true,
+            'recommerce.cohort.business_id' => 7,
+            'recommerce.cohort.location_id' => 11,
+            'recommerce.cohort.variation_ids' => [13],
+            'recommerce.permissions' => ['recommerce.device.view', 'recommerce.device.transfer'],
+        ]);
+
+        // A role that exists in the catalogue but was never granted to this user.
+        $ungranted = new class {
+            public function can($permission): bool
+            {
+                return false;
+            }
+        };
+        $gate = new AuthorizationGate(new CohortPolicy());
+
+        $this->assertFalse(
+            $gate->allowsRead($ungranted, 'recommerce.device.view', 7, 11, 13),
+            'Catalogued-but-ungranted permission must not authorize a read.'
+        );
+        $this->assertFalse(
+            $gate->allowsWrite($ungranted, 'recommerce.device.transfer', 7, 11, 13),
+            'Catalogued-but-ungranted permission must not authorize a write.'
+        );
+        $this->assertFalse(
+            $gate->allowsWriteLocation($ungranted, 'recommerce.device.transfer', 7, 11),
+            'Catalogued-but-ungranted permission must not authorize a location write.'
+        );
+    }
+
+    /**
+     * The mirror of the case above: a permission the user genuinely holds is
+     * still refused unless it is catalogued, so an ad-hoc permission string
+     * cannot widen the module's surface without appearing in config.
+     */
+    public function test_granted_permission_is_still_refused_when_not_catalogued()
+    {
+        config([
+            'recommerce.enabled' => true,
+            'recommerce.writes_enabled' => true,
+            'recommerce.cohort.business_id' => 7,
+            'recommerce.cohort.location_id' => 11,
+            'recommerce.cohort.variation_ids' => [13],
+            'recommerce.permissions' => ['recommerce.device.view'],
+        ]);
+
+        $grantsEverything = new class {
+            public function can($permission): bool
+            {
+                return true;
+            }
+        };
+        $gate = new AuthorizationGate(new CohortPolicy());
+
+        $this->assertTrue($gate->allowsRead($grantsEverything, 'recommerce.device.view', 7, 11, 13));
+        $this->assertFalse(
+            $gate->allowsRead($grantsEverything, 'recommerce.audit.view', 7, 11, 13),
+            'Uncatalogued permission must be refused even for a user that can() everything.'
+        );
+        $this->assertFalse(
+            $gate->allowsWrite($grantsEverything, 'recommerce.device.transfer', 7, 11, 13),
+            'Uncatalogued write permission must be refused even for a user that can() everything.'
+        );
+    }
+
+    /**
+     * Both halves must hold together, and cohort scope is still applied on top:
+     * the right user with the right granted permission is denied out of scope.
+     */
+    public function test_granted_and_catalogued_permission_is_still_cohort_scoped()
+    {
+        config([
+            'recommerce.enabled' => true,
+            'recommerce.writes_enabled' => true,
+            'recommerce.cohort.business_id' => 7,
+            'recommerce.cohort.location_id' => 11,
+            'recommerce.cohort.variation_ids' => [13],
+            'recommerce.permissions' => ['recommerce.device.transfer'],
+        ]);
+
+        $user = new class {
+            public function can($permission): bool
+            {
+                return $permission === 'recommerce.device.transfer';
+            }
+        };
+        $gate = new AuthorizationGate(new CohortPolicy());
+
+        $this->assertTrue($gate->allowsWrite($user, 'recommerce.device.transfer', 7, 11, 13));
+        $this->assertFalse($gate->allowsWrite($user, 'recommerce.device.transfer', 8, 11, 13), 'Other business.');
+        $this->assertFalse($gate->allowsWrite($user, 'recommerce.device.transfer', 7, 12, 13), 'Other location.');
+        $this->assertFalse($gate->allowsWrite($user, 'recommerce.device.transfer', 7, 11, 99), 'Other variation.');
+    }
+
     public function test_native_role_editor_metadata_exposes_every_catalogued_recommerce_permission()
     {
         config(['recommerce.permissions' => [
