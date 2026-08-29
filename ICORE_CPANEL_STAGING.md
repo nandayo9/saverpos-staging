@@ -1,7 +1,7 @@
 # SAVERPOS staging on iCore cPanel
 
 This runbook publishes the SAVERPOS Laravel application at
-`https://pos.kkctv.com.my` for a fictional team-test estate. It is not a
+`https://pos.kkcctv.com.my` for a fictional team-test estate. It is not a
 production deployment and must use a new, isolated MySQL database.
 
 ## Deployment shape
@@ -13,7 +13,7 @@ Private GitHub repository (staging branch)
 iCore cPanel Git Version Control or cPanel upload
         |
         v
-pos.kkctv.com.my -> Laravel public/ document root -> iCore MySQL database
+pos.kkcctv.com.my -> Laravel public/ document root -> iCore MySQL database
 ```
 
 The repository root is the contents of
@@ -47,7 +47,7 @@ recreate them during deployment.
 
 In iCore cPanel:
 
-1. Create the subdomain `pos.kkctv.com.my` and set its document root to the
+1. Create the subdomain `pos.kkcctv.com.my` and set its document root to the
    repository's `public/` directory, for example:
    `/home/CPANEL_USER/repositories/saverpos-staging/public`.
 2. Select PHP 8.2 in **Select PHP Version**. Enable at least `ctype`, `curl`,
@@ -55,7 +55,7 @@ In iCore cPanel:
    `xml`, `zip`, and `bcmath` if available.
 3. Create a new MySQL database and a new database user. Grant that user all
    privileges on this new database only.
-4. Enable the free SSL certificate for `pos.kkctv.com.my` and wait until HTTPS
+4. Enable the free SSL certificate for `pos.kkcctv.com.my` and wait until HTTPS
    works before inviting testers.
 
 iCore lists PHP 8.x, MySQL 8.x, cPanel/DirectAdmin, free SSL, and daily backups
@@ -93,7 +93,7 @@ APP_NAME=SAVERPOS
 APP_ENV=staging
 APP_KEY=GENERATE_A_NEW_KEY
 APP_DEBUG=false
-APP_URL=https://pos.kkctv.com.my
+APP_URL=https://pos.kkcctv.com.my
 APP_TIMEZONE=Asia/Kuching
 
 DB_CONNECTION=mysql
@@ -137,7 +137,7 @@ branches `1,2`, and variation `1`, but use the values from the actual output.
 
 ## 6. Smoke test and team handoff
 
-Open `https://pos.kkctv.com.my/login` and verify:
+Open `https://pos.kkcctv.com.my/login` and verify:
 
 - the login page loads without an HTTP 500;
 - the fictional demo account can sign in;
