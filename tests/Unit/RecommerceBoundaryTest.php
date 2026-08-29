@@ -48,6 +48,100 @@ class RecommerceBoundaryTest extends TestCase
         $this->assertFalse($policy->allowsVariation(7, 11, 13));
     }
 
+    /**
+     * CohortPolicy promises in its docblock that "empty or incomplete cohort
+     * configuration always denies access", and RC-006 requires deny-by-default.
+     * Nothing pinned that promise: a mutation making `matchesConfiguredId()`
+     * return true for unconfigured ids survived the entire suite. An unset
+     * `RECOMMERCE_COHORT_BUSINESS_ID` must never read as "matches anything".
+     */
+    public function test_unconfigured_cohort_denies_every_scope()
+    {
+        config([
+            'recommerce.enabled' => true,
+            'recommerce.writes_enabled' => true,
+            'recommerce.cohort.business_id' => null,
+            'recommerce.cohort.location_id' => null,
+            'recommerce.cohort.location_ids' => [],
+            'recommerce.cohort.variation_ids' => [],
+        ]);
+
+        $policy = new CohortPolicy();
+
+        $this->assertFalse($policy->allowsBusiness(7), 'Unconfigured business must deny.');
+        $this->assertFalse($policy->allowsLocation(7, 11), 'Unconfigured location must deny.');
+        $this->assertFalse($policy->allowsReadLocation(7, 11), 'Unconfigured read location must deny.');
+        $this->assertFalse($policy->allowsReadVariation(7, 11, 13), 'Unconfigured read variation must deny.');
+        $this->assertFalse($policy->allowsVariation(7, 11, 13), 'Unconfigured write variation must deny.');
+    }
+
+    /**
+     * The same guarantee for blank configuration, which is what an env var
+     * that is present but empty (`RECOMMERCE_COHORT_BUSINESS_ID=`) produces.
+     */
+    public function test_blank_cohort_configuration_denies_every_scope()
+    {
+        config([
+            'recommerce.enabled' => true,
+            'recommerce.writes_enabled' => true,
+            'recommerce.cohort.business_id' => '',
+            'recommerce.cohort.location_id' => '',
+            'recommerce.cohort.location_ids' => [],
+            'recommerce.cohort.variation_ids' => [],
+        ]);
+
+        $policy = new CohortPolicy();
+
+        $this->assertFalse($policy->allowsBusiness(7));
+        $this->assertFalse($policy->allowsLocation(7, 11));
+        $this->assertFalse($policy->allowsReadLocation(7, 11));
+    }
+
+    /**
+     * A caller passing a null/blank subject id must be denied even when the
+     * cohort itself is fully configured, so a missing tenant id can never be
+     * read as a wildcard.
+     */
+    public function test_missing_subject_id_is_denied_against_a_configured_cohort()
+    {
+        config([
+            'recommerce.enabled' => true,
+            'recommerce.writes_enabled' => true,
+            'recommerce.cohort.business_id' => 7,
+            'recommerce.cohort.location_id' => 11,
+            'recommerce.cohort.variation_ids' => [13],
+        ]);
+
+        $policy = new CohortPolicy();
+
+        $this->assertFalse($policy->allowsBusiness(null), 'Null business id must deny.');
+        $this->assertFalse($policy->allowsBusiness(''), 'Blank business id must deny.');
+        $this->assertFalse($policy->allowsLocation(7, null), 'Null location id must deny.');
+        $this->assertFalse($policy->allowsReadLocation(7, ''), 'Blank location id must deny.');
+    }
+
+    /**
+     * An empty `variation_ids` list is an unconfigured variation scope, not an
+     * open one. A mutation returning true for the empty list also survived the
+     * suite, so both halves of that branch are pinned here.
+     */
+    public function test_empty_variation_list_denies_variation_scope_but_not_location_scope()
+    {
+        config([
+            'recommerce.enabled' => true,
+            'recommerce.writes_enabled' => true,
+            'recommerce.cohort.business_id' => 7,
+            'recommerce.cohort.location_id' => 11,
+            'recommerce.cohort.variation_ids' => [],
+        ]);
+
+        $policy = new CohortPolicy();
+
+        $this->assertTrue($policy->allowsReadLocation(7, 11), 'Location scope is still configured.');
+        $this->assertFalse($policy->allowsReadVariation(7, 11, 13), 'Empty variation list must deny reads.');
+        $this->assertFalse($policy->allowsVariation(7, 11, 13), 'Empty variation list must deny writes.');
+    }
+
     public function test_authorization_requires_declared_permission_and_user_can_result()
     {
         config([

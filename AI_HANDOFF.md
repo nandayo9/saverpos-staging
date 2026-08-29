@@ -2,8 +2,8 @@
 
 Current milestone: Recommerce — tracked transfer exception workflow
 Last completed task: Added warranty sale-line coverage evidence and claim lines behind a dedicated Recommerce permission
-Last commit: `561f360` (`Pin AuthorizationGate grant/catalogue invariants and record verification`) on `staging`, committed locally and **not yet pushed** to `https://github.com/nandayo9/saverpos-staging.git`. NOTE: the working tree is still dirty by design — the RC-039 warranty work and the blocked, undocumented RC-041 legacy repair archive remain uncommitted and were deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **157 tests / 1023 assertions, all green** — verified 2026-08-29 (154/1013 before this session added 3 gate-invariant tests; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
+Last commit: `869bf36` + the cohort deny-by-default commit on `staging`, committed locally and **not yet pushed** to `https://github.com/nandayo9/saverpos-staging.git`. NOTE: the working tree is still dirty by design — the RC-039 warranty work and the blocked, undocumented RC-041 legacy repair archive remain uncommitted and were deliberately left untouched (see "Incoming-agent verification" below).
+Tests passing: **161 tests / 1038 assertions, all green** — verified 2026-08-29 (154/1013 inherited; +3 gate-invariant and +4 deny-by-default tests added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: fresh disposable MySQL fixture; rendered browser flow passed for receive, pending/completed A→B transfer, Branch B POS sale, exact-device customer return, Branch B reconciliation (`PASS · core 1 · tracked 1 · legacy 0`), complete Device timeline, and RC-037 receiving exceptions (`MISSING` + `EXTRA` recorded, one manager resolution)
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -109,4 +109,23 @@ Note what this does and does not do: it protects every service that *routes thro
 2. **Structural gate guard** — assert that no service in `Modules/Recommerce/Services` makes a permission decision without referencing `AuthorizationGate` (e.g. no service reads `config('recommerce.permissions')` for an access decision on its own). This is the test that would have caught RC-041 at authoring time. Would fail today on `LegacyRepairArchiveService`.
 
 Both become green the moment the RC-041 disposition is settled in either direction — reverted, or reworked onto the gate. Neither was committed red.
+
+## Mutation sweep of the cohort/gate guards (2026-08-29)
+
+Rather than assume the rest of the boundary was covered, ten targeted mutations were applied to the two security-critical classes (`CohortPolicy`, `AuthorizationGate`), running the full suite against each. A mutant that *survives* marks an invariant nothing tests.
+
+**First pass: 8 killed, 2 survived.** Both survivors were deny-by-default promises:
+
+- `matchesConfiguredId()` made to return true for unconfigured/blank ids — survived, suite fully green. This is the "unset `RECOMMERCE_COHORT_BUSINESS_ID` reads as matches-anything" failure, exactly the shape that would open a fresh or misconfigured deployment.
+- `variationIsConfigured()` made to return true for an empty `variation_ids` list — survived. An unconfigured variation scope would read as an open one.
+
+`CohortPolicy`'s own docblock promises "empty or incomplete cohort configuration always denies access", and RC-006 requires deny-by-default. The current code is correct on both counts; nothing was verifying it, so a refactor could have flipped either silently with a green suite.
+
+Four tests were added to close this (`test_unconfigured_cohort_denies_every_scope`, `test_blank_cohort_configuration_denies_every_scope`, `test_missing_subject_id_is_denied_against_a_configured_cohort`, `test_empty_variation_list_denies_variation_scope_but_not_location_scope`). The third also pins the reverse direction: a null or blank *subject* id passed against a fully configured cohort must deny, so a missing tenant id can never act as a wildcard.
+
+**Second pass: 10 killed, 0 survived.** Suite green at 161 tests / 1038 assertions.
+
+The mutation harness is not committed — it is ~60 lines of Python that copies each class aside, applies one string substitution, runs PHPUnit, records KILLED/SURVIVED and restores. Worth re-running whenever `CohortPolicy` or `AuthorizationGate` changes; it is the cheapest available check that the module's deny-by-default contract is still actually enforced rather than merely intended.
+
+Not covered by this sweep, and still the open risk: a service that bypasses `AuthorizationGate` altogether. Mutation testing the gate cannot detect a caller that never asks it. That is `LegacyRepairArchiveService`, and it needs the structural guard test listed above.
 
