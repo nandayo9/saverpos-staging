@@ -19,6 +19,13 @@ if ((string) config('app.env') !== 'staging') {
     exit(1);
 }
 
+try {
+    DB::connection()->getPdo();
+} catch (Throwable $exception) {
+    fwrite(STDERR, "Unable to connect to the staging database: {$exception->getMessage()}\n");
+    exit(1);
+}
+
 if (Artisan::call('migrate', ['--force' => true, '--no-interaction' => true]) !== 0) {
     fwrite(STDERR, Artisan::output());
     exit(1);

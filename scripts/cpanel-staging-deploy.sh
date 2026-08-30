@@ -86,7 +86,10 @@ if [[ ! -e public/storage ]]; then
     "$PHP_BIN" artisan storage:link --no-interaction
 fi
 
-"$PHP_BIN" scripts/cpanel-staging-bootstrap.php
+if ! "$PHP_BIN" scripts/cpanel-staging-bootstrap.php; then
+    echo "Staging database bootstrap failed; refusing to publish the live folder."
+    exit 1
+fi
 "$PHP_BIN" artisan config:clear --no-interaction
 "$PHP_BIN" artisan view:clear --no-interaction
 
