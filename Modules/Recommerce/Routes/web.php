@@ -185,6 +185,12 @@ Route::middleware('auth')->prefix('recommerce')->group(function () {
         ->middleware('throttle:20,1')
         ->name('recommerce.repair.quotes.store');
 
+    Route::put('/repair/{jobCode}/quotes/{quoteId}', 'QuoteController@update')
+        ->where('jobCode', '[A-Za-z0-9-]+')
+        ->whereNumber('quoteId')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.repair.quotes.update');
+
     Route::post('/repair/{jobCode}/quotes/{quoteId}/send', 'QuoteController@send')
         ->where('jobCode', '[A-Za-z0-9-]+')
         ->whereNumber('quoteId')

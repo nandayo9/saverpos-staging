@@ -173,13 +173,40 @@ class RecommerceRepairQuoteTest extends TestCase
         $this->assertSame(1, $replayed->lines()->count());
     }
 
+    public function test_editing_a_draft_replaces_each_line_exactly_once(): void
+    {
+        $service = $this->quoteService();
+        $draft = $service->createDraft(
+            $this->authorizedUser(),
+            $this->job(),
+            '22222222-2222-4222-8222-222222222223',
+            $this->linePayload(1, 150)
+        );
+
+        $updated = $service->updateDraft(
+            $this->authorizedUser(),
+            $draft,
+            array_merge($this->linePayload(2, 100), [[
+                'line_type' => 'PART',
+                'description' => 'Replacement battery',
+                'quantity' => 1,
+                'unit_amount' => 75,
+                'tax_amount' => 0,
+            ]])
+        );
+
+        $this->assertCount(2, $updated->lines);
+        $this->assertSame('275.0000', (string) $updated->total_amount);
+        $this->assertSame(2, RepairQuote::query()->findOrFail($draft->id)->lines()->count());
+    }
+
     public function test_second_conflicting_decision_is_rejected_after_the_first_wins(): void
     {
         $service = $this->quoteService();
         $job = $this->job();
         $quote = $this->createSentQuote($service, $job);
 
-        $approved = $service->decide($this->authorizedUser(), $quote, 'APPROVED', ['decision_evidence' => 'VERBAL-CONFIRMED']);
+        $approved = $service->decide($this->authorizedUser(), $quote, 'APPROVED', ['approval_method' => 'PHONE', 'decision_evidence' => 'VERBAL-CONFIRMED']);
         $this->assertSame('APPROVED', $approved->status);
         $this->assertSame('VERBAL-CONFIRMED', $approved->decision_evidence_json['decision_evidence']);
         $this->assertNotNull($approved->decided_at);
@@ -188,6 +215,17 @@ class RecommerceRepairQuoteTest extends TestCase
         $this->expectExceptionMessage('decided');
 
         $service->decide($this->authorizedUser(), $quote->fresh(), 'DECLINED', [], 'Attempt to flip the decision.');
+    }
+
+    public function test_customer_approval_requires_an_explicit_method(): void
+    {
+        $service = $this->quoteService();
+        $quote = $this->createSentQuote($service, $this->job(), '22222222-2222-4222-8222-222222222224');
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('explicit approval method');
+
+        $service->decide($this->authorizedUser(), $quote, 'APPROVED', []);
     }
 
     public function test_declined_and_expired_quotes_cannot_be_approved(): void
@@ -219,7 +257,7 @@ class RecommerceRepairQuoteTest extends TestCase
         $service = $this->quoteService();
         $job = $this->job();
         $quote = $this->createSentQuote($service, $job);
-        $approved = $service->decide($this->authorizedUser(), $quote, 'APPROVED', []);
+        $approved = $service->decide($this->authorizedUser(), $quote, 'APPROVED', ['approval_method' => 'PHONE']);
 
         // Bring the job to diagnosis, then attempt to start repair work with the
         // still-valid approval of version 1.
@@ -252,7 +290,7 @@ class RecommerceRepairQuoteTest extends TestCase
             $this->assertStringContainsString('revised quote must be approved', $exception->getMessage());
         }
 
-        $service->decide($this->authorizedUser(), $sent->fresh(), 'APPROVED', ['decision_evidence' => 'REAPPROVED']);
+        $service->decide($this->authorizedUser(), $sent->fresh(), 'APPROVED', ['approval_method' => 'PHONE', 'decision_evidence' => 'REAPPROVED']);
         $currentJob = $job->fresh();
         $updated = app(RepairJobTransitionService::class)->transition(
             $currentJob = $job->fresh(),

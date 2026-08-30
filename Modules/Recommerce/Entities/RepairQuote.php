@@ -16,8 +16,9 @@ class RepairQuote extends Model
     public const STATUS_SUPERSEDED = 'SUPERSEDED';
 
     public const LINE_TYPE_PART = 'PART';
+    public const LINE_TYPE_LABOUR = 'LABOUR';
     public const LINE_TYPE_SERVICE = 'SERVICE';
-    public const LINE_TYPE_FEE = 'FEE';
+    public const LINE_TYPE_OTHER = 'OTHER';
 
     protected $table = 'recommerce_repair_quotes';
 

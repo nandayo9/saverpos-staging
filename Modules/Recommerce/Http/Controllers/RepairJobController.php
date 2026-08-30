@@ -344,6 +344,8 @@ class RepairJobController extends Controller
                 && $job->state === \Modules\Recommerce\Support\RepairJobStateMachine::STATE_READY
                 && $authorizationGate->allowsWriteLocation($user, 'recommerce.repair.collection', $businessId, $job->location_id),
             'canStartRepeat' => $this->canStartRepeat($job, $user, $authorizationGate),
+            'quoteManageEnabled' => $job->isCustomerRepair()
+                && $authorizationGate->allowsWriteLocation($user, 'recommerce.repair.quote.manage', $businessId, $job->location_id),
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
     }

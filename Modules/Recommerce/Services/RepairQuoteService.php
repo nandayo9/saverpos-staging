@@ -199,11 +199,13 @@ class RepairQuoteService
         if (! in_array($decision, [self::DECISION_APPROVED, self::DECISION_DECLINED], true)) {
             throw new LogicException('Quote decision must be APPROVED or DECLINED.');
         }
-
         $locked = $this->markExpiredWhenStale($quote, $user);
 
         if ($locked->status !== RepairQuote::STATUS_SENT) {
             throw new LogicException('Only a sent, unexpired quote version can be decided.');
+        }
+        if ($decision === self::DECISION_APPROVED && trim((string) ($evidence['approval_method'] ?? '')) === '') {
+            throw new LogicException('Customer approval requires an explicit approval method.');
         }
 
         return DB::transaction(function () use ($user, $locked, $decision, $evidence, $note): RepairQuote {
@@ -356,8 +358,13 @@ class RepairQuoteService
         $normalised = [];
         foreach (array_values($lines) as $index => $line) {
             $lineType = strtoupper(trim((string) ($line['line_type'] ?? '')));
-            if (! in_array($lineType, [RepairQuote::LINE_TYPE_PART, RepairQuote::LINE_TYPE_SERVICE, RepairQuote::LINE_TYPE_FEE], true)) {
-                throw new LogicException('Quote line type must be PART, SERVICE, or FEE.');
+            if (! in_array($lineType, [
+                RepairQuote::LINE_TYPE_LABOUR,
+                RepairQuote::LINE_TYPE_PART,
+                RepairQuote::LINE_TYPE_SERVICE,
+                RepairQuote::LINE_TYPE_OTHER,
+            ], true)) {
+                throw new LogicException('Quote line type must be LABOUR, PART, SERVICE, or OTHER.');
             }
 
             $description = trim((string) ($line['description'] ?? ''));

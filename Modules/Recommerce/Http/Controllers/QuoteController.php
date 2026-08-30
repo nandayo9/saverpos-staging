@@ -6,6 +6,7 @@ use App\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use LogicException;
 use Modules\Recommerce\Entities\RepairJob;
@@ -23,27 +24,14 @@ class QuoteController extends Controller
     public function store(Request $request, string $jobCode, AuthorizationGate $authorizationGate, RepairQuoteService $quoteService)
     {
         try {
-            $validated = $request->validate([
-                'command_uuid' => ['required', 'uuid'],
-                'summary' => ['nullable', 'string', 'max:320'],
-                'tax_assumptions' => ['nullable', 'array'],
-                'terms' => ['nullable', 'array'],
-                'currency' => ['nullable', 'string', 'max:12'],
-                'expires_at' => ['nullable', 'date'],
-                'lines' => ['required', 'array', 'min:1'],
-                'lines.*.line_type' => ['required', 'string', 'max:24'],
-                'lines.*.description' => ['required', 'string', 'max:255'],
-                'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
-                'lines.*.unit_amount' => ['required', 'numeric', 'min:0'],
-                'lines.*.tax_amount' => ['nullable', 'numeric', 'min:0'],
-            ]);
+            $validated = $this->draftPayload($request);
 
             $job = $this->scopedJob($jobCode, $authorizationGate);
             $quote = $quoteService->createDraft(
                 auth()->user(),
                 $job,
                 $validated['command_uuid'],
-                $validated['lines'],
+                $this->scopedLines($validated['lines'], $job),
                 $validated['summary'] ?? null,
                 $validated['tax_assumptions'] ?? null,
                 $validated['terms'] ?? null,
@@ -57,6 +45,32 @@ class QuoteController extends Controller
         }
 
         return $this->quoteResponse($quote, 'QUOTE_DRAFT_CREATED', 201);
+    }
+
+    public function update(Request $request, string $jobCode, int $quoteId, AuthorizationGate $authorizationGate, RepairQuoteService $quoteService)
+    {
+        try {
+            $validated = $this->draftPayload($request, false);
+            $job = $this->scopedJob($jobCode, $authorizationGate);
+            $quote = $this->scopedQuote($job, $quoteId);
+            $quote = $quoteService->updateDraft(
+                auth()->user(),
+                $quote,
+                $this->scopedLines($validated['lines'], $job),
+                $validated['summary'] ?? null,
+                $validated['tax_assumptions'] ?? null,
+                $validated['terms'] ?? null,
+                $validated['expires_at'] ?? null
+            );
+        } catch (ValidationException|LogicException $exception) {
+            return $this->rejected('Quote draft update was rejected.');
+        } catch (AuthorizationException $exception) {
+            abort(404);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $exception) {
+            abort(404);
+        }
+
+        return $this->quoteResponse($quote, 'QUOTE_DRAFT_UPDATED');
     }
 
     public function send(Request $request, string $jobCode, int $quoteId, AuthorizationGate $authorizationGate, RepairQuoteService $quoteService)
@@ -156,6 +170,60 @@ class QuoteController extends Controller
             ->whereKey($quoteId)
             ->with('lines')
             ->firstOrFail();
+    }
+
+    /** @return array<string, mixed> */
+    protected function draftPayload(Request $request, bool $requiresCommandUuid = true): array
+    {
+        $rules = [
+            'summary' => ['nullable', 'string', 'max:320'],
+            'tax_assumptions' => ['nullable', 'array'],
+            'terms' => ['nullable', 'array'],
+            'currency' => ['nullable', 'string', 'max:12'],
+            'expires_at' => ['nullable', 'date'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.line_type' => ['required', 'in:LABOUR,PART,SERVICE,OTHER'],
+            'lines.*.description' => ['required', 'string', 'max:255'],
+            'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.unit_amount' => ['required', 'numeric', 'min:0'],
+            'lines.*.tax_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.variation_id' => ['nullable', 'integer', 'min:1'],
+        ];
+        if ($requiresCommandUuid) {
+            $rules['command_uuid'] = ['required', 'uuid'];
+        }
+
+        return $request->validate($rules);
+    }
+
+    /**
+     * A variation reference is optional, but if an operator supplies one it
+     * must resolve to the same UltimatePOS business. This stores a link only;
+     * it never creates a parallel product or billing catalogue.
+     *
+     * @param array<int, array<string, mixed>> $lines
+     * @return array<int, array<string, mixed>>
+     */
+    protected function scopedLines(array $lines, RepairJob $job): array
+    {
+        foreach ($lines as $index => $line) {
+            if (empty($line['variation_id'])) {
+                continue;
+            }
+            $productId = DB::table('variations')
+                ->join('products', 'products.id', '=', 'variations.product_id')
+                ->where('variations.id', (int) $line['variation_id'])
+                ->where('products.business_id', $job->business_id)
+                ->whereNull('variations.deleted_at')
+                ->value('products.id');
+            if (! $productId) {
+                throw new LogicException('Quote line product variation is not available for this business.');
+            }
+            $lines[$index]['source_type'] = 'POS_VARIATION';
+            $lines[$index]['source_id'] = (int) $productId;
+        }
+
+        return $lines;
     }
 
     protected function rejected(string $message)
