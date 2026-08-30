@@ -1,6 +1,25 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    // Same vocabulary as the repair workbench list, and the same one the
+    // "Parts boundary" legend below already promised: held, pending, audited.
+    $sbPartTone = [
+        'RESERVED' => 'intake',
+        'ISSUED' => 'active',
+        'INSTALLED_PENDING_BILLING' => 'blocked',
+        'CONSUMED' => 'done',
+        'RELEASED' => 'closed',
+    ];
+@endphp
+<style>
+    #recommerce-parts .sb-status { display:inline-block; border-radius:999px; padding:3px 9px; font-size:11px; font-weight:700; letter-spacing:.02em; white-space:nowrap; }
+    #recommerce-parts .sb-status-intake { background:#e0e7ff; color:#3730a3; }
+    #recommerce-parts .sb-status-active { background:#dbeafe; color:#1e40af; }
+    #recommerce-parts .sb-status-blocked { background:#fef3c7; color:#92400e; }
+    #recommerce-parts .sb-status-done { background:#d1fae5; color:#065f46; }
+    #recommerce-parts .sb-status-closed { background:#e5e7eb; color:#374151; }
+</style>
     <section class="container" id="recommerce-parts" data-csrf-token="{{ csrf_token() }}">
         <div class="row">
             <div class="col-md-9">
@@ -42,9 +61,9 @@
                         <h4>Reservations and usage</h4>
                         @forelse ($reservations as $reservation)
                             <div class="well well-sm">
-                                <p><strong>{{ $reservation->variation->product->name ?? 'Stock item' }}</strong> · {{ $reservation->variation->name ?? $reservation->variation_id }} · {{ $reservation->quantity }} · <span class="label label-default">{{ $reservation->status }}</span></p>
+                                <p><strong>{{ $reservation->variation->product->name ?? 'Stock item' }}</strong> · {{ $reservation->variation->name ?? $reservation->variation_id }} · {{ $reservation->quantity }} · <span class="sb-status sb-status-{{ $sbPartTone[$reservation->status] ?? 'closed' }}">{{ str_replace('_', ' ', $reservation->status) }}</span></p>
                                 @if ($reservation->usage)
-                                    <p>Usage: <span class="label label-info">{{ $reservation->usage->status }}</span> · path {{ $reservation->usage->consumption_path }}</p>
+                                    <p>Usage: <span class="sb-status sb-status-{{ $sbPartTone[$reservation->usage->status] ?? 'closed' }}">{{ str_replace('_', ' ', $reservation->usage->status) }}</span> · path {{ $reservation->usage->consumption_path }}</p>
                                 @endif
                                 <div class="parts-actions">
                                     @if ($reservation->status === 'RESERVED' && $canUse)
@@ -125,9 +144,9 @@
                 <div class="box box-default">
                     <div class="box-header with-border"><h3 class="box-title">Parts boundary</h3></div>
                     <div class="box-body">
-                        <p><span class="label label-info">Held</span> Reservations reduce available quantity without mutating POS stock.</p>
-                        <p><span class="label label-warning">Pending</span> Installed parts wait for a source transaction or internal adjustment.</p>
-                        <p><span class="label label-success">Audited</span> Customer parts link to a finalized POS sale; internal parts record a POS adjustment and actual cost.</p>
+                        <p><span class="sb-status sb-status-intake">Held</span> Reservations reduce available quantity without mutating POS stock.</p>
+                        <p><span class="sb-status sb-status-blocked">Pending</span> Installed parts wait for a source transaction or internal adjustment.</p>
+                        <p><span class="sb-status sb-status-done">Audited</span> Customer parts link to a finalized POS sale; internal parts record a POS adjustment and actual cost.</p>
                     </div>
                 </div>
             </div>

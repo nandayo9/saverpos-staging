@@ -147,7 +147,7 @@ The two repair Blade views carried uncommitted, unreviewed UI edits. They were r
 
 **Not fixable in markup:** the due-date field renders `mm/dd/yyyy` because `<input type="date">` follows browser locale; the rest of the UI uses `d M Y`. Forcing the format needs a JS datepicker — a product decision, not a tidy-up.
 
-**Left alone:** `parts/show.blade.php` still hardcodes `label-default`/`label-info` for reservation and usage status (lines 45, 47). The same tone system would suit it, but that view was outside this review's scope and has not been rendered or screenshotted.
+~~**Left alone:** `parts/show.blade.php`...~~ **DONE (2026-08-30)** — rendered, screenshotted and fixed; see below.
 
 Verification: full suite green (161 tests / 1038 assertions), `recommerce-static-check` passes, no page-level horizontal overflow and no JS console errors at either width.
 
@@ -206,4 +206,18 @@ Fixed by ordering on `transaction_sell_lines.id`, which locks in the behaviour t
 **Still a product decision, deliberately not made:** *which* line should supply the policy when a sale carries several for one variation — earliest, latest, longest term, or most favourable to the customer. The fix removes irreproducibility; it does not answer that question, and the test says so in its docblock.
 
 Both changes live in the still-untracked RC-039 files and travel with that work.
+
+## parts/show status legibility (2026-08-30) — the view contradicted its own legend
+
+The last outstanding item from the UI review. `parts/show.blade.php` was rendered with stub data and screenshotted before changing it, same pipeline as the repair views.
+
+The defect was sharper than "status is monochrome". The view carries a **"Parts boundary" legend** that teaches the reader a colour vocabulary — blue *Held*, amber *Pending*, green *Audited* — while the data rows beside it rendered every reservation as `label-default` (grey) and every usage as `label-info` (blue) regardless of state. The legend promised meaning the data never delivered, so a technician reading the legend and then the rows would be misled rather than merely uninformed.
+
+Reservation states are `RESERVED / ISSUED / RELEASED / CONSUMED` and usage states `INSTALLED_PENDING_BILLING / CONSUMED` (read from `RepairPartService`, not guessed). Mapped onto the same tone system as the repair list: RESERVED→intake, ISSUED→active, INSTALLED_PENDING_BILLING→blocked, CONSUMED→done, RELEASED→closed. **The legend itself was converted to the same classes**, so both halves of the screen now speak one language, and the mapping matches what the legend already said.
+
+The tone CSS is duplicated into this view's own `<style>`, scoped under `#recommerce-parts`, because each Recommerce view carries its own inline styles. **That duplication is now in two places (`repair/index`, `parts/show`) and should be extracted to a shared Blade partial before it reaches a third** — flagged rather than done, since introducing a shared partial changes structure across views.
+
+Observed while rendering, pre-existing and not changed: the stock dropdown prints raw 4-decimal quantities ("4.0000 available"), and currency placement is inconsistent between the projected invoice ("RM 85.00") and recorded costs ("85.00 RM"). Also `@forelse` at line 111 is closed with `@endforeach` and has no `@empty` branch — harmless, since the surrounding `@if` handles the empty case and the compiled PHP is valid, but it should be a plain `@foreach`.
+
+Suite green at 166 tests / 1053 assertions; static check passes; div balance 19/19; no hardcoded status labels remain in the view.
 
