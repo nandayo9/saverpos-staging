@@ -600,6 +600,21 @@ text displayed to a customer over an unauthenticated link), and a label whose
 scan target is never printed as text. 13 of 17 module views remain
 compilation-only. Local test evidence, not release evidence.
 
+**UI/UX audit of all 13 in-app screens (2026-08-30).**
+Every in-app Recommerce screen was rendered from the real Blade against the
+real CSS cascade and audited at 375, 768 and 1280 px: composited contrast per
+text style, accessible names, discernible control text, light surfaces on the
+dark ground, and horizontal overflow. 39 page-renders, all clean after two
+fixes. First, stock Bootstrap components the dark pass never covered measured
+1.86-2.04:1 (`.btn-warning`, `.btn-info`, `.btn-danger`, `.label-warning`,
+`.label-info`, `.label-default`, `.alert-success`) and `.help-block` sat at
+3.37:1; all now darkened in the shared stylesheet with measured replacements.
+Second, 17 form controls used a placeholder as their accessible name, including
+four in `device/show` whose visible labels carried no `for`. Guarded by
+`RecommerceDarkStockComponentsTest` and `RecommerceFormLabellingTest`. This
+covers responsive layout and contrast for RC-016's acceptance; POS chrome and
+interaction remain unverified. Local test evidence, not release evidence.
+
 **Quick create on repair intake was broken (2026-08-30).**
 The intake screen linked to `ContactController@create` with `target="_blank"`,
 but that endpoint returns `contact/create.blade.php`, which starts at

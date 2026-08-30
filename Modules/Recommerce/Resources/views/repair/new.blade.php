@@ -58,6 +58,7 @@
                         <div class="card-body">
                             <div class="form-group">
                                 <label for="repair-customer">Customer <span class="sb-required">*</span></label>
+                                <label class="sr-only" for="repair-customer-search">Search customers by name, contact reference, or mobile</label>
                                 <input id="repair-customer-search" class="form-control" style="margin-bottom:7px" autocomplete="off" placeholder="Search by name, reference, or mobile" aria-describedby="repair-customer-help">
                                 <div class="input-group">
                                     <select id="repair-customer" class="form-control" required aria-describedby="repair-customer-help">

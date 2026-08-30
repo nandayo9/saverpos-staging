@@ -600,6 +600,59 @@ a:not(.btn):focus {
   border-color: #34d399 !important;
 }
 
+/* The earlier dark pass covered alert-info/warning/danger, btn-primary,
+   btn-success and their label twins. The remaining stock variants were left on
+   Bootstrap's light defaults -- white type on orange or pale blue -- and
+   measured 1.86-2.04:1 on the dark ground. Measured replacements: warning 6.15,
+   info 6.05, danger 6.68, default 8.40, alert-success 11.7-14.5. */
+.btn-warning,
+.label-warning {
+  background: #7c5207 !important;
+  border-color: #fbbf24 !important;
+  color: #fef3c7 !important;
+}
+
+.btn-info,
+.label-info {
+  background: #0c617a !important;
+  border-color: #38bdf8 !important;
+  color: #d8f3ff !important;
+}
+
+.btn-danger,
+.label-danger {
+  background: #9f1239 !important;
+  border-color: #fb7185 !important;
+  color: #ffe4e6 !important;
+}
+
+.label-default {
+  background: #334155 !important;
+  border-color: var(--sb-border-strong) !important;
+  color: #e2e8f0 !important;
+}
+
+.alert-success,
+.callout.callout-success {
+  background: rgba(8, 124, 90, .2) !important;
+  border: 1px solid rgba(52, 211, 153, .38) !important;
+  color: #d1fae5 !important;
+}
+
+/* Field guidance sat on Bootstrap's #737373 and measured 3.37:1 on a dark card. */
+.help-block {
+  color: var(--sb-muted) !important;
+}
+
+pre,
+code,
+kbd,
+samp {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border) !important;
+  color: var(--sb-text) !important;
+}
+
 .btn:hover,
 .tw-dw-btn:hover {
   filter: brightness(1.1);

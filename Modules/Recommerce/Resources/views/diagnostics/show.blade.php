@@ -46,13 +46,13 @@
                                                 @endforeach
                                             </select>
                                             @if ($check->outcome_type === 'NUMERIC')
-                                                <input class="form-control diagnostic-value-numeric" style="margin-top:8px" type="number" step="any" @if ($check->minimum_value !== null) min="{{ $check->minimum_value }}" @endif @if ($check->maximum_value !== null) max="{{ $check->maximum_value }}" @endif placeholder="Measured value{{ $check->unit ? ' ('.$check->unit.')' : '' }}">
+                                                <label class="sr-only" for="dx-value-{{ $check->check_key }}">Measured value for {{ $check->label }}</label><input id="dx-value-{{ $check->check_key }}" class="form-control diagnostic-value-numeric" style="margin-top:8px" type="number" step="any" @if ($check->minimum_value !== null) min="{{ $check->minimum_value }}" @endif @if ($check->maximum_value !== null) max="{{ $check->maximum_value }}" @endif placeholder="Measured value{{ $check->unit ? ' ('.$check->unit.')' : '' }}">
                                             @else
-                                                <input class="form-control diagnostic-value-text" style="margin-top:8px" type="text" placeholder="Observed value or note">
+                                                <label class="sr-only" for="dx-value-{{ $check->check_key }}">Observed value or note for {{ $check->label }}</label><input id="dx-value-{{ $check->check_key }}" class="form-control diagnostic-value-text" style="margin-top:8px" type="text" placeholder="Observed value or note">
                                             @endif
-                                            <textarea class="form-control diagnostic-notes" style="margin-top:8px" rows="2" placeholder="Technician notes"></textarea>
+                                            <label class="sr-only" for="dx-notes-{{ $check->check_key }}">Technician notes for {{ $check->label }}</label><textarea id="dx-notes-{{ $check->check_key }}" class="form-control diagnostic-notes" style="margin-top:8px" rows="2" placeholder="Technician notes"></textarea>
                                             @if ($check->evidence_required)
-                                                <input class="form-control diagnostic-evidence" style="margin-top:8px" type="text" placeholder="Evidence reference (required)">
+                                                <label class="sr-only" for="dx-evidence-{{ $check->check_key }}">Evidence reference for {{ $check->label }}</label><input id="dx-evidence-{{ $check->check_key }}" class="form-control diagnostic-evidence" style="margin-top:8px" type="text" placeholder="Evidence reference (required)">
                                             @endif
                                         </div>
                                     @endforeach

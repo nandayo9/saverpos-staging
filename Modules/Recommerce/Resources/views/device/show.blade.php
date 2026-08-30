@@ -68,10 +68,10 @@
                                 @csrf
                                 @if ($errors->has('certification'))<p class="text-danger">{{ $errors->first('certification') }}</p>@endif
                                 <div class="row">
-                                    <div class="col-sm-3 form-group"><label>Grade</label><select class="form-control" name="grade" required><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select></div>
-                                    <div class="col-sm-3 form-group"><label>Battery health</label><input class="form-control" name="battery_health_percent" type="number" min="0" max="100" required></div>
-                                    <div class="col-sm-3 form-group"><label>Purchased</label><input class="form-control" name="purchased_at" type="date" value="{{ $device->sold_at?->format('Y-m-d') }}" required></div>
-                                    <div class="col-sm-3 form-group"><label>Warranty expiry</label><input class="form-control" name="warranty_expires_at" type="date" required></div>
+                                    <div class="col-sm-3 form-group"><label for="certify-grade">Grade</label><select id="certify-grade" class="form-control" name="grade" required><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select></div>
+                                    <div class="col-sm-3 form-group"><label for="certify-battery">Battery health</label><input id="certify-battery" class="form-control" name="battery_health_percent" type="number" min="0" max="100" required></div>
+                                    <div class="col-sm-3 form-group"><label for="certify-purchased">Purchased</label><input id="certify-purchased" class="form-control" name="purchased_at" type="date" value="{{ $device->sold_at?->format('Y-m-d') }}" required></div>
+                                    <div class="col-sm-3 form-group"><label for="certify-warranty">Warranty expiry</label><input id="certify-warranty" class="form-control" name="warranty_expires_at" type="date" required></div>
                                 </div>
                                 <label><input type="checkbox" name="qc_passed" value="1" required> QC passed</label>
                                 <button class="btn btn-success btn-sm" type="submit">Publish customer-safe certificate</button>

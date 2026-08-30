@@ -67,7 +67,7 @@
                                     @endif
                                     @if ($reservation->status === 'RESERVED' && $canReserve)
                                         <form class="parts-action-form" method="post" action="{{ route('recommerce.repair.parts.release', [$job->job_code, $reservation->id]) }}" data-success="Reservation released.">
-                                            <input type="text" name="reason" placeholder="Release reason" required maxlength="255" style="margin-right:4px">
+                                            <label class="sr-only" for="release-reason-{{ $reservation->id }}">Release reason</label><input id="release-reason-{{ $reservation->id }}" type="text" name="reason" placeholder="Release reason" required maxlength="255" style="margin-right:4px">
                                             <button class="btn btn-warning btn-xs" type="submit">Release</button>
                                         </form>
                                     @endif
@@ -78,14 +78,14 @@
                                     @endif
                                     @if ($reservation->usage && $reservation->usage->status === 'INSTALLED_PENDING_BILLING' && $reservation->usage->consumption_path === 'INTERNAL' && $canResolve)
                                         <form class="parts-action-form" method="post" action="{{ route('recommerce.repair.parts.consume-internal', [$job->job_code, $reservation->usage->id]) }}" data-success="Internal part consumed through the POS stock-adjustment seam; cost recorded.">
-                                            <input type="text" name="reason" placeholder="Consumption reason" required maxlength="255" style="margin-right:4px">
+                                            <label class="sr-only" for="consume-reason-{{ $reservation->usage->id }}">Consumption reason</label><input id="consume-reason-{{ $reservation->usage->id }}" type="text" name="reason" placeholder="Consumption reason" required maxlength="255" style="margin-right:4px">
                                             <button class="btn btn-success btn-xs" type="submit">Consume internally</button>
                                         </form>
                                     @endif
                                     @if ($reservation->usage && $reservation->usage->status === 'INSTALLED_PENDING_BILLING' && $reservation->usage->consumption_path === 'CUSTOMER' && $canResolve)
                                         <form class="parts-action-form" method="post" action="{{ route('recommerce.repair.parts.resolve', [$job->job_code, $reservation->usage->id]) }}" data-success="Customer part linked to the finalized POS sale.">
-                                            <input type="number" name="source_transaction_id" placeholder="POS sale ID" min="1" required style="width:90px;margin-right:4px">
-                                            <input type="number" name="source_line_id" placeholder="Sale line ID" min="1" required style="width:90px;margin-right:4px">
+                                            <label class="sr-only" for="resolve-sale-{{ $reservation->usage->id }}">POS sale ID</label><input id="resolve-sale-{{ $reservation->usage->id }}" type="number" name="source_transaction_id" placeholder="POS sale ID" min="1" required style="width:90px;margin-right:4px">
+                                            <label class="sr-only" for="resolve-line-{{ $reservation->usage->id }}">Sale line ID</label><input id="resolve-line-{{ $reservation->usage->id }}" type="number" name="source_line_id" placeholder="Sale line ID" min="1" required style="width:90px;margin-right:4px">
                                             <input type="hidden" name="source_type" value="SALE">
                                             <button class="btn btn-success btn-xs" type="submit">Resolve POS sale</button>
                                         </form>
@@ -111,12 +111,12 @@
                             @if ($canBill && $job->state !== 'CLOSED')
                                 <form class="parts-action-form" method="post" action="{{ route('recommerce.repair.billing.link', $job->job_code) }}" data-success="Finalized POS sale linked; billing recorded.">
                                     <input type="hidden" name="command_uuid" value="">
-                                    <input type="number" name="sale_transaction_id" placeholder="Finalized POS sale ID" min="1" required style="width:120px;margin-right:4px">
+                                    <label class="sr-only" for="billing-link-sale">Finalized POS sale ID</label><input id="billing-link-sale" type="number" name="sale_transaction_id" placeholder="Finalized POS sale ID" min="1" required style="width:120px;margin-right:4px">
                                     <button class="btn btn-success btn-xs" type="submit">Link finalized POS sale</button>
                                 </form>
                                 <form class="parts-action-form" method="post" action="{{ route('recommerce.repair.billing.release', $job->job_code) }}" data-success="Billed state reverted; parts wait for billing again.">
-                                    <input type="number" name="sale_transaction_id" placeholder="POS sale ID" min="1" required style="width:120px;margin-right:4px">
-                                    <input type="text" name="reason" placeholder="Reversal reason" required maxlength="255" style="margin-right:4px">
+                                    <label class="sr-only" for="billing-release-sale">POS sale ID to reverse</label><input id="billing-release-sale" type="number" name="sale_transaction_id" placeholder="POS sale ID" min="1" required style="width:120px;margin-right:4px">
+                                    <label class="sr-only" for="billing-release-reason">Reversal reason</label><input id="billing-release-reason" type="text" name="reason" placeholder="Reversal reason" required maxlength="255" style="margin-right:4px">
                                     <button class="btn btn-warning btn-xs" type="submit">Reverse billed state</button>
                                 </form>
                             @endif

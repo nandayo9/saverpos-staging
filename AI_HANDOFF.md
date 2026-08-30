@@ -1,18 +1,73 @@
 # AI Handoff
 
 Current milestone: Recommerce — live staging smoke verification
-Last completed task: **Quick create on the repair intake screen was opening a layout-less modal fragment in a new tab** — `ContactController@create` returns a modal body, not a page, so the link produced a bare unstyled form with no validation and no way back. Rewired to the app's own `btn-modal` + `.contact_modal` idiom. Before that: the dark conversion was rendered and measured, which found the `outcome-not-applicable` defect.
+Last completed task: **Full UI/UX audit of all 13 in-app screens at three viewports** — 39 page-renders, all clean after fixing two defect classes: stock Bootstrap components the dark pass never covered (measuring 1.86-2.04:1, including `.alert-success`, `.btn-warning` and `.help-block`), and 17 form controls using a placeholder as their accessible name.
 Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **270 tests / 1276 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
+Tests passing: **305 tests / 1311 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
-Browser evidence: the dark repair record and repair queue were rendered from the real Blade against the real stylesheet and measured for contrast (0 of 33 text styles below AA; worst 5.94:1). Earlier sessions' flow evidence (receive, transfer, sale, return, reconciliation) is unchanged. The full authenticated chrome and `repair/new`, `parts/show`, `diagnostics/show` remain unrendered.
+Browser evidence: all 13 in-app screens rendered from real Blade against the real CSS cascade and audited at 375/768/1280 — 0 below AA, 0 unlabelled controls, 0 light surfaces, 0 horizontal overflow. Earlier sessions' flow evidence unchanged. POS chrome and any interaction (click, submit, modal) remain unverified — they need a session.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: seed a repair job into the local demo fixture so the repair flow can be walked end to end (there are currently 0), and reconcile `.env`'s sqlite connection with the MySQL the demo router actually uses; then the staging CD gap, which still means none of these commits reach `pos.kkcctv.com.my`
+Next safe task: seed a repair job into the local demo fixture so the repair flow can be walked (there are currently 0), then an interaction pass on a signed-in session; the staging CD gap still means none of these commits reach `pos.kkcctv.com.my`
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## Full UI/UX audit of all 13 in-app screens (2026-08-30)
+
+Every in-app Recommerce screen was rendered from the real Blade against the real CSS cascade (`vendor.css` +
+`init.css` + `app.css` + `saverbro-dark-pos.css`) and audited in a same-origin iframe runner, at **three viewports**
+(375x812, 768x1024, 1280x900). Checks: composited contrast per text style against the WCAG floor for its size and
+weight, form controls without an accessible name, buttons and links without discernible text, light surfaces on the dark
+ground, and horizontal overflow.
+
+### Result: 39 page-renders (13 screens x 3 viewports), all clean
+
+Nothing below AA at any width, no unlabelled control, no nameless control, no light surface, no horizontal overflow.
+That is after fixing what the audit found.
+
+### Defect class 1 — stock components the dark pass never covered
+
+The first dark pass covered `alert-info/warning/danger`, `btn-primary`, `btn-success` and their `label-` twins. Every
+other stock variant stayed on Bootstrap's light defaults and measured **1.86-2.04:1** on the dark ground: `.btn-warning`
+("Post receipt", "Reverse billed state" - both consequential actions), `.btn-info`, `.btn-danger`, `.label-warning`,
+`.label-info`, `.label-default`, and **`.alert-success`**, which the earlier pass simply missed while adding its three
+siblings. `.help-block` - the guidance text under form fields - sat at **3.37:1**, and `pre`/`code` kept a light grey
+block background.
+
+Fixed in `public/css/saverbro-dark-pos.css`, the correct home since these are app-wide classes. Grounds were chosen by
+measurement, not by eye: warning 6.15, info 6.05, danger 6.68, default 8.40, alert-success 11.7-14.5, help-block
+6.67-8.11, pre/code 16.06. `RecommerceDarkStockComponentsTest` asserts all 18 selectors stay covered.
+
+### Defect class 2 — placeholders used as accessible names
+
+**17 form controls** had no accessible name. A placeholder is not one: it disappears on first keystroke and is not
+reliably announced. Fixed across five views - `parts/show` (7), `diagnostics/show` (4), `device/show` (4, where visible
+labels existed but carried no `for`, so nothing associated them), `repair/new` (1, the customer search box, whose
+visible label pointed at the select beside it), and `transfers/exceptions` (1).
+
+`RecommerceFormLabellingTest` guards every module view. Two parsing details it has to get right, both of which produced
+phantom findings first time: Blade expressions contain `->`, which ends an `[^>]*` attribute match early, so they are
+neutralised before scanning; and a control wrapped in its own `<label>` is associated implicitly and must not be
+flagged.
+
+### The static guard caught what the rendered audit could not
+
+The iframe audit found 6 unlabelled controls; the static guard found **17**. The other 11 sit behind conditions the
+fixtures never satisfied - an exception row, a numeric diagnostic check, a reservation in a particular state. Rendering
+proves what a fixture reaches; the source scan reaches the rest. Both are worth having.
+
+### One false positive, recorded so nobody re-chases it
+
+The tablet pass first reported 8 of 13 pages overflowing by exactly 6px. That was the harness: Bootstrap's `.container`
+is a fixed 750px at >=768px, and the preview wrapper added 24px of body padding. The real views do not carry it. A
+uniform excess across unrelated pages is the tell - a genuine responsive break is not the same number everywhere.
+
+### Still not covered
+
+The POS chrome itself (sidebar, navbar, top bar) is outside these renders, and no interaction was exercised - no click,
+submit, or modal open. Those need a signed-in session.
 
 ## Quick create opened a bare HTML fragment (2026-08-30)
 
