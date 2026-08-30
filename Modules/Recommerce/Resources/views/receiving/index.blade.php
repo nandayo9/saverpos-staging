@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Tracked receiving')
+
 @section('content')
     @php
         $existingPurchaseLine = data_get($purchaseContext, 'selected_line');

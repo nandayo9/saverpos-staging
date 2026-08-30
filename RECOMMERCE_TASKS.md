@@ -794,6 +794,41 @@ currently requires the manual cPanel steps. Fixing the pipeline is an
 outward-facing change to a credentialed deploy path and is not authorized by
 this record.
 
+**Repair flow walked in an authenticated browser — two defects found (2026-08-30).**
+The seeded queue was driven signed in against the local demo estate: the repair
+workbench, a repair record, the parts workbench, tracked receiving, and the
+device detail for a fixture device. First interaction evidence for these screens
+with real rows rather than stubs.
+
+Both defects were invisible to source assertions and to every earlier render
+pass, because no fixture had ever carried the data that exposes them.
+
+1. **Every assigned technician displayed as "Assign later."** `repair/show`
+   read `optional($job->assignee)->name`, but Ultimate POS's `users` table has
+   no `name` column and `App\User` exposes `user_full_name`, not `name`. The
+   expression therefore always evaluated null and fell through to the
+   unassigned fallback, so the record actively misreported who held the job.
+   Fixed to the real accessor, trimmed so a user with empty name parts falls
+   back rather than rendering a run of spaces. Covered by
+   `RecommerceRepairRecordRenderTest`, which renders the view rather than
+   asserting its source; both the original bug and a missing trim are caught.
+2. **Four in-app screens rendered an empty browser tab title** — `device/show`,
+   `diagnostics/show`, `parts/show`, `receiving/index` — reading
+   `- SAVERPOS · SAVERPOS Demo`, so a technician with several records open
+   could not tell the tabs apart. `repair/show` and `repair/new` were missing
+   theirs too. All six now carry a title section, record screens naming their
+   job or device code, guarded as a class so the next screen inherits the rule.
+
+Also confirmed rendering correctly from the fixture's own writes: the device
+detail shows the open CONTACT ownership period, the open LOCATION custody
+period, and the `CUSTOMER_REPAIR_INTAKE` timeline entry carrying the
+deterministic command UUID; the repair record shows the full transition
+timeline and offers exactly the state machine's legal moves from `IN_REPAIR`.
+Pre-existing and unchanged: the parts stock dropdown still prints raw
+four-decimal quantities. Suite green at 318 tests / 1456 assertions; static
+check, Blade compile, and the title guard pass. Local authenticated evidence on
+the disposable demo estate — not staging, production, or release evidence.
+
 **Demo estate can walk the repair flow (2026-08-30).**
 The demo database contained **zero** repair jobs, so the repair queue, repair
 record, quote, parts, and collection screens could not be walked at all — the

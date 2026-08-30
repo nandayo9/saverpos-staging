@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Parts workbench '.$job->job_code)
+
 @section('content')
 @php
     // Same vocabulary as the repair workbench list, and the same one the

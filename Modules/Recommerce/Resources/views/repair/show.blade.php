@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Repair record '.$job->job_code)
+
 @section('content')
 <style>
     /* Screen styling follows the shared dark POS palette; the print block at
@@ -56,7 +58,7 @@
 
     <div class="grid">
         <div class="record-card"><h2>Customer and device</h2><div class="card-body"><dl><dt>Customer</dt><dd>{{ optional($job->contact)->name ?: 'Unavailable' }}</dd><dt>Device</dt><dd>{{ $job->device->device_code }}</dd><dt>Category</dt><dd>{{ $job->device->category_code ?: '—' }}</dd><dt>Brand / model</dt><dd>{{ data_get($job->device->specifications_json, 'brand', '—') }} {{ data_get($job->device->specifications_json, 'model', '') }}</dd><dt>Identifier</dt><dd>{{ $job->device->identifiers->count() ? 'Verified on secure device record' : 'Not supplied' }}</dd><dt>Location</dt><dd>{{ $job->location_id }}</dd></dl></div></div>
-        <div class="record-card"><h2>Work plan</h2><div class="card-body"><dl><dt>Received</dt><dd>{{ optional($job->opened_at)->format('d M Y H:i') }}</dd><dt>Due</dt><dd>{{ $job->due_at ? $job->due_at->format('d M Y') : 'Not set' }}</dd><dt>Priority</dt><dd>{{ $job->priority }}</dd><dt>Technician</dt><dd>{{ optional($job->assignee)->name ?: 'Assign later' }}</dd><dt>Access</dt><dd>{{ str_replace('_', ' ', $job->access_status) }}</dd><dt>Quote</dt><dd>{{ $job->estimated_quote_amount !== null ? 'RM '.number_format((float) $job->estimated_quote_amount, 2) : 'Not estimated' }}</dd></dl></div></div>
+        <div class="record-card"><h2>Work plan</h2><div class="card-body"><dl><dt>Received</dt><dd>{{ optional($job->opened_at)->format('d M Y H:i') }}</dd><dt>Due</dt><dd>{{ $job->due_at ? $job->due_at->format('d M Y') : 'Not set' }}</dd><dt>Priority</dt><dd>{{ $job->priority }}</dd><dt>Technician</dt><dd>{{ trim((string) optional($job->assignee)->user_full_name) ?: 'Assign later' }}</dd><dt>Access</dt><dd>{{ str_replace('_', ' ', $job->access_status) }}</dd><dt>Quote</dt><dd>{{ $job->estimated_quote_amount !== null ? 'RM '.number_format((float) $job->estimated_quote_amount, 2) : 'Not estimated' }}</dd></dl></div></div>
     </div>
 
     <div class="record-card"><h2>Fault and intake notes</h2><div class="card-body"><p><strong>Reported fault</strong><br>{!! nl2br(e($job->reported_fault ?: 'Not recorded')) !!}</p><p style="margin-bottom:0"><strong>Cosmetic condition</strong><br>{!! nl2br(e($job->cosmetic_condition ?: 'Not recorded')) !!}</p></div></div>

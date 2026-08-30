@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Device '.$device->device_code)
+
 @section('content')
     <section class="container">
         <div class="row">

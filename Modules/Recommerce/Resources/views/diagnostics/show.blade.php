@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'Diagnostics '.$job->job_code)
+
 @section('content')
     <section class="container" id="recommerce-diagnostics" data-csrf-token="{{ csrf_token() }}">
         <div class="row">

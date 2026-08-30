@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'New customer repair')
+
 @section('content')
 <style>
     .sb-repair-page { max-width: 1140px; margin: 0 auto; }
