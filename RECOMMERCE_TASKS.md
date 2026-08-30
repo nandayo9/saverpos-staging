@@ -684,6 +684,14 @@ published checkout. The cPanel **Update from Remote → Deploy HEAD** step remai
 required before claiming that the current branch is deployed or repeating the
 smoke as deployment evidence.
 
+**Automatic pull fix attempted; cPanel update still blocked (2026-08-30).**
+The workflow was corrected to call `VersionControl/update` for the `staging`
+branch before `VersionControlDeployment/create`, with UAPI error validation.
+The first run for `61fbc7f` failed in that new cPanel request with process exit
+code 5, before the deployment command ran. The live stylesheet fingerprint is
+still the old `3c2ab4f7…`; use cPanel **Update from Remote → Deploy HEAD**
+manually and verify the served asset before claiming the dark UI is live.
+
 **Payment-account repair now reaches the already-seeded estate (2026-08-30).**
 The earlier record said the deployed estate only had to rerun the expansion
 seeder before the Cash smoke. That was wrong: the complete POS
