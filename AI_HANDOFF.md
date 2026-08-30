@@ -3,7 +3,7 @@
 Current milestone: Recommerce — tracked transfer exception workflow
 Last completed task: Reviewed the uncommitted RC-039 warranty work and fixed a confirmed 500-on-denial defect in its controller
 Last commit: `869bf36` + the cohort deny-by-default commit on `staging`, committed locally and **not yet pushed** to `https://github.com/nandayo9/saverpos-staging.git`. NOTE: the working tree is still dirty by design — the RC-039 warranty work and the blocked, undocumented RC-041 legacy repair archive remain uncommitted and were deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **165 tests / 1050 assertions, all green** — verified 2026-08-30 (154/1013 inherited; +3 gate-invariant, +4 deny-by-default, +2 warranty-route and +2 warranty-boundary tests added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
+Tests passing: **166 tests / 1053 assertions, all green** — verified 2026-08-30 (154/1013 inherited; +3 gate-invariant, +4 deny-by-default, +2 warranty-route, +2 warranty-boundary and +1 warranty-determinism test added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: fresh disposable MySQL fixture; rendered browser flow passed for receive, pending/completed A→B transfer, Branch B POS sale, exact-device customer return, Branch B reconciliation (`PASS · core 1 · tracked 1 · legacy 0`), complete Device timeline, and RC-037 receiving exceptions (`MISSING` + `EXTRA` recorded, one manager resolution)
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -169,8 +169,8 @@ Fixed by adding the two imports (and using the already-imported `RepairJob` inst
 **Noted, not changed** — worth a decision rather than a silent edit:
 
 1. ~~**Same-day claims may be rejected.**~~ **CONFIRMED AND FIXED (2026-08-30).** See the section below. The earlier note that "the end boundary has the mirror issue" was wrong and is retracted.
-2. **Money is handled in floats.** `final_total`, covered and chargeable amounts are `(float)` with `round(..., 4)` against `decimal(22,4)` columns. Covered + chargeable is intended to equal the total exactly; float arithmetic does not guarantee that at the last place.
-3. **`saleWarranty()` takes the first matching sell line** for the variation with no ordering, so a sale with several lines for the same variation picks an arbitrary policy.
+2. ~~**Money is handled in floats.**~~ **RETRACTED (2026-08-30)** — tested and did not reproduce; see below.
+3. ~~**`saleWarranty()` takes the first matching sell line**~~ **CONFIRMED AND MADE DETERMINISTIC (2026-08-30)** — see below.
 
 ## Warranty coverage start boundary — confirmed bug, fixed (2026-08-30)
 
@@ -192,4 +192,18 @@ Two regression tests: `test_a_claim_on_the_day_of_sale_is_covered` (which also a
 **Still open from that review, unverified and untouched:** float money handling, and `saleWarranty()` selecting the first matching sell line with no ordering. Neither has been reproduced; treat both as hypotheses, not findings, until they are.
 
 Like the controller import fix, this lives in still-untracked RC-039 files and travels with that work whenever it lands.
+
+## The two remaining RC-039 hypotheses, tested (2026-08-30)
+
+Both were recorded last session as hypotheses rather than findings. Both have now been probed.
+
+**Float money — RETRACTED, no defect.** Covered and chargeable were reconciled against the sale total across five cases: `100.0000`, `100.0500`, `0.0300`, `99999999.9999` and `12345678901234.5678`. The delta was exactly `0.0000000000` in every case. This holds by construction: `covered` is clamped to `[0, total]` and `chargeable` is `total - covered`, so the pair sums to the total whatever the rounding. There is a genuine but purely theoretical precision limit — a total beyond about 15 significant digits does not survive the `(float)` cast intact (`12345678901234.5678` becomes `…568359`) — which is far outside any real currency amount and is not a reconciliation defect. The earlier concern was wrong and is withdrawn.
+
+**Warranty line selection — CONFIRMED, now deterministic.** `saleWarranty()` queried `transaction_sell_lines` with no `ORDER BY`, so with two lines on one sale for the same variation the database was free to return either policy. Probed with a 6-month and a 24-month warranty on one sale: the 6-month policy was returned, but nothing in the query guaranteed it, so the recorded coverage term could differ between runs, engines or query plans — on a table whose whole purpose is durable policy evidence.
+
+Fixed by ordering on `transaction_sell_lines.id`, which locks in the behaviour that already happened in practice rather than choosing a new winner. `test_warranty_selection_is_deterministic_across_duplicate_sell_lines` calls `decision()` twice and asserts both agree and resolve to the earliest line.
+
+**Still a product decision, deliberately not made:** *which* line should supply the policy when a sale carries several for one variation — earliest, latest, longest term, or most favourable to the customer. The fix removes irreproducibility; it does not answer that question, and the test says so in its docblock.
+
+Both changes live in the still-untracked RC-039 files and travel with that work.
 
