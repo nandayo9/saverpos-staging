@@ -1,11 +1,11 @@
 # AI Handoff
 
 Current milestone: Recommerce — live staging smoke verification
-Last completed task: **The Recommerce screens are on the dark palette now** — the earlier dark pass covered stock POS surfaces only, and the module's own screens still painted white cards with dark type inside the dark chrome. Five in-app screens converted to `--sb-*` tokens with light-theme fallbacks, status tones re-derived with measured contrast, and a guard test. Before that: four operations screens rendered; the three unauthenticated documents; the Blade fatal caught by rendering.
+Last completed task: **The dark conversion was rendered and measured in a browser, and it found a real defect** — the checklist emits `outcome-not-applicable` but only `.outcome-na` was styled, so an N/A row inherited the brightest text on the dark card and outranked PASS and FAIL. Fixed and guarded. Measured contrast: 33 distinct text styles across the two screens, none below AA.
 Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **268 tests / 1265 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
+Tests passing: **269 tests / 1269 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
-Browser evidence: unchanged from the previous session for the core flows. New this session: non-browser runtime evidence on a disposable MySQL fixture (both demo branches reset to the deployed state — `Util::payment_types()` returned `[]` before the expansion seeder and all twelve types including `cash` after it), plus an authenticated smoke attempt on `pos.kkcctv.com.my` that **failed to confirm the fix is live**: both staging branches still store an empty payment map. See "Cash smoke attempted on staging" below.
+Browser evidence: the dark repair record and repair queue were rendered from the real Blade against the real stylesheet and measured for contrast (0 of 33 text styles below AA; worst 5.94:1). Earlier sessions' flow evidence (receive, transfer, sale, return, reconciliation) is unchanged. The full authenticated chrome and `repair/new`, `parts/show`, `diagnostics/show` remain unrendered.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
@@ -13,6 +13,51 @@ Next safe task: fix the staging CD so a push actually reaches the site — the w
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## Browser check of the dark conversion — one real defect found (2026-08-30)
+
+The dark work was committed on source evidence alone, so it was rendered and measured. The screens were served as
+standalone pages built from the **real** Blade templates and the **real** `saverbro-dark-pos.css` plus `app.css`,
+inlined, on a throwaway `php -S` (since the authenticated app needs a login this session does not perform). That covers
+the module's own `<style>` blocks and the shared stylesheet — the two things the conversion touched — but not the POS
+layout chrome around them.
+
+### The defect: an N/A checklist row was the brightest thing on the card
+
+`repair/show` builds its class as `outcome-{{ strtolower(str_replace('_','-', $item->outcome)) }}`, and the controller
+restricts that column to `PASS`, `FAIL`, `NOT_APPLICABLE` — so the generated class is **`outcome-not-applicable`**. The
+view only ever defined `.outcome-pass`, `.outcome-fail` and an `.outcome-na` that the checklist never emits. An N/A row
+therefore fell through to the card's default colour.
+
+This is **pre-existing**, not from the conversion, but the conversion made it worse: on the old white card it inherited
+`#172033` and merely looked unemphasised; on the dark card it inherits `--sb-text`, the brightest colour on the screen,
+so "NOT APPLICABLE" outranked PASS and FAIL. Fixed by styling both selectors (`.outcome-na` is still used by the
+warranty card). `RecommerceDeviceLifecycleUiContractTest` now reads the allowed outcomes **out of the controller's
+validation rule** and asserts each generated class has a rule — mutation-checked by removing the new selector.
+
+### Measured, not eyeballed
+
+Contrast was computed from `getComputedStyle` with proper alpha compositing up the ancestor chain, against the real
+rendered backgrounds:
+
+| Screen | Distinct text styles | Below AA (4.5:1) | Worst |
+| --- | --- | --- | --- |
+| `repair/show` | 20 | **0** | 5.94 (`outcome-fail`) |
+| `repair/index` | 13 | **0** | 6.60 (`sb-prio-high`) |
+
+The variables resolve to the dark palette, not the fallbacks — the card measured `rgb(22, 34, 53)`, which is
+`--sb-surface-raised`.
+
+**A first measurement pass was wrong and is worth recording.** Treating any `background-color` other than
+`rgba(0, 0, 0, 0)` as opaque made `.box-header`'s `rgba(255, 255, 255, 0.02)` read as solid white, which reported the
+page heading at 1.11:1 — apparently unreadable, while the screenshot plainly showed it. Alpha has to be composited over
+the ancestors or the numbers are fiction.
+
+### What is still unverified
+
+The full authenticated app: sidebar, navbar and the POS chrome around these screens, and `repair/new`, `parts/show` and
+`diagnostics/show`, which were converted or reviewed but not rendered here. Those need a signed-in session on the
+disposable local fixture.
 
 ## The Recommerce screens were never actually dark (2026-08-30)
 

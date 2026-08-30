@@ -24,7 +24,12 @@
     .sb-record .timeline-time { color:var(--sb-muted,#64748b); font-size:12px; }
     .sb-record .checklist-item { display:flex; justify-content:space-between; gap:14px; padding:9px 0; border-bottom:1px solid var(--sb-border,#f1f5f9); }
     .sb-record .outcome { font-weight:700; font-size:12px; white-space:nowrap; }
-    .sb-record .outcome-pass { color:var(--sb-success,#15803d); }.sb-record .outcome-fail { color:var(--sb-danger,#b91c1c); }.sb-record .outcome-na { color:var(--sb-muted,#64748b); }
+    /* The checklist emits outcome-not-applicable (from NOT_APPLICABLE);
+       the warranty card emits outcome-na. Both must be muted -- without
+       the first selector an N/A row inherits the card's brightest text
+       and reads as more prominent than a PASS or FAIL. */
+    .sb-record .outcome-pass { color:var(--sb-success,#15803d); }.sb-record .outcome-fail { color:var(--sb-danger,#b91c1c); }
+    .sb-record .outcome-na,.sb-record .outcome-not-applicable { color:var(--sb-muted,#64748b); }
     .sb-record .toolbar { display:flex; gap:8px; flex-wrap:wrap; }
     .sb-record .text-muted { color:var(--sb-muted,#64748b) !important; }
     @media(max-width:700px){.sb-record .record-header{display:block}.sb-record .toolbar{margin-top:15px}.sb-record .grid{grid-template-columns:1fr}.sb-record dl{grid-template-columns:1fr;gap:3px;margin-bottom:10px}}
@@ -33,7 +38,7 @@
         .sb-record{max-width:none;color:#172033}
         .sb-record .record-header,.sb-record .record-card{background:#fff;box-shadow:none;border-color:#d1d5db;break-inside:avoid}
         .sb-record h2{border-bottom-color:#eef0f4}
-        .sb-record dt,.sb-record .timeline-time,.sb-record .outcome-na,.sb-record .text-muted{color:#64748b !important}
+        .sb-record dt,.sb-record .timeline-time,.sb-record .outcome-na,.sb-record .outcome-not-applicable,.sb-record .text-muted{color:#64748b !important}
         .sb-record .badge{background:#eef2ff;color:#4338ca}
         .sb-record .timeline{border-left-color:#dbeafe}
         .sb-record .timeline-item:before{background:#4f46e5}

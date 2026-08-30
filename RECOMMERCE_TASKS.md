@@ -600,6 +600,16 @@ text displayed to a customer over an unauthenticated link), and a label whose
 scan target is never printed as text. 13 of 17 module views remain
 compilation-only. Local test evidence, not release evidence.
 
+**Dark conversion rendered and measured (2026-08-30).**
+The repair record and repair queue were rendered from the real Blade against
+the real stylesheet and measured with `getComputedStyle`: 33 distinct text
+styles, none below the AA 4.5:1 floor, worst 5.94:1. One real defect surfaced
+and was fixed: the checklist emits `outcome-not-applicable` while only
+`.outcome-na` was styled, so an N/A row inherited the card's brightest colour
+and outranked PASS and FAIL on the dark surface. Pre-existing, but harmless on
+the old white card and wrong on the new one. The full authenticated chrome and
+`repair/new`, `parts/show`, `diagnostics/show` remain unrendered.
+
 **Recommerce screens brought onto the dark palette (2026-08-30).**
 The earlier presentation pass covered stock POS surfaces; the shared stylesheet
 has no rules for the module's own classes, so the Recommerce screens still
