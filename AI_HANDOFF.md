@@ -1,8 +1,8 @@
 # AI Handoff
 
-Current milestone: Recommerce — live staging smoke verification
+Current milestone: Recommerce — UI/UX verification complete; interaction and deployment still blocked
 Last completed task: **Full UI/UX audit of all 13 in-app screens at three viewports** — 39 page-renders, all clean after fixing two defect classes: stock Bootstrap components the dark pass never covered (measuring 1.86-2.04:1, including `.alert-success`, `.btn-warning` and `.help-block`), and 17 form controls using a placeholder as their accessible name.
-Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
+Latest implementation commit: `66655d0` on `staging`. **12 commits ahead of `origin/staging`, and pushing them would still not reach the live site** — see "START HERE" below. The working tree is dirty by design: the untracked files and the two modified shared files are the blocked RC-041 archive and must not be committed.
 Tests passing: **305 tests / 1311 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: all 13 in-app screens rendered from real Blade against the real CSS cascade and audited at 375/768/1280 — 0 below AA, 0 unlabelled controls, 0 light surfaces, 0 horizontal overflow. Earlier sessions' flow evidence unchanged. POS chrome and any interaction (click, submit, modal) remain unverified — they need a session.
@@ -13,6 +13,83 @@ Next safe task: seed a repair job into the local demo fixture so the repair flow
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## START HERE — handover (2026-08-30)
+
+Read this section before touching anything. The rest of the file is a reverse-chronological session log; the traps below
+are the ones that will cost you time or make you ship something wrong.
+
+### Four things that will mislead you
+
+1. **A push does not deploy.** `.github/workflows/deploy-staging.yml` calls only cPanel's
+   `VersionControlDeployment/create`, which deploys the HEAD of the **server's** checkout and never pulls from GitHub.
+   Three workflow runs have reported success while shipping stale code. Proof: the dark stylesheet served from
+   `pos.kkcctv.com.my` is byte-identical (sha256 `3c2ab4f7…`, 25482 bytes) to its state at `03d49f2`, so the live site
+   predates `e69b8dd`. **12 local commits are unpushed, and pushing them would still not reach the site.** Deploying
+   needs the operator's manual cPanel *Update from Remote* → *Deploy HEAD Commit*.
+2. **The working tree is dirty on purpose.** Six untracked files plus two modified (`Config/config.php`,
+   `Routes/web.php`) are the **blocked RC-041** legacy repair archive. Do not commit them — they carry a confirmed
+   privilege-escalation defect and contradict the RCR-001 disposition. Every commit in this session staged files
+   explicitly for that reason.
+3. **`php artisan` is broken in this checkout.** `.env` has `DB_CONNECTION=sqlite` pointing at
+   `/private/tmp/saverbro_recommerce_demo.sqlite`, which does not exist, so `route:list`, `migrate` and friends fail.
+   The **served** app is fine: `scripts/saverpos-demo-router.php` overrides the connection to MySQL per request. Prefix
+   artisan calls with `DB_CONNECTION=sqlite DB_DATABASE=:memory:` or point them at a `saverpos_demo_*` database.
+4. **Never trust a source-only assertion about a view.** Two bugs this session were invisible to them: a Blade fatal I
+   introduced myself (uncompiled `@endif@if`), and a checklist class the CSS never defined. Render the thing.
+
+### What is verified, and what is not
+
+| | State |
+| --- | --- |
+| Suite | **305 tests / 1311 assertions green**, PHP 8.2.33, zero deprecations/warnings/skipped/risky |
+| Static check | `node scripts/recommerce-static-check.mjs` green |
+| Views | All 17 compile-guarded; 13 in-app screens rendered and audited at 375/768/1280 — 0 below AA, 0 unlabelled, 0 light surfaces, 0 overflow |
+| **Never exercised** | **Any interaction** — no click, submit, or modal open anywhere |
+| **Never seen** | POS chrome (sidebar/navbar); the authenticated app at all |
+| Local fixture | `saverpos_demo_p0`: 1 business, 2 branches, 17 devices, 4 customers, **0 repair jobs** |
+| Staging | Runs code from before `e69b8dd`; the Cash smoke remains unverified there |
+
+Local app is served by `scripts/serve-saverpos-demo-runtime.sh` on `127.0.0.1:8010`.
+
+### Why interaction is unverified
+
+Logging in means typing a password, which this session does not do. Everything needing a session — the repair flow, the
+Quick create modal actually opening, the Cash smoke — is blocked on a human signing in, then handing the browser over.
+That is the single highest-value thing the next session can unblock.
+
+### Decisions the operator owes, not you
+
+Do not invent any of these; each would put fabricated business rules into a POS.
+
+- **RC-038** trade-in acquisition accounting · **RC-042** retention periods and secret policy · **RC-043** notification
+  channel · **RC-044** metric definitions · **RC-040/045/046** approved environments, data, and real people
+- **RC-041** disposition: revert, park on a branch, or rework onto `AuthorizationGate`. Until settled, two owed tests
+  stay unwritten (config/label parity; a structural guard that no service decides permissions without the gate) — both
+  would go red purely because those untracked files exist.
+- **Repository visibility** — `nandayo9/saverpos-staging` is public.
+- **The duplicate `logout` route name** blocks `route:cache`; stock POS code, needs someone to choose which route keeps
+  the name.
+- **`public/js/pos.js:3037`** throws on a partial payment-account map. The seeder fix removed the trigger for the demo
+  estate; any location with a partial map still hits it.
+
+### Methods established here — reuse them, don't reinvent
+
+- **Render harness**: `Tests\Fixtures\RendersRecommerceViews` + `tests/Fixtures/views/layouts/app.blade.php`. Needs
+  `recommerce.enabled => true` (routes) and a `system` table (a global composer reads settings on every render).
+- **Mutation-check every guard.** Several tests written this session passed while proving nothing until mutated; two
+  survivors turned out to be findings about the code rather than gaps in the test.
+- **Measure contrast, don't eyeball it** — and composite alpha up the ancestor chain. Treating `rgba(255,255,255,0.02)`
+  as opaque reported a perfectly readable heading at 1.11:1.
+- **A uniform anomaly across unrelated pages is your harness**, not the code. An exact 6px overflow on 8 pages was the
+  preview's body padding.
+
+### Suggested order
+
+1. Get a signed-in session and do an interaction pass (Quick create, repair intake, the flows).
+2. Add repair-job fixtures to `SaverposDemoRuntimeSeeder` so the repair flow can be walked at all.
+3. Fix the CD gap, or accept manual cPanel deploys and say so in the runbook.
+4. Reconcile `.env` with the MySQL the demo router actually uses.
 
 ## Full UI/UX audit of all 13 in-app screens (2026-08-30)
 
