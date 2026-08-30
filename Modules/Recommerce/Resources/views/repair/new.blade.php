@@ -2,31 +2,45 @@
 
 @section('content')
 <style>
-    .sb-repair-page { max-width: 1180px; margin: 0 auto; }
-    .sb-repair-hero { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:18px; }
-    .sb-repair-hero h1 { margin:0 0 6px; font-size:26px; font-weight:700; color:#172033; }
-    .sb-repair-muted { color:#64748b; }
-    .sb-repair-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 5px 18px rgba(15,23,42,.05); margin-bottom:16px; }
-    .sb-repair-card h2 { font-size:16px; margin:0; padding:15px 18px; border-bottom:1px solid #eef0f4; color:#172033; }
-    .sb-repair-card .card-body { padding:18px; }
-    .sb-repair-card .form-control { min-height:40px; border-radius:6px; }
-    .sb-repair-card textarea.form-control { min-height:92px; }
+    .sb-repair-page { max-width: 1140px; margin: 0 auto; }
+    .sb-repair-hero { display:flex; justify-content:space-between; align-items:center; gap:20px; margin-bottom:18px; }
+    .sb-repair-hero h1 { margin:2px 0 5px; font-size:24px; font-weight:700; color:#172033; }
+    .sb-repair-muted { color:#58657a; font-size:13px; }
+    .sb-repair-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 6px 16px rgba(15,23,42,.04); margin-bottom:14px; overflow:hidden; }
+    .sb-repair-card h2 { font-size:14px; font-weight:800; letter-spacing:.02em; margin:0; padding:13px 18px; border-bottom:1px solid #eaeef5; color:#0f172a; }
+    .sb-repair-card .card-body { padding:16px 18px; }
+    .sb-repair-card .card-lead { margin:0 0 14px; font-size:13px; color:#58657a; }
+    .sb-repair-card .form-control { min-height:38px; border-radius:6px; border-color:#d7dce4; }
+    .sb-repair-card textarea.form-control { min-height:82px; }
+    .sb-repair-card label { font-weight:600; margin-bottom:5px; display:block; }
+    .sb-repair-card label .sb-required { color:#dc2626; margin-left:3px; }
     .sb-checklist { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-    .sb-check { border:1px solid #e5e7eb; border-radius:7px; padding:10px 12px; }
-    .sb-check label { font-weight:600; margin-bottom:7px; display:block; }
-    .sb-check .form-control { min-height:34px; }
+    .sb-check { border:1px solid #e2e8f0; border-radius:7px; padding:9px 11px; background:#fbfdff; }
+    .sb-check label { font-weight:700; margin-bottom:6px; display:block; }
+    .sb-check .form-control { min-height:32px; }
     .sb-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .sb-status { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; }
-    .sb-status-info { background:#eef2ff; color:#4338ca; }
-    @media (max-width: 767px) { .sb-repair-hero { display:block; } .sb-checklist { grid-template-columns:1fr; } }
+    .sb-status { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 10px; font-size:11px; font-weight:800; text-transform:uppercase; }
+    .sb-status-info { background:#eef4ff; color:#2f5ec8; }
+    .sb-search { border:1px solid #dbe3ea; border-radius:7px; padding:11px 12px; background:#f9fbfd; margin-bottom:15px; }
+    .sb-search .form-control { min-height:34px; }
+    .sb-search .search-help { margin:8px 0 0; font-size:12px; color:#64748b; }
+    @media (max-width: 767px) {
+        .sb-repair-hero { align-items:flex-start; flex-direction:column; }
+        .sb-repair-card h2 { padding:12px 15px; }
+        .sb-repair-card .card-body { padding:14px 15px; }
+        .sb-checklist { grid-template-columns:1fr; }
+        .sb-actions { align-items:stretch; flex-direction:column; }
+        .sb-actions .btn { width:100%; }
+    }
 </style>
 
 <section class="container-fluid sb-repair-page" aria-labelledby="new-repair-title">
     <div class="sb-repair-hero">
         <div>
-            <p class="sb-repair-muted" style="margin:0 0 5px">Recommerce / Repair · Location {{ $locationId }}</p>
+            <p class="sb-repair-muted" style="margin:0 0 5px">Customer Repair · Location {{ $locationId }}</p>
             <h1 id="new-repair-title">New Customer Repair</h1>
-            <p class="sb-repair-muted" style="margin:0">Capture the counter handoff once. The repair code is created after the transaction succeeds.</p>
+            <p class="sb-repair-muted" style="margin:0">Capture the handoff once; the repair code appears after the record saves.</p>
+<div class="sb-repair-help">Start with the customer, then find the device and describe the handoff.</div>
         </div>
         <div class="sb-actions">
             <span class="sb-status sb-status-info"><span aria-hidden="true">●</span> Customer-owned · no POS stock</span>
@@ -40,11 +54,11 @@
             <div class="row">
                 <div class="col-md-7">
                     <div class="sb-repair-card">
-                        <h2>1. Customer and device</h2>
+                        <h2>Customer and device</h2>
                         <div class="card-body">
                             <div class="form-group">
-                                <label for="repair-customer">Customer <span class="text-danger">*</span></label>
-                                <input id="repair-customer-search" class="form-control" style="margin-bottom:7px" autocomplete="off" placeholder="Type to filter customers by name, reference, or mobile" aria-describedby="repair-customer-help">
+                                <label for="repair-customer">Customer <span class="sb-required">*</span></label>
+                                <input id="repair-customer-search" class="form-control" style="margin-bottom:7px" autocomplete="off" placeholder="Search by name, reference, or mobile" aria-describedby="repair-customer-help">
                                 <div class="input-group">
                                     <select id="repair-customer" class="form-control" required aria-describedby="repair-customer-help">
                                         <option value="">Select a customer</option>
@@ -54,13 +68,13 @@
                                     </select>
                                     <span class="input-group-btn"><a class="btn btn-default" href="{{ route('contacts.create', ['type' => 'customer']) }}" target="_blank" rel="noopener">Quick create</a></span>
                                 </div>
-                                <span id="repair-customer-help" class="help-block">Search by name, reference, or mobile. Refresh this page after creating a new customer.</span>
+                                <span id="repair-customer-help" class="help-block">Search by name, contact reference, or mobile. If the customer is new, use <strong>Quick create</strong> and then refresh this page.</span>
                             </div>
 
-                            <div class="well well-sm" style="margin-bottom:18px">
+                            <div class="sb-search">
                                 <div class="row">
                                     <div class="col-sm-4">
-                                        <label for="repair-identifier-type">Existing device search</label>
+                                        <label for="repair-identifier-type">Identifier type</label>
                                         <select id="repair-identifier-type" class="form-control">
                                             <option value="SERIAL">Serial / service tag</option>
                                             <option value="IMEI">IMEI</option>
@@ -68,38 +82,38 @@
                                         </select>
                                     </div>
                                     <div class="col-sm-5">
-                                        <label for="repair-identifier-value">Identifier</label>
-                                        <input id="repair-identifier-value" class="form-control" maxlength="255" autocomplete="off" placeholder="Enter an identifier">
+                                        <label for="repair-identifier-value">Identifier value</label>
+                                        <input id="repair-identifier-value" class="form-control" maxlength="255" autocomplete="off" placeholder="Serial, IMEI, or SAVERPOS code">
                                     </div>
                                     <div class="col-sm-3" style="padding-top:25px">
-                                        <button type="button" id="repair-device-search" class="btn btn-default btn-block">Search</button>
+                                        <button type="button" id="repair-device-search" class="btn btn-primary btn-block">Find device</button>
                                     </div>
                                 </div>
-                                <p id="repair-device-result" class="help-block" style="margin:9px 0 0" role="status">Search is exact and scoped to this customer and location.</p>
+                                <p id="repair-device-result" class="help-block search-help" style="margin:9px 0 0" role="status" aria-live="polite">Exact lookup. Scoped to this customer and branch. If no match is found, the form creates a new device.</p>
                                 <input type="hidden" id="repair-device-id">
                             </div>
 
                             <div class="row">
                                 <div class="col-sm-4 form-group">
-                                    <label for="repair-category">Device category <span class="text-danger">*</span></label>
+                                    <label for="repair-category">Device category <span class="sb-required">*</span></label>
                                     <select id="repair-category" class="form-control" required>
-                                        <option value="">Choose category</option><option value="PHONE">Phone</option><option value="TABLET">Tablet</option><option value="LAPTOP">Laptop</option><option value="DESKTOP">Desktop</option><option value="CONSOLE">Game console</option><option value="OTHER">Other</option>
+                                        <option value="">Select a category</option><option value="PHONE">Phone</option><option value="TABLET">Tablet</option><option value="LAPTOP">Laptop</option><option value="DESKTOP">Desktop</option><option value="CONSOLE">Game console</option><option value="OTHER">Other</option>
                                     </select>
                                 </div>
-                                <div class="col-sm-4 form-group"><label for="repair-brand">Brand <span class="text-danger">*</span></label><input id="repair-brand" class="form-control" maxlength="120" required></div>
-                                <div class="col-sm-4 form-group"><label for="repair-model">Model <span class="text-danger">*</span></label><input id="repair-model" class="form-control" maxlength="160" required></div>
+                                <div class="col-sm-4 form-group"><label for="repair-brand">Brand <span class="sb-required">*</span></label><input id="repair-brand" class="form-control" maxlength="120" required></div>
+                                <div class="col-sm-4 form-group"><label for="repair-model">Model <span class="sb-required">*</span></label><input id="repair-model" class="form-control" maxlength="160" required></div>
                             </div>
                         </div>
                     </div>
 
                     <div class="sb-repair-card">
-                        <h2>2. Fault and handoff</h2>
+                        <h2>Fault and handoff</h2>
                         <div class="card-body">
-                            <div class="form-group"><label for="repair-fault">Fault description <span class="text-danger">*</span></label><textarea id="repair-fault" class="form-control" maxlength="10000" required placeholder="What does the customer report? Include symptoms and when it started."></textarea></div>
-                            <div class="form-group"><label for="repair-condition">Cosmetic condition <span class="text-danger">*</span></label><textarea id="repair-condition" class="form-control" maxlength="10000" required placeholder="Record scratches, cracks, dents, liquid indicators, and other visible condition."></textarea></div>
+                            <div class="form-group"><label for="repair-fault">Fault description <span class="sb-required">*</span></label><textarea id="repair-fault" class="form-control" maxlength="10000" required placeholder="What does the customer report? Include symptoms and when it started."></textarea></div>
+                            <div class="form-group"><label for="repair-condition">Cosmetic condition <span class="sb-required">*</span></label><textarea id="repair-condition" class="form-control" maxlength="10000" required placeholder="Record scratches, cracks, dents, liquid indicators, and other visible condition."></textarea></div>
                             <div class="row">
-                                <div class="col-sm-6 form-group"><label for="repair-access">Device access status <span class="text-danger">*</span></label><select id="repair-access" class="form-control" required><option value="NO_LOCK">No lock</option><option value="CUSTOMER_WILL_UNLOCK">Customer will unlock when needed</option><option value="EXTERNAL_ACCESS_SUPPLIED">Access details supplied externally</option></select><span class="help-block">Never enter a password, PIN, pattern, or credential here.</span></div>
-                                <div class="col-sm-6 form-group"><label for="repair-update">Customer-facing update</label><input id="repair-update" class="form-control" maxlength="1000" value="Device received. We will update you after diagnosis."></div>
+                                <div class="col-sm-6 form-group"><label for="repair-access">Device access status <span class="sb-required">*</span></label><select id="repair-access" class="form-control" required><option value="NO_LOCK">No lock configured</option><option value="CUSTOMER_WILL_UNLOCK">Customer will unlock when needed</option><option value="EXTERNAL_ACCESS_SUPPLIED">Access details supplied externally</option></select><span class="help-block">Never enter a password, PIN, pattern, or credential here.</span></div>
+                                <div class="col-sm-12 form-group"><label for="repair-update">Customer-facing update</label><input id="repair-update" class="form-control" maxlength="1000" value="Device received. We will update you after diagnosis."></div>
                             </div>
                         </div>
                     </div>
@@ -107,11 +121,11 @@
 
                 <div class="col-md-5">
                     <div class="sb-repair-card">
-                        <h2>3. Work plan</h2>
+                        <h2>Work plan</h2>
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-sm-6 form-group"><label for="repair-due">Due date</label><input id="repair-due" type="date" class="form-control"></div>
-                                <div class="col-sm-6 form-group"><label for="repair-priority">Priority <span class="text-danger">*</span></label><select id="repair-priority" class="form-control" required><option value="NORMAL">Normal</option><option value="LOW">Low</option><option value="HIGH">High</option><option value="URGENT">Urgent</option></select></div>
+                                <div class="col-sm-6 form-group"><label for="repair-priority">Priority <span class="sb-required">*</span></label><select id="repair-priority" class="form-control" required><option value="NORMAL">Normal</option><option value="LOW">Low</option><option value="HIGH">High</option><option value="URGENT">Urgent</option></select></div>
                             </div>
                             <div class="form-group"><label for="repair-technician">Assigned technician</label><select id="repair-technician" class="form-control"><option value="">Assign later</option>@foreach ($technicians as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select></div>
                             <div class="row">
@@ -123,13 +137,13 @@
                     </div>
 
                     <div class="sb-repair-card">
-                        <h2>4. Pre-repair checklist</h2>
+                        <h2>Pre-repair checklist</h2>
                         <div class="card-body">
-                            <p class="help-block" style="margin-top:0">Choose an outcome for every check. Add a short note for exceptions or visible evidence.</p>
+                            <p class="card-lead">Select an outcome for every check. Add short notes for exceptions or visible evidence.</p>
                             <div class="sb-checklist">
                                 @foreach ($checklist as $check)
                                     <div class="sb-check" data-check-key="{{ $check['key'] }}" data-check-label="{{ $check['label'] }}">
-                                        <label for="check-{{ $check['key'] }}">{{ $check['label'] }} <span class="text-danger">*</span></label>
+                                        <label for="check-{{ $check['key'] }}">{{ $check['label'] }} <span class="sb-required">*</span></label>
                                         <select id="check-{{ $check['key'] }}" class="form-control checklist-outcome" required><option value="">Choose</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option><option value="NOT_APPLICABLE">NOT APPLICABLE</option></select>
                                         <input class="form-control checklist-note" style="margin-top:7px" maxlength="1000" placeholder="Optional note" aria-label="{{ $check['label'] }} note">
                                     </div>
@@ -139,7 +153,7 @@
                     </div>
 
                     <div class="sb-actions" style="justify-content:flex-end; margin-bottom:24px">
-                        <a class="btn btn-default" href="{{ route('recommerce.repair.index') }}">Cancel</a>
+                        <a class="btn btn-default" href="{{ route('recommerce.repair.index') }}">Return to workbench</a>
                         <button id="repair-submit" class="btn btn-primary btn-lg" type="submit">Create customer repair</button>
                     </div>
                 </div>

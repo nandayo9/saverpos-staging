@@ -129,3 +129,25 @@ The mutation harness is not committed — it is ~60 lines of Python that copies 
 
 Not covered by this sweep, and still the open risk: a service that bypasses `AuthorizationGate` altogether. Mutation testing the gate cannot detect a caller that never asks it. That is `LegacyRepairArchiveService`, and it needs the structural guard test listed above.
 
+## Repair UI review and fixes (2026-08-30)
+
+The two repair Blade views carried uncommitted, unreviewed UI edits. They were rendered with real stub data against the deployment's own `vendor.css`/`app.css` and screenshotted in Chromium at 1440px and 390px. That found a regression the whole test suite could not see.
+
+**Layout regression (introduced by the uncommitted edit, now fixed).** `new.blade.php` had 43 opening `<div>` tags and 44 closing ones; HEAD was balanced at 43/43. The edit removed a `<div class="well well-sm">` wrapper around the device-lookup block and left its `</div>` behind. The surplus tag closed the outer `.row` early, so the `col-md-5` column holding Work plan, Pre-repair checklist and the submit buttons fell outside the grid entirely and rendered as a narrow left column with ~45% of the page empty. The fix reinstates the wrapper as `<div class="sb-search">`, which rebalances the document and simultaneously activates the `.sb-search` rules the same edit had added without ever applying them.
+
+**Status and priority now carry meaning.** Every state previously rendered `label label-primary`; RECEIVED, IN PROGRESS, READY and AWAITING PARTS were the same blue pill, and priority was undifferentiated plain text. There is now a state-to-tone map (intake / active / blocked / done / closed) with colour pairs chosen for AA contrast rather than inherited from Bootstrap defaults (`label-warning` is white-on-orange and fails). Overdue and due-today jobs get red/amber dates with a flag, excluding terminal states so a finished job never nags.
+
+**Summary counters are operational.** `with due date` — a number nobody acts on — was replaced by `overdue` and `due today`, which turn red and amber when non-zero.
+
+**Mobile.** Rows stack into labelled cards, so Status, Priority and Due stay on screen instead of scrolling out of a 390px viewport; previously only Repair code, Customer and part of Device were reachable. The action buttons no longer render above the page heading (the earlier `float:none` rule exposed source order); flex ordering keeps title, subtitle, actions.
+
+**Dead CSS eliminated.** The uncommitted edit had added rules that no markup used: `.empty-state`, `.actions` (index) and `.sb-search`, `.card-lead`, `.sb-required` (new). All five now style their evident targets — including a real empty state replacing the bare muted table row, and `.sb-required` replacing nine `text-danger` asterisks. An audit of all 16 Recommerce views found no other div imbalance and no other dead CSS.
+
+**Removed:** the permanent green "Counter intake is ready" banner, which was onboarding copy occupying the most prominent slot on every page load. The read-only notice still shows when the write gate is closed. Restore it if the cohort still needs the reminder.
+
+**Not fixable in markup:** the due-date field renders `mm/dd/yyyy` because `<input type="date">` follows browser locale; the rest of the UI uses `d M Y`. Forcing the format needs a JS datepicker — a product decision, not a tidy-up.
+
+**Left alone:** `parts/show.blade.php` still hardcodes `label-default`/`label-info` for reservation and usage status (lines 45, 47). The same tone system would suit it, but that view was outside this review's scope and has not been rendered or screenshotted.
+
+Verification: full suite green (161 tests / 1038 assertions), `recommerce-static-check` passes, no page-level horizontal overflow and no JS console errors at either width.
+
