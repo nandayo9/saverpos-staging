@@ -154,7 +154,12 @@ class SaverposDemoExpansionSeeder extends Seeder
                     ]);
                 }
             }
-            $this->command?->info('SAVERPOS demo expansion ready: products=5; devices=17; purchase=PO-DEMO-002.');
+            // Reaching the already-deployed estate matters as much as the
+            // fresh one: the runtime seeder only ever runs against an empty
+            // database, so a fixture added there alone never arrives on staging.
+            $repairJobs = SaverposDemoRepairFixture::apply((int) $business->id, $branchA, $userId, $this->command);
+
+            $this->command?->info("SAVERPOS demo expansion ready: products=5; devices=17; repair_jobs={$repairJobs}; purchase=PO-DEMO-002.");
         });
     }
 

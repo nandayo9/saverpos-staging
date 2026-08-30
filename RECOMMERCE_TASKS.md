@@ -794,6 +794,43 @@ currently requires the manual cPanel steps. Fixing the pipeline is an
 outward-facing change to a credentialed deploy path and is not authorized by
 this record.
 
+**Demo estate can walk the repair flow (2026-08-30).**
+The demo database contained **zero** repair jobs, so the repair queue, repair
+record, quote, parts, and collection screens could not be walked at all — the
+gap the previous session recorded but did not close.
+`Database\Seeders\SaverposDemoRepairFixture` now opens four fictional
+CUSTOMER_REPAIR jobs, one per demo customer, at Branch A (the cohort location
+the queue reads), spread across RECEIVED, DIAGNOSIS, AWAITING_APPROVAL, and
+IN_REPAIR, each with a customer-owned device, the configured intake checklist,
+its state-transition history, and an active public lookup token.
+
+Only customer repairs are seeded, deliberately: a customer-owned device carries
+`stock_participation = NONE`, so nothing here moves core stock or the tracked
+reconciliation counts the staging smoke is verified against. An internal
+refurbishment job would have to consume one of the cohort-variation units those
+flows already use. Measured on a disposable MySQL fixture: 17 business-owned
+ON_HAND devices against 17 `qty_available` at Branch A, unchanged by the
+fixture.
+
+Rows are written directly, as the surrounding demo seeders already do for
+devices, movements, and periods. A seeder is a data fixture, not an actor, and
+it must not hold or grant the cohort/permission gate that
+`RepairJobIntakeService` enforces for real intake. Everything borrowable from
+the module is borrowed: `RepairJobStateMachine::assertNewJob` asserts each job
+is legally formed, the real `RepairJobTransitionService` performs every state
+advance, checklist labels come from config rather than a copy, and device codes
+come from `DeviceCode::forDeviceId`.
+
+Wired into **both** seeders, applying the payment-account lesson: the runtime
+seeder only runs against a fresh database, so a fixture added there alone would
+never reach the already-seeded staging estate. Verified on disposable MySQL in
+both directions — fresh seed reports `repair_jobs=4`, a re-run reports `0`, and
+the expansion seeder against an estate stripped of repair rows reports `4`.
+`SaverposDemoRepairFixtureTest` covers it with 8 tests, each mutation-checked
+(8 mutations, 8 caught). Suite green at 314 tests / 1451 assertions; static
+check passes. This is local and disposable-fixture evidence; the seeded queue
+has not been rendered in an authenticated browser session.
+
 The first ten implementation tasks are `RC-001` through `RC-010`. They deliberately resolve source/runtime/data uncertainty and establish security, transactions, audit, canonical device identity, and safe code allocation before any UI or stock mutation is built.
 
 No task in this ledger is authorized for implementation by this architecture package alone. Each task should be taken through normal review and approval, and the first production task must not begin until SaverBro chooses to proceed.

@@ -247,7 +247,12 @@ class SaverposDemoRuntimeSeeder extends Seeder
             $role->syncPermissions(Permission::query()->where('guard_name', 'web')->get());
             User::query()->findOrFail($userId)->assignRole($role);
 
-            $this->command?->info("SAVERPOS demo fixture: business={$businessId}; branch_a={$branchA}; branch_b={$branchB}; products=5; devices=17; variation={$variationId}; device=SB-DV-00000001-9");
+            // Seeded at Branch A, the cohort location the repair queue reads,
+            // and after the demo role exists so the account that will walk the
+            // jobs can see them.
+            $repairJobs = SaverposDemoRepairFixture::apply($businessId, $branchA, $userId, $this->command);
+
+            $this->command?->info("SAVERPOS demo fixture: business={$businessId}; branch_a={$branchA}; branch_b={$branchB}; products=5; devices=17; repair_jobs={$repairJobs}; variation={$variationId}; device=SB-DV-00000001-9");
         });
     }
 

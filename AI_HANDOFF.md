@@ -1,16 +1,17 @@
 # AI Handoff
 
-Current milestone: Recommerce — staging Cash flow and Dashboard dark UI are verified; server-local cPanel Cron deployment is verified and avoids the protected external API
-Last completed task: **Fix Dashboard chart dark surfaces** — commit `4dfc4b5` adds semantic chart surfaces, dark Highcharts canvas/controls/tooltips, and a stylesheet file-mtime cache-buster. The pushed commit was deployed by the server-local Cron and verified live on 2026-08-30.
-Latest implementation commits: `4dfc4b5` fixes the Dashboard chart surfaces; `263f81b` adds the fast-forward-only Cron polling helper and makes the former GitHub API workflow manual-dispatch diagnostic only; `71cb6fd` ignores the cPanel-generated root `error_log`; `c1679b4` normalizes the cPanel host and fails safely on non-JSON responses. All are pushed to `staging`. The working tree is dirty by design: the untracked files and the two modified shared files are the blocked RC-041 archive and must not be committed.
-Tests passing: **306 tests / 1317 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` and Blade view caching pass.
+Current milestone: Recommerce — staging Cash flow and Dashboard dark UI are verified; server-local cPanel Cron deployment is verified and avoids the protected external API; the demo estate can now walk the repair flow
+Last completed task: **Seed the demo repair queue** — `SaverposDemoRepairFixture` opens four fictional customer repair jobs across four states in both demo seeders, closing the "0 repair jobs" gap that made the repair screens unwalkable. Not deployed: the commit has not been pushed, so staging still has no repair jobs until it is.
+Previous task: **Fix Dashboard chart dark surfaces** — commit `4dfc4b5` adds semantic chart surfaces, dark Highcharts canvas/controls/tooltips, and a stylesheet file-mtime cache-buster. The pushed commit was deployed by the server-local Cron and verified live on 2026-08-30.
+Latest implementation commits: **Give the demo estate a repair queue to walk** — the newest commit on `staging`, seeding the demo repair queue through both demo seeders (local only — not yet pushed, so staging still has no repair jobs); `4dfc4b5` fixes the Dashboard chart surfaces; `263f81b` adds the fast-forward-only Cron polling helper and makes the former GitHub API workflow manual-dispatch diagnostic only; `71cb6fd` ignores the cPanel-generated root `error_log`; `c1679b4` normalizes the cPanel host and fails safely on non-JSON responses. All are pushed to `staging`. The working tree is dirty by design: the untracked files and the two modified shared files are the blocked RC-041 archive and must not be committed.
+Tests passing: **314 tests / 1451 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` and Blade view caching pass.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: all 13 in-app screens rendered from real Blade against the real CSS cascade and audited at 375/768/1280 — 0 below AA, 0 unlabelled controls, 0 light surfaces, 0 horizontal overflow. The live Dashboard now loads the cache-busted dark stylesheet; both Highcharts canvases compute to `rgb(13, 23, 38)`, controls to `rgb(21, 34, 56)`, axis text to `rgb(151, 169, 193)`, and no chart background/control retains white. Staging interaction also passed: currency displayed RM; receipt transaction 8 created `SB-DV-00000019-1`; transfer `CASH-SMOKE-TRANSFER-20260830` completed; Cash sale `INV-0002` posted for RM 1,200.00; the exact device was returned; Branch B reconciliation reported `PASS · core 2 · tracked 2 · legacy 0`.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: use GitHub pushes for normal staging updates and verify the intended browser-visible change within five minutes. One cPanel **Update from Remote** was required as bootstrap; afterward the Cron Job fetches and fast-forward merges `origin/staging`, then invokes the existing deployment script only when the branch advances. Do not bypass, disable globally, or automate the JavaScript anti-bot challenge. Do not advance RC-045/RC-046 from this flow evidence alone.
-Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
+Next safe task: get the seeded repair queue in front of a signed-in browser — render `/recommerce/repair`, open a job record, and walk quote/parts/collection with real data for the first time. Pushing this commit is what puts the fixture on staging (the expansion seeder is what reaches the already-seeded estate); use GitHub pushes for normal staging updates and verify the intended browser-visible change within five minutes. One cPanel **Update from Remote** was required as bootstrap; afterward the Cron Job fetches and fast-forward merges `origin/staging`, then invokes the existing deployment script only when the branch advances. Do not bypass, disable globally, or automate the JavaScript anti-bot challenge. Do not advance RC-045/RC-046 from this flow evidence alone.
+Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` and `database/seeders/SaverposDemo*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has PHP 8.2, MySQL, and Let's Encrypt SSL. Browser inspection confirmed the managed repository path `/home/kkcctv93/repositories/saverpos-staging-repo`; one **Update from Remote** moved it to the helper-containing checkout. cPanel now confirms the server-local Cron entry `*/5 * * * * /bin/bash /home/kkcctv93/repositories/saverpos-staging-repo/scripts/cpanel-staging-poll.sh >> /home/kkcctv93/repositories/saverpos-staging-repo/storage/logs/cpanel-staging-cron.log 2>&1`. The Cron log records the fast-forward, Composer/install output, database/config/view steps, and `SAVERPOS cPanel staging deployment completed.` GitHub API-triggered deployment remains unusable: workflow run `33300932113` (four attempts) and a read-only local request receive an HTTP 200 JavaScript "One moment, please…" anti-bot page rather than UAPI JSON. The verified Cron helper polls the public `staging` branch internally with a lock and fast-forward-only guard. No cPanel credentials or database password are present in this checkout.
 
@@ -49,7 +50,7 @@ are the ones that will cost you time or make you ship something wrong.
 | Views | All 17 compile-guarded; 13 in-app screens rendered and audited at 375/768/1280 — 0 below AA, 0 unlabelled, 0 light surfaces, 0 overflow |
 | **Never exercised** | **Any interaction** — no click, submit, or modal open anywhere |
 | **Never seen** | POS chrome (sidebar/navbar); the authenticated app at all |
-| Local fixture | `saverpos_demo_p0`: 1 business, 2 branches, 17 devices, 4 customers, **0 repair jobs** |
+| Local fixture | 1 business, 2 branches, 17 devices, 4 customers, **4 repair jobs** — a freshly seeded database now carries the repair queue; the pre-existing `saverpos_demo_p0` database predates the fixture and still has none until the expansion seeder is run against it |
 | Staging | Runs code from before `e69b8dd`; the Cash smoke remains unverified there |
 
 Local app is served by `scripts/serve-saverpos-demo-runtime.sh` on `127.0.0.1:8010`.
@@ -88,10 +89,61 @@ Do not invent any of these; each would put fabricated business rules into a POS.
 
 ### Suggested order
 
-1. Get a signed-in session and do an interaction pass (Quick create, repair intake, the flows).
-2. Add repair-job fixtures to `SaverposDemoRuntimeSeeder` so the repair flow can be walked at all.
-3. Fix the CD gap, or accept manual cPanel deploys and say so in the runbook.
-4. Reconcile `.env` with the MySQL the demo router actually uses.
+1. ~~Get a signed-in session and do an interaction pass.~~ **DONE** — the staging smoke walked receive → transfer → sale → return → reconciliation.
+2. ~~Add repair-job fixtures so the repair flow can be walked at all.~~ **DONE (2026-08-30)** — see below; note it had to go into *both* seeders, not just the runtime one.
+3. ~~Fix the CD gap.~~ **DONE** — server-local Cron polling; see the status block.
+4. Reconcile `.env` with the MySQL the demo router actually uses — still open.
+
+## The demo estate has a repair queue now (2026-08-30)
+
+The previous handoff recorded "0 repair jobs" as a finding and listed the fix as suggested item 2. Closed here.
+
+Without any repair job the queue, the repair record, and everything hanging off it — quote, parts, billing,
+collection — could not be opened with real data at all. `Database\Seeders\SaverposDemoRepairFixture` now opens four
+fictional CUSTOMER_REPAIR jobs, one per demo customer, at Branch A, in RECEIVED / DIAGNOSIS / AWAITING_APPROVAL /
+IN_REPAIR, each with its customer-owned device, the configured intake checklist, its transition history, and an
+active public lookup token.
+
+### Three decisions worth knowing before changing it
+
+**Customer repairs only, on purpose.** A customer-owned device carries `stock_participation = NONE`, so the fixture
+cannot move core stock or the tracked reconciliation counts the staging smoke is verified against. An internal
+refurbishment job would have had to consume one of the cohort-variation units the receive/transfer/sale flows already
+use. Measured rather than assumed: 17 business-owned `ON_HAND` devices against 17 `qty_available` at Branch A, identical
+before and after.
+
+**Rows are written directly, and the gate is not touched.** Using `RepairJobIntakeService` would have meant the seeder
+switching `recommerce.enabled`/`writes_enabled` and the cohort IDs on for itself and impersonating the demo admin — a
+seeder granting itself the authorization gate. Given RC-041 is blocked for precisely that class of defect, that is not
+a call to make silently. A seeder is a data fixture, not an actor, and the surrounding demo seeders already write
+devices, movements, and periods directly. Everything borrowable from the module *is* borrowed:
+`RepairJobStateMachine::assertNewJob` asserts each job is legally formed, the real `RepairJobTransitionService`
+performs every state advance (it carries no authorization of its own — the controller does), checklist labels come
+from config rather than a copy, and device codes come from `DeviceCode::forDeviceId`.
+
+**It had to go into both seeders.** This is the payment-account lesson, and it would have been repeated otherwise:
+`SaverposDemoRuntimeSeeder` only runs against a *fresh* database, so a fixture added there alone never arrives on the
+already-seeded staging estate. `SaverposDemoExpansionSeeder` is what reaches it. Both call one shared fixture class so
+they cannot drift.
+
+### Verified, and how
+
+| Check | Result |
+| --- | --- |
+| Fresh seed on disposable MySQL | `repair_jobs=4`; four jobs, four states, 24 checklist items, 4 active lookup tokens, transition chains `RECEIVED → … → <state>` |
+| Re-run | `repair_jobs=0`, nothing changed — idempotent on a deterministic UUIDv5 `command_uuid` per job |
+| Expansion seeder against an estate stripped of repair rows | `repair_jobs=4` — the deployed-estate path works |
+| Stock | 17 `BUSINESS`/`ON_HAND` devices, 17 `qty_available` at Branch A, untouched |
+| Suite | **314 tests / 1451 assertions green**, PHP 8.2.33; `recommerce-static-check` passes |
+| Mutation check | 8 mutations of the fixture (stock participation, temp device code, hardcoded checklist label, dropped idempotency, no state advance, throwing on a missing customer, no lookup token, ignoring soft deletes) — **8 caught** |
+
+The disposable database was dropped afterwards; the three existing `saverpos_demo_*` databases were not touched.
+
+### What this is not
+
+Nobody has looked at the seeded queue in a browser. The screens were render-tested earlier against stub data, not
+against these rows, and no repair interaction has been exercised. That is the obvious next step, and it now has data
+to work with. Staging has no repair jobs until this commit is pushed and the Cron deploy runs the expansion seeder.
 
 ## Full UI/UX audit of all 13 in-app screens (2026-08-30)
 
