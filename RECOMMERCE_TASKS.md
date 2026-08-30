@@ -583,6 +583,15 @@ error on every repair record. All 17 module views now compile with no
 leftovers, and `RecommerceBladeCompilesTest` fails if that regresses. This is
 local test evidence, not release evidence.
 
+**Unauthenticated documents rendered in tests (2026-08-30).**
+The public certification page, the public repair status page, and the print
+label are now rendered rather than asserted as source, each checked against the
+disclosure limits its own copy promises: the masked serial with the row dropped
+when nothing is safe to show, an escaped `customer_facing_update` (operator free
+text displayed to a customer over an unauthenticated link), and a label whose
+scan target is never printed as text. 13 of 17 module views remain
+compilation-only. Local test evidence, not release evidence.
+
 **Presentation UI follow-up — PASSED locally (2026-08-30).**
 The shared dark stylesheet now covers the remaining light utility surfaces,
 Highcharts chart backgrounds, DataTables loading state, date widgets,

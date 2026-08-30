@@ -1,9 +1,9 @@
 # AI Handoff
 
 Current milestone: Recommerce — live staging smoke verification
-Last completed task: **Recommerce views are rendered in tests now, and it immediately caught a fatal I had shipped** — `843192e` and `a80eaf7` left Blade directives uncompiled (`@endif@if`, `claim@elseif`), which turned the repair record into a PHP parse error while every source-assertion test stayed green. Fixed, plus a guard that compiles all 17 module views. Before that: the Repeat visit button, the intake customer search, RC-039's claim UI.
+Last completed task: **The three unauthenticated Recommerce documents are rendered in tests** — public certification, public repair status and the print label, each asserted against the disclosure limits its own copy promises (masked serial, escaped customer-facing update, opaque scan target). Before that: rendering the repair record caught a Blade fatal shipped in `843192e`/`a80eaf7`; the Repeat visit button; the intake customer search; RC-039's claim UI.
 Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **230 tests / 1192 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
+Tests passing: **235 tests / 1212 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: unchanged from the previous session for the core flows. New this session: non-browser runtime evidence on a disposable MySQL fixture (both demo branches reset to the deployed state — `Util::payment_types()` returned `[]` before the expansion seeder and all twelve types including `cash` after it), plus an authenticated smoke attempt on `pos.kkcctv.com.my` that **failed to confirm the fix is live**: both staging branches still store an empty payment map. See "Cash smoke attempted on staging" below.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -13,6 +13,37 @@ Next safe task: fix the staging CD so a push actually reaches the site — the w
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## The three public documents are rendered now too (2026-08-30)
+
+Extending the rendering harness, starting with the views where a broken template is worst: the ones reachable **without
+a session**. `device/public-certification`, `repair/public-status` and `labels/device` carry no layout, so they were the
+cheapest to add and the highest blast radius — a customer or a printer sees the failure, not a signed-in operator.
+
+`RecommercePublicViewRenderTest` renders all three and asserts the disclosure limits each page's own copy promises,
+rather than just "it did not throw":
+
+- the certification page shows the **masked** serial and drops the whole Serial row when there is nothing safe to show;
+- the public status page renders the limited summary, and **escapes** `customer_facing_update` — that field is operator
+  free text shown to a customer over an unauthenticated link, so it is the obvious injection seam;
+- the label prints the device code and the opaque QR, with the scan target never rendered as text.
+
+Both privacy assertions were mutation-checked: switching `{{ }}` to `{!! !!}` on the customer-facing update, and
+removing the `@if` around the serial row, each fail a test.
+
+### One thing worth knowing for the next view
+
+A global view composer (`ModuleAssetServiceProvider` → `System.php:58`) reads app settings on **every** render, so even a
+layout-less document needs a `system` table present. That is why these tests create one in an in-memory sqlite database
+despite touching no data of their own.
+
+### Remaining
+
+13 of 17 views are still compilation-only: `dashboard/index`, `device/index`, `device/show`, `diagnostics/show`,
+`parts/show`, `receiving/index`, `reconciliation/index`, `repair/index`, `repair/internal-new`, `repair/new`,
+`scans/index`, `transfers/exceptions`, and the `partials/status-tones` include. Each needs its controller's data shape
+built in a fixture; the harness and the layout stub are in place, so they are additive from here. Suite is **235 tests /
+1212 assertions**.
 
 ## Views are rendered in tests now — and doing it caught a fatal I had shipped (2026-08-30)
 
