@@ -1,18 +1,18 @@
 # AI Handoff
 
 Current milestone: Recommerce — tracked transfer exception workflow
-Last completed task: RC-002 baseline **certified on the deployment-matching platform** (PHP 8.2.33 + MySQL 8 on the Mac) — the first time the suite and migrations have been run on the staging target's PHP version rather than a 8.4 container. One pre-existing stock-POS blocker found: `route:cache`/`optimize` fail on a duplicate `logout` route name.
-Last commit: `5136a3f` on `staging` (this session adds one more). Twelve commits are committed locally and **still unpushed** to `https://github.com/nandayo9/saverpos-staging.git` — no longer for credential reasons (the Mac has `osxkeychain`), but because publishing them is the operator's call; see "Push status" below. NOTE: the working tree is still dirty by design — RC-039 landed in `7d5adbc`, so what remains uncommitted is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
+Last completed task: **staging is deployed and live** — `https://pos.kkcctv.com.my/login` independently verified this session (HTTP 200, valid TLS chain, `Login - SAVERPOS`), with `.env` and `.git/config` returning 403 and no debug trace on errors. Before that: RC-002 certified on PHP 8.2.33 + MySQL 8, which also found a pre-existing stock-POS blocker (`route:cache`/`optimize` fail on a duplicate `logout` route name).
+Last commit: `3c939c8` on `staging`. **Everything is pushed** — local and `origin/staging` are level (0 ahead, 0 behind); the long-running push blocker is resolved. NOTE: the working tree is still dirty by design — RC-039 landed in `7d5adbc`, so what remains uncommitted is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
 Tests passing: **167 tests / 1056 assertions, all green** — re-verified 2026-08-30 **on PHP 8.2.33**, with zero deprecations, notices, warnings, skipped, incomplete or risky tests. The prior 8.4-container caveat ("strong regression signal, not platform certification for 8.2") is now closed. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: fresh disposable MySQL fixture; rendered browser flow passed for receive, pending/completed A→B transfer, Branch B POS sale, exact-device customer return, Branch B reconciliation (`PASS · core 1 · tracked 1 · legacy 0`), complete Device timeline, and RC-037 receiving exceptions (`MISSING` + `EXTRA` recorded, one manager resolution)
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: **push**, then cPanel **Update from Remote** → **Deploy HEAD Commit** — the staging deployment is now blocked only on the push (see "cPanel staging inspected in the browser" below). After that: the printer/scanner matrix (needs a human at the hardware) and the duplicate-`logout` route-cache blocker (see the RC-002 section)
+Next safe task: browser smoke of the live estate per `ICORE_CPANEL_STAGING.md` §6 (sign in as the fictional demo account and walk receiving → transfer → sale → return → reconciliation against the deployed site, not a local fixture). Also open: the printer/scanner matrix (needs a human at the hardware), the duplicate-`logout` route-cache blocker (see the RC-002 section), and the repository-visibility decision — which now matters more, because a push auto-deploys (see "Staging is live" below)
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
-Hosting prep: iCore cPanel now has `pos.kkcctv.com.my` mapped to the cloned `staging` repository's `public/` directory, PHP 8.2 enabled account-wide, staging MySQL database/user created, and Let's Encrypt SSL installed. cPanel Git pull is verified at commit `bd8f49f`. The repository now contains a cPanel Git deployment task (`.cpanel.yml` plus `scripts/cpanel-staging-deploy.sh`) so shell/Terminal support is not required: after the untracked server `.env` is created, **Update from Remote** then **Deploy HEAD Commit** installs dependencies, creates a one-time key, migrates, and conditionally seeds the fictional fixture. No cPanel credentials or database password are present in this checkout.
+Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
 
 ## Incoming-agent verification (2026-08-29) — STOPPED, no code changed
 
@@ -369,7 +369,43 @@ State re-checked here: local `staging` is **12 commits ahead, 0 behind** `origin
 
 The repository-visibility question from the previous session is still **open and unanswered**: `nandayo9/saverpos-staging` is public. No live secret is exposed, but a public repo carrying deployment runbooks and the staging hostname for a POS product is a decision the operator should confirm rather than an agent assume.
 
+## Staging is live, and verified independently (2026-08-30)
+
+The push landed and eight further commits followed (`656d4ac` … `3c939c8`), carrying the cPanel deployment through to a working site. Local and `origin/staging` are now level at `3c939c8`. This section records what was checked rather than taken from the previous agent's report.
+
+### The deployment claim holds
+
+`https://pos.kkcctv.com.my/login` returns **HTTP 200**, with `curl`'s `ssl_verify_result=0` (valid certificate chain, so the Let's Encrypt install is good) and the title `Login - SAVERPOS`. That is the app serving, not a placeholder.
+
+### Exposure checks on a publicly reachable POS site
+
+Now that the site is reachable by anyone, the obvious surfaces were probed:
+
+| Path | Result |
+| --- | --- |
+| `/.env` | **403** |
+| `/.git/config` | **403** |
+| `/storage/logs/laravel.log` | 404 |
+| `/.cpanel.yml`, `/composer.json`, `/AI_HANDOFF.md`, `/scripts/cpanel-staging-deploy.sh`, `/vendor/composer/installed.json` | 404 |
+
+A request for an unrouted path returns Laravel's plain **Not Found** page with **no stack trace, no environment dump and no file paths** — so `APP_DEBUG=false` is genuinely in effect on the server. Nothing sensitive was reachable. These were read-only GETs against the operator's own host.
+
+### Regression check across the eight commits
+
+Full suite still **green: 167 tests / 1056 assertions** on PHP 8.2.33, and `recommerce-static-check` passes. The new commits touched `bootstrap/app.php`, `app/Http/Middleware/IsInstalled.php`, both cPanel scripts, two seeders and a new GitHub Actions workflow; none of it moved the suite.
+
+### A push now deploys — this changes the visibility question
+
+`.github/workflows/deploy-staging.yml` was added, triggering on **push to `staging`** and calling cPanel's `VersionControlDeployment/create` UAPI with four repository secrets. The workflow itself is sound: it is `push`-only (never `pull_request`, so a fork cannot trigger it), holds `permissions: contents: read`, keeps every credential in `secrets.*`, and hard-fails on any unset secret before the `curl` runs.
+
+The consequence is worth stating plainly: **`git push origin staging` is now a deploy to the live site**, not just a publish. Anyone with write access to the repository can ship to `pos.kkcctv.com.my` by pushing. That makes the still-unanswered repository-visibility question (below) more consequential than it was — a public repository with CD wired to a live POS instance deserves a deliberate decision, not a default.
+
+### Observation on the external environment path, not a defect
+
+`bootstrap/app.php` now resolves the `.env` location by preferring `SAVERPOS_ENV_PATH` and otherwise falling back to a hardcoded sibling directory, `dirname(__DIR__) . '/../saverpos-staging'`. On the server both branches resolve correctly (the checkout is `saverpos-staging-repo`, the live estate is `saverpos-staging`), and `IsInstalled` was correctly updated from `base_path('.env')` to `app()->environmentFilePath()` to match.
+
+Two things to be aware of rather than to fix now: the fallback runs in **every** environment, not only cPanel, so if a directory named `saverpos-staging` ever appears beside a checkout the app silently switches its `.env` source; and `SAVERPOS_ENV_PATH` is set only by the deploy script and documented nowhere else — not in `.env.example`, `.env.cpanel-staging.example`, or the runbook. Locally the sibling path does not exist, so the fallback is a no-op and the suite is unaffected. Worth a line in the runbook when someone next touches deployment.
+
 ### Repository visibility
 
 While checking the remote, `git ls-remote` succeeded **anonymously** — the GitHub repository `nandayo9/saverpos-staging` is **public**, not private. It was audited on that basis and no live secret is exposed: `.env` is untracked and matched by `.gitignore` line 12, only `.env.example` and `.env.cpanel-staging.example` are tracked, and a scan of tracked files for app keys, database passwords, GitHub tokens and AWS keys returned only validation rules and translation strings. Still worth confirming the public setting is intentional for a POS codebase carrying deployment runbooks and the staging hostname.
-
