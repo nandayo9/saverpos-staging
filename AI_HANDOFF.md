@@ -1,20 +1,21 @@
 # AI Handoff
 
 Current milestone: Recommerce — staging Cash flow and Dashboard dark UI are verified; server-local cPanel Cron deployment is verified and avoids the protected external API; the demo estate can now walk the repair flow
-Last completed task: **Exercise the repair write paths** — transition (reject + succeed), intake through the real service and gate, public tracking token, and part reservation all verified signed in against the disposable demo estate, which was restored afterwards. No application defect found; **one decision is owed** on whether authenticated 422s surface domain guidance (see below).
+Last completed task: **Drive diagnostics, QC and collection** — diagnostics was unreachable (no template, and no route creates one) and is now seeded; the submitted-session review showed raw check keys out of order and now reads its immutable snapshot; collection closed a job with exact custody handover. **RC-033's quote endpoints have no UI caller at all** — raised, not built.
+Previous task: **Exercise the repair write paths** — transition (reject + succeed), intake through the real service and gate, public tracking token, and part reservation all verified signed in against the disposable demo estate, which was restored afterwards. No application defect found; **one decision is owed** on whether authenticated 422s surface domain guidance (see below).
 Previous task: **Walk the repair flow signed in** — the seeded queue was driven in an authenticated browser for the first time and found two defects that no source assertion or earlier render pass could reach: every assigned technician displayed as "Assign later", and six in-app screens rendered an empty browser tab title. Both fixed and guarded.
 Previous task: **Seed the demo repair queue** — `SaverposDemoRepairFixture` opens four fictional customer repair jobs across four states in both demo seeders, closing the "0 repair jobs" gap that made the repair screens unwalkable. Not deployed: the commit has not been pushed, so staging still has no repair jobs until it is.
 Previous task: **Fix Dashboard chart dark surfaces** — commit `4dfc4b5` adds semantic chart surfaces, dark Highcharts canvas/controls/tooltips, and a stylesheet file-mtime cache-buster. The pushed commit was deployed by the server-local Cron and verified live on 2026-08-30.
-Latest implementation commits: no code changed in the write-path pass — it is recorded in the docs only. The two newest code commits on `staging` are **Name the technician the repair record already knew** (the `->name` fix plus the missing page titles) and **Give the demo estate a repair queue to walk** (the demo repair queue through both seeders). Both are local only — **not yet pushed**, so staging has neither the repair jobs nor the view fixes; `4dfc4b5` fixes the Dashboard chart surfaces; `263f81b` adds the fast-forward-only Cron polling helper and makes the former GitHub API workflow manual-dispatch diagnostic only; `71cb6fd` ignores the cPanel-generated root `error_log`; `c1679b4` normalizes the cPanel host and fails safely on non-JSON responses. All are pushed to `staging`. The working tree is dirty by design: the untracked files and the two modified shared files are the blocked RC-041 archive and must not be committed.
-Tests passing: **318 tests / 1456 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` and Blade view caching pass.
+Latest implementation commits: the newest is **Make the diagnostics surface reachable, and let it speak its own labels** (demo template fixture plus the snapshot-driven review). Before it are **Name the technician the repair record already knew** (the `->name` fix plus the missing page titles) and **Give the demo estate a repair queue to walk** (the demo repair queue through both seeders). Both are local only — **not yet pushed**, so staging has neither the repair jobs nor the view fixes; `4dfc4b5` fixes the Dashboard chart surfaces; `263f81b` adds the fast-forward-only Cron polling helper and makes the former GitHub API workflow manual-dispatch diagnostic only; `71cb6fd` ignores the cPanel-generated root `error_log`; `c1679b4` normalizes the cPanel host and fails safely on non-JSON responses. All are pushed to `staging`. The working tree is dirty by design: the untracked files and the two modified shared files are the blocked RC-041 archive and must not be committed.
+Tests passing: **322 tests / 1465 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` and Blade view caching pass.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: all 13 in-app screens rendered from real Blade against the real CSS cascade and audited at 375/768/1280 — 0 below AA, 0 unlabelled controls, 0 light surfaces, 0 horizontal overflow. The live Dashboard now loads the cache-busted dark stylesheet; both Highcharts canvases compute to `rgb(13, 23, 38)`, controls to `rgb(21, 34, 56)`, axis text to `rgb(151, 169, 193)`, and no chart background/control retains white. Staging interaction also passed: currency displayed RM; receipt transaction 8 created `SB-DV-00000019-1`; transfer `CASH-SMOKE-TRANSFER-20260830` completed; Cash sale `INV-0002` posted for RM 1,200.00; the exact device was returned; Branch B reconciliation reported `PASS · core 2 · tracked 2 · legacy 0`.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data; transition-error disclosure convention (see the write-path section)
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: the remaining unexercised repair surfaces — diagnostics submission, quote create/approve, billing, and collection — none of which has been driven in a browser. Everything they need now exists in the demo estate. Pushing the two local commits is what puts the fixture and the view fixes on staging (the expansion seeder is what reaches the already-seeded estate); use GitHub pushes for normal staging updates and verify the intended browser-visible change within five minutes. One cPanel **Update from Remote** was required as bootstrap; afterward the Cron Job fetches and fast-forward merges `origin/staging`, then invokes the existing deployment script only when the branch advances. Do not bypass, disable globally, or automate the JavaScript anti-bot challenge. Do not advance RC-045/RC-046 from this flow evidence alone.
+Next safe task: decide the two open questions this pass raised — whether to build the RC-033 quote UI (needs product input on what a version captures and how approval evidence is recorded), and the authenticated-422 disclosure convention. Billing link/release is the last undriven surface and needs a finalized POS sale to exercise. Pushing the two local commits is what puts the fixture and the view fixes on staging (the expansion seeder is what reaches the already-seeded estate); use GitHub pushes for normal staging updates and verify the intended browser-visible change within five minutes. One cPanel **Update from Remote** was required as bootstrap; afterward the Cron Job fetches and fast-forward merges `origin/staging`, then invokes the existing deployment script only when the branch advances. Do not bypass, disable globally, or automate the JavaScript anti-bot challenge. Do not advance RC-045/RC-046 from this flow evidence alone.
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` and `database/seeders/SaverposDemo*` (disposable demo DB only — never production)
-Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043), whether authenticated 422 responses surface domain guidance or stay generic (the module currently does both)
+Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043), whether authenticated 422 responses surface domain guidance or stay generic (the module currently does both), and whether RC-033 gets a quote UI (its three endpoints have no caller)
 Hosting prep: iCore cPanel has PHP 8.2, MySQL, and Let's Encrypt SSL. Browser inspection confirmed the managed repository path `/home/kkcctv93/repositories/saverpos-staging-repo`; one **Update from Remote** moved it to the helper-containing checkout. cPanel now confirms the server-local Cron entry `*/5 * * * * /bin/bash /home/kkcctv93/repositories/saverpos-staging-repo/scripts/cpanel-staging-poll.sh >> /home/kkcctv93/repositories/saverpos-staging-repo/storage/logs/cpanel-staging-cron.log 2>&1`. The Cron log records the fast-forward, Composer/install output, database/config/view steps, and `SAVERPOS cPanel staging deployment completed.` GitHub API-triggered deployment remains unusable: workflow run `33300932113` (four attempts) and a read-only local request receive an HTTP 200 JavaScript "One moment, please…" anti-bot page rather than UAPI JSON. The verified Cron helper polls the public `staging` branch internally with a lock and fast-forward-only guard. No cPanel credentials or database password are present in this checkout.
 
 ## START HERE — handover (2026-08-30)
@@ -50,7 +51,7 @@ are the ones that will cost you time or make you ship something wrong.
 | Suite | **305 tests / 1311 assertions green**, PHP 8.2.33, zero deprecations/warnings/skipped/risky |
 | Static check | `node scripts/recommerce-static-check.mjs` green |
 | Views | All 17 compile-guarded; 13 in-app screens rendered and audited at 375/768/1280 — 0 below AA, 0 unlabelled, 0 light surfaces, 0 overflow |
-| Interaction | Read **and** write paths walked signed in: workbench, record, parts, receiving, device detail; transition rejected and accepted, intake submitted, public token opened, part reserved. Not yet driven: diagnostics, quotes, billing, collection |
+| Interaction | Read and write paths walked signed in: workbench, record, parts, receiving, device detail, diagnostics; transition rejected and accepted, intake submitted, public token opened, part reserved, diagnostic session started/rejected/submitted, QC and READY gates, collection closing a job. Not driven: quotes (**no UI exists**), billing link/release (needs a finalized POS sale) |
 | POS chrome | Seen; the authenticated app renders |
 | Local fixture | 1 business, 2 branches, 17 devices, 4 customers, **4 repair jobs** — a freshly seeded database now carries the repair queue; the pre-existing `saverpos_demo_p0` database predates the fixture and still has none until the expansion seeder is run against it |
 | Staging | Runs code from before `e69b8dd`; the Cash smoke remains unverified there |
@@ -95,6 +96,65 @@ Do not invent any of these; each would put fabricated business rules into a POS.
 2. ~~Add repair-job fixtures so the repair flow can be walked at all.~~ **DONE (2026-08-30)** — see below; note it had to go into *both* seeders, not just the runtime one.
 3. ~~Fix the CD gap.~~ **DONE** — server-local Cron polling; see the status block.
 4. Reconcile `.env` with the MySQL the demo router actually uses — still open.
+
+## Diagnostics, QC and collection driven — and a missing quote UI (2026-08-30)
+
+Two defects found and fixed, one gap raised rather than filled.
+
+### Diagnostics was dead, not empty
+
+`DiagnosticController` lists only PUBLISHED template versions whose template matches the job type and device category.
+The demo estate had **zero** templates — and the module exposes **no route that creates or publishes one**, so this was
+not a screen waiting for data, it was a surface that could not be reached at all from a fresh install.
+
+Closed the same way as the repair queue. `SaverposDemoDiagnosticFixture` publishes one fictional
+`SB-DT-CUSTOMER-TRIAGE` version — five checks, one NUMERIC with unit and bounds — and does it by creating a DRAFT and
+calling the real `DiagnosticTemplateService::publish`, so the seeded row goes through the same
+"only a draft can be published" invariant an operator would. Wired into both seeders, same reasoning as before.
+
+Worth noticing for whoever owns template authoring: **a real deployment has the same problem.** There is no UI, no
+console command, and no seeder outside the demo fixture that publishes a diagnostic template, so a genuine business
+cannot use diagnostics at all.
+
+### The submitted session contradicted its own promise
+
+The review pane printed `$observation->check_key` in row order. A reviewer saw `battery_health` where the technician
+had seen "Reported battery health", ordered differently from the form they had just filled — on a page whose copy reads
+*"The recorded template and observations are immutable."*
+
+The session already stores `template_snapshot_json` precisely so the review can show what the technician saw, even after
+the published template is retired or superseded. The view now reads labels, unit and `sort_order` from that snapshot,
+falling back to the raw key when a check is absent from it (a session recorded before a check existed must still
+render). `RecommerceDiagnosticSessionRenderTest` guards labels, order, unit and the fallback; mutation-checked 3/3.
+
+My first ordering attempt used `sortBy([fn…, fn…])`, which silently did not sort — the browser showed the wrong order
+and caught it. Multi-key `sortBy` wants `[[key, direction], …]`, not bare closures; one closure building a composite
+key is the reliable form.
+
+### RC-033 shipped without a caller
+
+`recommerce.repair.quotes.store`, `.send` and `.decide` are referenced by **no view in the module**. The record lists
+quote versions read-only and offers no way to create, send, or decide one — so the documented customer-repair workflow
+(diagnose → quote → customer approves → work) cannot be performed in the application. `RepairQuoteService::assertWorkAuthorised`
+consequently never fires in practice, because no quote can exist to gate anything.
+
+This is the same defect class already recorded for RC-039. **Not built here:** a quote form needs product decisions —
+what a version captures per line, and how customer approval evidence is recorded — and inventing those would put
+fabricated business rules into a POS. Also unused but harmless: the GET routes `billing.project` and `collection.show`
+have no caller because the record and parts screens get the same data from their own controllers.
+
+### What ran clean
+
+A session started from the published template; a submission whose NUMERIC check had no value was rejected; a complete
+one was accepted with all five observations, the numeric value and grade `B`. `IN_REPAIR → QC` demanded
+`work_submitted`; `QC → READY` demanded `qc_passed` plus a resolution code. Collection then closed the job with full
+closure evidence and — the part worth checking rather than assuming — an **exact custody handover**: the LOCATION
+period closed and a CUSTOMER period opened at the same instant, device left in `CUSTOMER_CUSTODY` with no stock
+participation, no gap and no overlap.
+
+The generic-error finding from the previous section now has a second site: `DiagnosticController` reported
+"Diagnostic submission was rejected." where the service had said the numeric check needed a value. Same decision, wider
+than one controller.
 
 ## The repair write paths actually run (2026-08-30)
 

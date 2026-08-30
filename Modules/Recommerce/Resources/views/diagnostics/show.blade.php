@@ -73,8 +73,21 @@
                             @endif
                         @else
                             <h4>Submitted grade: {{ $diagnosticSession->grade_code }}</h4>
-                            @foreach ($diagnosticSession->observations as $observation)
-                                <div class="well well-sm"><strong>{{ $observation->check_key }}</strong> · {{ $observation->outcome }} @if ($observation->value_numeric !== null) · {{ $observation->value_numeric }} @endif @if ($observation->value_text) · {{ $observation->value_text }} @endif</div>
+                            @php
+                                // The session captured the template it was filled against, so the
+                                // review reads its labels, units and order from that snapshot rather
+                                // than the live template or the raw keys. A published template can be
+                                // retired or superseded; this page promises what the technician saw.
+                                $snapshotChecks = collect(data_get($diagnosticSession->template_snapshot_json, 'checks', []))
+                                    ->keyBy('check_key');
+                            @endphp
+                            @foreach ($diagnosticSession->observations->sortBy(fn ($observation) => sprintf(
+                                '%08d-%s',
+                                (int) data_get($snapshotChecks->get($observation->check_key), 'sort_order', 99999999),
+                                $observation->check_key
+                            )) as $observation)
+                                @php $check = $snapshotChecks->get($observation->check_key); @endphp
+                                <div class="well well-sm"><strong>{{ data_get($check, 'label') ?: $observation->check_key }}</strong> · {{ $observation->outcome }} @if ($observation->value_numeric !== null) · {{ $observation->value_numeric }}{{ data_get($check, 'unit') ? ' '.data_get($check, 'unit') : '' }} @endif @if ($observation->value_text) · {{ $observation->value_text }} @endif</div>
                             @endforeach
                         @endif
                         <div id="diagnostic-result" class="alert" style="display:none;margin-top:12px" role="status"></div>

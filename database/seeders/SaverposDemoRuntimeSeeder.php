@@ -251,6 +251,7 @@ class SaverposDemoRuntimeSeeder extends Seeder
             // and after the demo role exists so the account that will walk the
             // jobs can see them.
             $repairJobs = SaverposDemoRepairFixture::apply($businessId, $branchA, $userId, $this->command);
+            SaverposDemoDiagnosticFixture::apply($businessId, $userId, $this->command);
 
             $this->command?->info("SAVERPOS demo fixture: business={$businessId}; branch_a={$branchA}; branch_b={$branchB}; products=5; devices=17; repair_jobs={$repairJobs}; variation={$variationId}; device=SB-DV-00000001-9");
         });

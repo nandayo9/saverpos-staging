@@ -794,6 +794,59 @@ currently requires the manual cPanel steps. Fixing the pipeline is an
 outward-facing change to a credentialed deploy path and is not authorized by
 this record.
 
+**Diagnostics and collection driven; quote UI found missing (2026-08-30).**
+The remaining repair surfaces were driven signed in. Two defects were found and
+fixed, and one gap is raised rather than filled.
+
+**Diagnostics was unreachable, not merely empty.** `DiagnosticController` only
+offers PUBLISHED template versions matching the job's type and device category,
+and the module exposes **no route that creates or publishes a template**, so the
+demo estate's zero templates left the entire surface dead. Closed the same way
+as the repair queue: `Database\Seeders\SaverposDemoDiagnosticFixture` publishes
+one fictional `SB-DT-CUSTOMER-TRIAGE` version through the real
+`DiagnosticTemplateService`, so the seeded row takes the same
+"only a draft can be published" path an operator would. Five checks, one of them
+NUMERIC with a unit and bounds. Wired into both seeders, as before.
+
+**A submitted diagnostic listed raw check keys in the wrong order.** The review
+pane printed `$observation->check_key` in row order, so a reviewer saw
+`battery_health` where the technician had seen "Reported battery health", and in
+a different order from the form they filled — on a page whose own copy promises
+"The recorded template and observations are immutable." The session already
+stores `template_snapshot_json` for exactly this purpose, so the view now reads
+labels, units and `sort_order` from that snapshot, falling back to the key when
+a check is absent from it. Guarded by `RecommerceDiagnosticSessionRenderTest`,
+mutation-checked 3/3.
+
+**RC-033's quote endpoints have no UI caller — gap raised, not filled.**
+`recommerce.repair.quotes.store`, `.send` and `.decide` are referenced by **no
+view in the module**. The repair record lists quote versions read-only and
+offers no way to create, send, or decide one, so the documented customer-repair
+workflow (diagnose → quote → customer approves → work) cannot be performed
+through the application. This is the same defect class already recorded for
+RC-039, whose "service and POST endpoint shipped without a form". It is not
+built here because a quote form requires product decisions — what a version
+captures per line, and how approval evidence is recorded — that this pass is not
+authorized to invent. Also unused, but harmless: the GET routes
+`billing.project` and `collection.show` have no caller because the record and
+parts screens receive the same data from their own controllers.
+
+Verified working end to end: a diagnostic session started from the published
+template, rejected a submission whose NUMERIC check had no value, then accepted
+one with all five observations, the numeric value, and grade `B`; the
+`IN_REPAIR → QC` gate required `work_submitted`; `QC → READY` required
+`qc_passed` and a resolution code; and collection closed the job with complete
+closure evidence (`qc_satisfied`, `parts_resolved`, `custody_resolved`,
+`financial_policy_satisfied`, `outstanding_amount 0`, collector name and phone).
+The custody handover is exact: the LOCATION period closed and a CUSTOMER period
+opened at the same instant, leaving the device `CUSTOMER_CUSTODY` with no stock
+participation and no gap or overlap.
+
+The estate was restored from a pre-pass dump and the expansion seeder re-run, so
+the demo is back to its four-job spread plus the published template, POS stock
+intact. Suite green at 322 tests / 1465 assertions; static check passes. Local
+authenticated evidence on a disposable database.
+
 **Repair write paths exercised in the browser (2026-08-30).**
 The three repair mutations were driven signed in against the disposable demo
 estate, and all three behave as specified. No application defect was found; one
