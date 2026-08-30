@@ -25,7 +25,17 @@ jobs:
           test -n "$CPANEL_USERNAME"
           test -n "$CPANEL_API_TOKEN"
           test -n "$CPANEL_REPOSITORY_ROOT"
-          curl --fail --silent --show-error \
+          update_response="$(curl --fail --silent --show-error \
+            -H "Authorization: cpanel ${CPANEL_USERNAME}:${CPANEL_API_TOKEN}" \
+            --get "https://${CPANEL_HOST}:2083/execute/VersionControl/update" \
+            --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}" \
+            --data-urlencode "branch=staging")"
+          printf '%s\n' "$update_response" | jq -e \
+            '.result.status == 1 and (.result.errors == null or (.result.errors | length == 0))' >/dev/null
+
+          deploy_response="$(curl --fail --silent --show-error \
             -H "Authorization: cpanel ${CPANEL_USERNAME}:${CPANEL_API_TOKEN}" \
             --get "https://${CPANEL_HOST}:2083/execute/VersionControlDeployment/create" \
-            --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}"
+            --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}")"
+          printf '%s\n' "$deploy_response" | jq -e \
+            '.result.status == 1 and (.result.errors == null or (.result.errors | length == 0))' >/dev/null
