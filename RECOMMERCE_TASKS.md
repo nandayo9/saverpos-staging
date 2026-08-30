@@ -707,9 +707,26 @@ This is source evidence only until a successful run and served CSS fingerprint
 confirm the live result.
 
 The first automated run for this repair reached the cPanel job but failed during
-`VersionControl/update` with exit code 1, before deployment. This requires a
-one-time cPanel correction of the repository path/token/clean-tree setup; it is
-not a reason to reopen cPanel for every future GitHub push.
+`VersionControl/update` with exit code 1, before deployment. This initially
+looked like a repository path/token/clean-tree setup issue; browser and
+read-only request evidence later ruled that out.
+
+**cPanel UAPI anti-bot boundary (2026-08-30).**
+The managed repository path was confirmed as
+`/home/kkcctv93/repositories/saverpos-staging-repo`, and a manual **Update from
+Remote** successfully moved its checkout to `37be8b3`. The server-generated
+root `error_log` was identified as a clean-tree blocker and is now ignored by
+`71cb6fd`; `c1679b4` also normalizes cPanel host input and reports non-JSON
+responses safely. A valid cPanel token and the corresponding GitHub secrets
+were refreshed through the browser. Despite that, GitHub run `33300932113`
+(four attempts) and a separate authenticated read-only request both receive an
+HTTP 200 HTML page headed "One moment, please…" with JavaScript anti-bot code,
+instead of the documented UAPI JSON response. GitHub Actions cannot complete a
+browser challenge. Do not bypass or broadly weaken this protection. The hosting
+provider must approve either a dedicated unchallenged cPanel API hostname or a
+narrow, authenticated `/execute` exception on port 2083 before automatic
+deployment can continue. This is still not a reason to reopen cPanel for every
+future GitHub push once that one-time security decision is implemented.
 
 **Payment-account repair now reaches the already-seeded estate (2026-08-30).**
 The earlier record said the deployed estate only had to rerun the expansion
