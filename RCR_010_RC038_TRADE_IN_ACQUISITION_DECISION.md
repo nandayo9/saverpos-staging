@@ -1,11 +1,12 @@
 # RC-038 Trade-in acquisition decision record
 
 **Status:** Implemented and committed locally on 2026-08-31; not pushed or
-deployed. Browser-proven through accepted native purchase on an isolated MySQL
-fixture. The required-test list below is now closed. Browser payment proof
-remains outstanding, and **reversal cannot be browser-proven at all: it has no
-route, controller action, or UI** — `TradeInService::recordReversal` is
-reachable only from code (see "Known V1 limitations").
+deployed. Browser-proven on an isolated MySQL fixture through accepted native
+purchase **and native settlement**. The required-test list below is closed and
+the deferred-settlement boundary is now evidenced (see "Native settlement
+proof"). The one remaining gap is reversal, which **cannot be browser-proven at
+all: it has no route, controller action, or UI** — `TradeInService::recordReversal`
+is reachable only from code (see "Known V1 limitations").
 
 **Date:** 2026-08-31
 
@@ -170,6 +171,55 @@ acceptance.
   ownership period, custody period, movement, and event reconcile exactly.
 - Native purchase failure rolls back every Recommerce write; later native
   reversal leaves the complete prior history intact.
+
+## Native settlement proof (2026-08-31)
+
+Decision 2 of this record defers settlement to native UltimatePOS payment
+flows, with ownership transferring when the purchase posts even while it is
+still `due`. That boundary is now proven in the browser rather than argued.
+
+On the isolated `saverpos_demo_rc038` clone, the accepted trade-in's native
+purchase `PO2026/0001` (RM 950.00, `received` / `due`) was settled through the
+ordinary **Purchases → Actions → Add payment** modal — the native
+`TransactionPaymentController` path, not any Recommerce code.
+
+**Native side, all of it written by UltimatePOS:** one `transaction_payments`
+row (RM 950.0000, method `cash`, ref `2026/0001`), and `payment_status` moved
+`due` → `paid`. The purchase list shows the row as Paid with RM 0.00 due.
+
+**Recommerce side, unchanged.** Every trade-in-scoped row was compared
+before and after settlement, and each is byte-identical:
+
+| Scope | Rows | Result |
+| --- | --- | --- |
+| Device `SB-DV-TRADEIN-001` | 1 | unchanged, including `lock_version` 3 and `acquired_at` |
+| Ownership periods | 2 | unchanged (closed CUSTOMER, open BUSINESS carrying `acquisition_transaction_id`) |
+| Custody periods | 3 | unchanged |
+| Device movements | 2 | unchanged |
+| `recommerce_device_acquisitions` | 1 | unchanged, including `posted_at` |
+| Trade-in valuation | 1 | unchanged, still `ACCEPTED` at `lock_version` 3 |
+
+Settlement therefore moves money in UltimatePOS and touches nothing in
+Recommerce, which is exactly the contract.
+
+Two honesty notes about how that comparison was reached. A first whole-table
+diff reported everything "unchanged" because the shell had not word-split the
+table list, so all seven tables were hashed as one blob; a corrected per-table
+run then showed several tables genuinely changed — because **this session had
+run `SaverposDemoExpansionSeeder` against the fixture** between the snapshot and
+the payment, adding 20 devices and the repair/diagnostic fixtures. The
+comparison above is therefore scoped to the trade-in device and its acquisition,
+which isolates settlement from that seeder noise, and it guards against the
+false pass an empty dump on both sides would produce.
+
+The seeder run was itself necessary and is its own small finding: the fixture's
+two locations had `default_payment_accounts` of `NULL`, so the native payment
+modal offered only "Advance" and no real method. That is the same fixture gap
+already recorded for the POS register, and `SaverposDemoExpansionSeeder`
+repaired it — a re-verification of that earlier fix in a fresh database.
+
+The fixture is deliberately left in the settled state; note that a future
+reversal proof starts from a **paid** purchase, not a due one.
 
 ## Required-test closure (2026-08-31)
 
