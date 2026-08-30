@@ -3,7 +3,7 @@
 Current milestone: Recommerce — tracked transfer exception workflow
 Last completed task: Reviewed the uncommitted RC-039 warranty work and fixed a confirmed 500-on-denial defect in its controller
 Last commit: `869bf36` + the cohort deny-by-default commit on `staging`, committed locally and **not yet pushed** to `https://github.com/nandayo9/saverpos-staging.git`. NOTE: the working tree is still dirty by design — the RC-039 warranty work and the blocked, undocumented RC-041 legacy repair archive remain uncommitted and were deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **163 tests / 1046 assertions, all green** — verified 2026-08-30 (154/1013 inherited; +3 gate-invariant, +4 deny-by-default and +2 warranty-route tests added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
+Tests passing: **165 tests / 1050 assertions, all green** — verified 2026-08-30 (154/1013 inherited; +3 gate-invariant, +4 deny-by-default, +2 warranty-route and +2 warranty-boundary tests added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: fresh disposable MySQL fixture; rendered browser flow passed for receive, pending/completed A→B transfer, Branch B POS sale, exact-device customer return, Branch B reconciliation (`PASS · core 1 · tracked 1 · legacy 0`), complete Device timeline, and RC-037 receiving exceptions (`MISSING` + `EXTRA` recorded, one manager resolution)
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -168,7 +168,28 @@ Fixed by adding the two imports (and using the already-imported `RepairJob` inst
 
 **Noted, not changed** — worth a decision rather than a silent edit:
 
-1. **Same-day claims may be rejected.** `decision()` compares `Carbon::parse($evidence['claimed_on'])` against `$sale->transaction_date`. A date-only `claimed_on` parses to midnight, so a claim made on the day of sale is `lessThan` a sale timestamped later that day and falls to `The claimed_on date is outside the recorded warranty term.` The end boundary has the mirror issue. Comparing at day granularity (`startOfDay`/`endOfDay`) would fix it, but which end is inclusive is a policy question.
+1. ~~**Same-day claims may be rejected.**~~ **CONFIRMED AND FIXED (2026-08-30).** See the section below. The earlier note that "the end boundary has the mirror issue" was wrong and is retracted.
 2. **Money is handled in floats.** `final_total`, covered and chargeable amounts are `(float)` with `round(..., 4)` against `decimal(22,4)` columns. Covered + chargeable is intended to equal the total exactly; float arithmetic does not guarantee that at the last place.
 3. **`saleWarranty()` takes the first matching sell line** for the variation with no ordering, so a sale with several lines for the same variation picks an arbitrary policy.
+
+## Warranty coverage start boundary — confirmed bug, fixed (2026-08-30)
+
+The same-day rejection hypothesised in the RC-039 review was tested rather than assumed, and it reproduces.
+
+A first probe appeared to disprove it, but the probe was wrong: it updated transaction `501` while the fixture job's `source_id` is `9001`, so the service never read the row under test. Retargeted at `9001`:
+
+- sale `2026-07-30 14:30`, `claimed_on` `2026-07-30` → **NOT_COVERED**, "The claimed_on date is outside the recorded warranty term."
+- sale `2026-03-02 09:00`, claim on the term's final day → IN_COVERAGE.
+
+So the start boundary was strict and the **end boundary is lenient, not mirrored** — a date-only `claimed_on` parses to midnight, which is at or before any same-day end timestamp. The earlier handoff note claiming a mirror issue was wrong and has been retracted above.
+
+Customer impact: a device sold and brought back the same day for a warranty repair was refused coverage.
+
+**Fix:** compare `$claimedOn` against `$start->copy()->startOfDay()` rather than the raw sale timestamp. A first attempt set `$start = ...->startOfDay()` outright, which was withdrawn — that also changed the recorded `coverage_start_at` evidence and shifted the derived end date up to a day earlier. The committed form leaves `$start` exact, so stored policy evidence and the computed term end are untouched; only the comparison is day-granular.
+
+Two regression tests: `test_a_claim_on_the_day_of_sale_is_covered` (which also asserts `coverage_start_at` still records the exact sale timestamp) and `test_a_claim_before_the_sale_day_is_not_covered`, so the fix cannot widen into accepting genuinely pre-sale claims. Mutation-checked: restoring the raw-timestamp comparison fails the first and nothing else.
+
+**Still open from that review, unverified and untouched:** float money handling, and `saleWarranty()` selecting the first matching sell line with no ordering. Neither has been reproduced; treat both as hypotheses, not findings, until they are.
+
+Like the controller import fix, this lives in still-untracked RC-039 files and travels with that work whenever it lands.
 
