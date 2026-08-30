@@ -70,11 +70,13 @@ if [[ -z "$COMPOSER_BIN" ]]; then
     fi
 fi
 
-"$PHP_BIN" "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction
-
+# Composer's Laravel post-autoload hook runs artisan package discovery, which
+# needs the cache and view paths to exist before `composer install` starts.
 mkdir -p storage/app/public storage/framework/cache storage/framework/sessions \
     storage/framework/testing storage/framework/views storage/logs bootstrap/cache
 chmod -R ug+rwX storage bootstrap/cache
+
+"$PHP_BIN" "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction
 
 if ! grep -Eq '^APP_KEY=base64:' "$DEPLOY_PATH/.env"; then
     "$PHP_BIN" artisan key:generate --force --no-interaction
