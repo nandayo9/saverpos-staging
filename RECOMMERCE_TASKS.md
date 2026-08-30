@@ -660,6 +660,18 @@ Recommerce device registry, and POS register screens without changing any
 workflow state. This is local source/runtime evidence only and is not deployed
 or release evidence.
 
+**Dashboard chart surfaces — PASSED live (2026-08-30).**
+The Dashboard chart cards now have explicit dark surface classes, and the
+Highcharts canvas, menu control, grid, labels, and tooltip use the shared dark
+tokens. The dark stylesheet link includes the deployed file mtime so a changed
+stylesheet cannot remain hidden behind the stable application asset version.
+After the server-local Cron deployed commit `4dfc4b5`, the live Dashboard
+computed both chart canvases as `rgb(13, 23, 38)`, controls as
+`rgb(21, 34, 56)`, and found no white chart background/control fills. The
+focused contract test, full PHPUnit suite (306 tests / 1317 assertions), view
+cache, static check, and browser render all passed. This is staging evidence,
+not release or production evidence.
+
 **Live staging smoke — core flow passed; demo-fixture repair implemented locally (2026-08-30).**
 The fictional authenticated estate passed receive → tracked A→B transfer →
 Branch B POS sale → exact-device return → Branch B reconciliation. Credit Sale
