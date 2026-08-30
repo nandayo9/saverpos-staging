@@ -735,8 +735,11 @@ calls the existing cPanel deploy script only when the branch has advanced. It
 needed one cPanel **Update from Remote** so the helper reached the managed
 checkout. cPanel then accepted the exact five-minute Cron command on 2026-08-30:
 `/bin/bash /home/kkcctv93/repositories/saverpos-staging-repo/scripts/cpanel-staging-poll.sh >> /home/kkcctv93/repositories/saverpos-staging-repo/storage/logs/cpanel-staging-cron.log 2>&1`.
-The first Cron-driven deployment and served dark-UI verification remain
-unverified until a subsequent `staging` commit advances the server checkout.
+The first scheduled run created that log at 16:35, but source inspection of the
+cPanel Git page found its HEAD still at pre-helper commit `37be8b3`; it needs
+one **Update from Remote** before the helper can perform later automatic
+updates. The served dashboard is dark and loads `saverbro-dark-pos.css`, but a
+Cron-driven deployment remains unverified.
 
 **Payment-account repair now reaches the already-seeded estate (2026-08-30).**
 The earlier record said the deployed estate only had to rerun the expansion
