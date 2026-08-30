@@ -546,17 +546,26 @@ or release evidence.
 
 **Live staging smoke — core flow passed; demo-fixture repair implemented locally (2026-08-30).**
 The fictional authenticated estate passed receive → tracked A→B transfer →
-Branch B POS sale → exact-device return → Branch B reconciliation. The Cash
-payment path remains unverified on the deployed estate because that estate
-was not rerun after the local fixture repair. The disposable runtime seeder
-now supplies both branches with the complete POS `default_payment_accounts`
-shape, including `cash`, and explicitly assigns the Malaysia `MYR` currency;
-the idempotent expansion seeder also repairs the existing demo business
-mapping. Credit Sale completed the original isolated sale. The staging
-deployment must rerun that expansion before the Cash-specific smoke.
-This does not advance RC-045 or RC-046 and is not production, hardware, or
-release evidence. The Cash-specific smoke must be rerun after an explicitly
-approved deployment.
+Branch B POS sale → exact-device return → Branch B reconciliation. Credit Sale
+completed the original isolated sale. This does not advance RC-045 or RC-046
+and is not production, hardware, or release evidence.
+
+**Payment-account repair now reaches the already-seeded estate (2026-08-30).**
+The earlier record said the deployed estate only had to rerun the expansion
+seeder before the Cash smoke. That was wrong: the complete POS
+`default_payment_accounts` shape was added to `SaverposDemoRuntimeSeeder`,
+which runs only against a *fresh* database, while the deployed estate is
+repaired by `SaverposDemoExpansionSeeder`, which never touched the column.
+The expansion seeder now fills in the payment types a demo branch is missing,
+leaving anything already configured alone, and both seeders share one
+`SaverposDemoRuntimeSeeder::demoPaymentAccounts()` shape so they cannot drift
+again. Measured on a disposable MySQL fixture whose branches were reset to the
+deployed estate's state: `Util::payment_types()` returned `[]` for both
+branches beforehand — the register offered no payment method at all, so this
+was never Cash-specific — and all twelve types including `cash` afterwards,
+with a rerun leaving `updated_at` unchanged. The disposable database was
+dropped after the run. The Cash-specific smoke on `pos.kkcctv.com.my` still
+has to be rerun after an explicitly approved deployment.
 
 The first ten implementation tasks are `RC-001` through `RC-010`. They deliberately resolve source/runtime/data uncertainty and establish security, transactions, audit, canonical device identity, and safe code allocation before any UI or stock mutation is built.
 

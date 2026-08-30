@@ -1,18 +1,52 @@
 # AI Handoff
 
 Current milestone: Recommerce — live staging smoke verification
-Last completed task: **SAVERPOS dark presentation and disposable demo fixture follow-up implemented locally** — remaining light utility surfaces now use the dark POS palette, and the demo business now explicitly selects Malaysia's `MYR` currency instead of depending on seed order. The idempotent expansion seeder now also repairs the existing fictional demo business mapping. Local rendered checks covered Dashboard, Recommerce device registry, and POS register screens; workflow behavior was not changed. The prior live smoke passed with one payment-fixture blocker, and these local UI/fixture changes remain local-only until explicitly deployed. Before that: staging was deployed and live, and RC-002 was certified on PHP 8.2.33 + MySQL 8.
-Latest implementation commit: `5b29b4c` on `staging`; `origin/staging` remains at `bfd0bf4` until this mapping correction is published. This verification record is local-only until explicitly published. NOTE: the working tree is still dirty by design — RC-039 landed in `7d5adbc`, so the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **170 tests / 1083 assertions, all green** — re-verified 2026-08-30 **on PHP 8.2.33**, with zero deprecations, notices, warnings, skipped, incomplete or risky tests. The prior 8.4-container caveat ("strong regression signal, not platform certification for 8.2") is now closed. `recommerce-static-check` passes.
+Last completed task: **The demo payment-account repair now reaches the already-seeded staging estate** — `SaverposDemoExpansionSeeder` (the seeder that actually runs against the deployed database) now fills in the POS `default_payment_accounts` types a demo branch is missing, and both demo seeders share one `SaverposDemoRuntimeSeeder::demoPaymentAccounts()` shape. The previous record claimed rerunning the expansion would unblock the Cash smoke; it would not have — the shape had only been added to the fresh-database seeder. Before that: the dark presentation pass and the `MYR` currency repair landed, staging was deployed and live, and RC-002 was certified on PHP 8.2.33 + MySQL 8.
+Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
+Tests passing: **174 tests / 1092 assertions, all green** — re-verified 2026-08-30 on PHP 8.2.33 (the 170/1083 baseline was reproduced first, then 4 tests added). Zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
-Browser evidence: fresh disposable MySQL fixture; rendered browser flow passed for receive, pending/completed A→B transfer, Branch B POS sale, exact-device customer return, Branch B reconciliation (`PASS · core 1 · tracked 1 · legacy 0`), complete Device timeline, and RC-037 receiving exceptions (`MISSING` + `EXTRA` recorded, one manager resolution). Local rendered UI checks now pass for Dashboard chart surfaces, Recommerce device registry, and POS register surfaces; after rebuilding the fixture and refreshing the session, the Dashboard displays `RM`. Live staging smoke also passed receive → transfer → sale → return → reconciliation on the fictional estate; Cash-specific payment remains unverified on the deployed estate until the local seeder fix is explicitly deployed and rerun.
+Browser evidence: unchanged from the previous session (receive, A→B transfer, Branch B POS sale, exact-device return, Branch B reconciliation `PASS · core 1 · tracked 1 · legacy 0`, device timeline, RC-037 exceptions; live staging smoke passed the same core flow). New this session is non-browser runtime evidence on a disposable MySQL fixture: with both demo branches reset to the deployed estate's state, `Util::payment_types()` returned `[]` before the expansion seeder and all twelve types including `cash` after it. The Cash path on `pos.kkcctv.com.my` remains unverified until an approved deployment reruns the seeder.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: publish the staging-mapping correction, refresh the staging session, then rerun the Cash-specific smoke; then complete the responsive UI acceptance, address the printer/scanner matrix (needs a human at the hardware), the duplicate-`logout` route-cache blocker (see the RC-002 section), and the repository-visibility decision — which now matters more, because a push auto-deploys (see "Staging is live" below)
+Next safe task: deploy the payment-account repair to staging (an approved, outward-facing action — a push to `staging` now auto-deploys), then rerun the Cash-specific smoke on the fictional estate; then the responsive UI acceptance, the printer/scanner matrix (needs a human at the hardware), the duplicate-`logout` route-cache blocker (see the RC-002 section), and the repository-visibility decision
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## Demo payment accounts repaired for the already-seeded estate (2026-08-30)
+
+Verified the incoming state first: full suite reproduced at **170 tests / 1083 assertions green** on PHP 8.2.33, `recommerce-static-check` green, and the dirty tree exactly as described (RC-041 only). Two handoff claims did not survive checking:
+
+1. **The commit pointer was stale.** HEAD and `origin/staging` are both `e9b82f3` — same subject as the recorded `5b29b4c` but a different hash, so history was rewritten and pushed. The currency and dark-UI work is published, not pending.
+2. **"The staging deployment must rerun that expansion before the Cash-specific smoke" was wrong.** Rerunning it would not have fixed anything. `03d49f2` added the `default_payment_accounts` map to `SaverposDemoRuntimeSeeder::location()`, which only ever runs on a **fresh** database (`scripts/cpanel-staging-bootstrap.php` picks the expansion path whenever a business already exists). `SaverposDemoExpansionSeeder` repaired the currency and nothing else — it never referenced the column. The deployed branches, seeded before `03d49f2`, still had `default_payment_accounts = NULL`.
+
+### The blocker was wider than "Cash"
+
+`Util::payment_types($location)` unsets every payment type not marked enabled in the location's map, and a NULL map decodes to `[]` — so **no** payment type survives, not just cash. The recorded symptom ("the Cash button could not open its payment path") was the visible corner of a branch with no payment methods at all.
+
+### The fix
+
+- `SaverposDemoRuntimeSeeder::demoPaymentAccounts()` is now the single source of the shape, used by the fresh-estate `location()` builder and by the repair, so the two seeders cannot drift again.
+- `SaverposDemoExpansionSeeder::syncDemoPaymentAccounts()` fills in only the types a demo branch is **missing** (`$configured + $defaults`), so a disabled type or a bound account is preserved rather than reset; it skips soft-deleted locations, scopes to the demo business, and writes nothing when the map is already complete.
+
+### Evidence
+
+Disposable MySQL fixture (`saverpos_demo_cashfix`, dropped afterwards), with both branches reset to `NULL` to reproduce the deployed estate:
+
+```text
+before repair   location 1: raw=NULL  types=[]
+before repair   location 2: raw=NULL  types=[]
+after repair    location 1: raw=json  types=[cash,card,cheque,bank_transfer,other,custom_pay_1..7]
+after repair    location 2: raw=json  types=[cash,card,cheque,bank_transfer,other,custom_pay_1..7]
+rerun idempotent: yes (updated_at unchanged)
+```
+
+Four tests added to `tests/Unit/SaverposDemoRuntimeSeederTest.php` (repair, preservation of configured entries, no-op on a complete location, scoping). **Mutation-checked, not just observed green:** dropping the `deleted_at` filter, replacing the merge with an overwrite, and removing the idempotence short-circuit each fail exactly one of the new tests. Suite: **174 tests / 1092 assertions**.
+
+### What this does not do
+
+Nothing was deployed. `pos.kkcctv.com.my` still runs the old fixture, so the Cash-specific smoke is still unverified there and stays that way until an approved deployment reruns the seeder. This is demo-fixture code only — it touches no production path, and no RC task advances.
 
 ## Incoming-agent verification (2026-08-29) — STOPPED, no code changed
 

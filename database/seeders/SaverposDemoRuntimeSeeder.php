@@ -264,22 +264,33 @@ class SaverposDemoRuntimeSeeder extends Seeder
         return (int) $currencyId;
     }
 
-    private function location(int $businessId, string $name, int $schemeId, int $layoutId, $now): array
+    /**
+     * The complete POS payment-account shape a demo branch needs. Ultimate POS
+     * hides every payment type a location does not list here, so a branch with
+     * no map has no usable payment method at the register. Shared with
+     * SaverposDemoExpansionSeeder so the fresh and repaired estates cannot drift.
+     */
+    public static function demoPaymentAccounts(): array
     {
-        $defaultPaymentAccounts = [];
+        $paymentAccounts = [];
         foreach (['cash', 'card', 'cheque', 'bank_transfer', 'other', 'custom_pay_1', 'custom_pay_2', 'custom_pay_3', 'custom_pay_4', 'custom_pay_5', 'custom_pay_6', 'custom_pay_7'] as $paymentType) {
-            $defaultPaymentAccounts[$paymentType] = [
+            $paymentAccounts[$paymentType] = [
                 'is_enabled' => 1,
                 'account' => null,
             ];
         }
 
+        return $paymentAccounts;
+    }
+
+    private function location(int $businessId, string $name, int $schemeId, int $layoutId, $now): array
+    {
         return [
             'business_id' => $businessId, 'name' => $name, 'landmark' => 'Demo only', 'country' => 'Malaysia',
             'state' => 'Sabah', 'city' => 'Kota Kinabalu', 'zip_code' => '88000',
             'invoice_scheme_id' => $schemeId, 'invoice_layout_id' => $layoutId, 'sale_invoice_layout_id' => $layoutId,
             'is_active' => 1, 'receipt_printer_type' => 'browser',
-            'default_payment_accounts' => json_encode($defaultPaymentAccounts),
+            'default_payment_accounts' => json_encode(self::demoPaymentAccounts()),
             'created_at' => $now, 'updated_at' => $now,
         ];
     }

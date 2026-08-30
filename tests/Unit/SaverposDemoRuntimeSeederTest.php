@@ -41,6 +41,13 @@ class SaverposDemoRuntimeSeederTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        Schema::create('business_locations', function (Blueprint $table): void {
+            $table->increments('id');
+            $table->unsignedInteger('business_id');
+            $table->text('default_payment_accounts')->nullable();
+            $table->softDeletes();
+            $table->timestamps();
+        });
     }
 
     public function test_demo_currency_is_explicitly_myr_instead_of_seed_order_dependent(): void
@@ -91,5 +98,85 @@ class SaverposDemoRuntimeSeederTest extends TestCase
             $this->assertSame(1, $paymentAccount['is_enabled']);
             $this->assertNull($paymentAccount['account']);
         }
+    }
+
+    public function test_existing_demo_locations_without_payment_accounts_are_repaired(): void
+    {
+        $this->location(1, 1, null);
+
+        $this->syncDemoPaymentAccounts(1);
+
+        $repaired = json_decode(
+            (string) DB::table('business_locations')->where('id', 1)->value('default_payment_accounts'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+
+        $this->assertSame(array_keys(SaverposDemoRuntimeSeeder::demoPaymentAccounts()), array_keys($repaired));
+        $this->assertSame(['is_enabled' => 1, 'account' => null], $repaired['cash']);
+    }
+
+    public function test_repairing_payment_accounts_preserves_what_the_location_already_configured(): void
+    {
+        $this->location(1, 1, json_encode([
+            'cash' => ['is_enabled' => 0, 'account' => 7],
+        ]));
+
+        $this->syncDemoPaymentAccounts(1);
+
+        $repaired = json_decode(
+            (string) DB::table('business_locations')->where('id', 1)->value('default_payment_accounts'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR
+        );
+
+        $this->assertSame(['is_enabled' => 0, 'account' => 7], $repaired['cash']);
+        $this->assertSame(['is_enabled' => 1, 'account' => null], $repaired['card']);
+        $this->assertCount(count(SaverposDemoRuntimeSeeder::demoPaymentAccounts()), $repaired);
+    }
+
+    public function test_repairing_payment_accounts_leaves_a_complete_location_untouched(): void
+    {
+        $complete = json_encode(SaverposDemoRuntimeSeeder::demoPaymentAccounts());
+        $this->location(1, 1, $complete);
+        DB::table('business_locations')->where('id', 1)->update(['updated_at' => '2020-01-01 00:00:00']);
+
+        $this->syncDemoPaymentAccounts(1);
+
+        $location = DB::table('business_locations')->where('id', 1)->first();
+        $this->assertSame($complete, $location->default_payment_accounts);
+        $this->assertSame('2020-01-01 00:00:00', $location->updated_at);
+    }
+
+    public function test_repairing_payment_accounts_ignores_other_businesses_and_deleted_locations(): void
+    {
+        $this->location(1, 2, null);
+        $this->location(2, 1, null, '2026-08-30 00:00:00');
+
+        $this->syncDemoPaymentAccounts(1);
+
+        $this->assertNull(DB::table('business_locations')->where('id', 1)->value('default_payment_accounts'));
+        $this->assertNull(DB::table('business_locations')->where('id', 2)->value('default_payment_accounts'));
+    }
+
+    private function location(int $id, int $businessId, ?string $paymentAccounts, ?string $deletedAt = null): void
+    {
+        DB::table('business_locations')->insert([
+            'id' => $id,
+            'business_id' => $businessId,
+            'default_payment_accounts' => $paymentAccounts,
+            'deleted_at' => $deletedAt,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function syncDemoPaymentAccounts(int $businessId): void
+    {
+        $method = new ReflectionMethod(SaverposDemoExpansionSeeder::class, 'syncDemoPaymentAccounts');
+        $method->setAccessible(true);
+        $method->invoke(new SaverposDemoExpansionSeeder(), $businessId);
     }
 }

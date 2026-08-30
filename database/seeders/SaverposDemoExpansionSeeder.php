@@ -27,6 +27,7 @@ class SaverposDemoExpansionSeeder extends Seeder
             }
 
             $business = $this->syncDemoCurrency($business);
+            $this->syncDemoPaymentAccounts((int) $business->id);
             $now = now();
             $userId = (int) (DB::table('users')->where('business_id', $business->id)->orderBy('id')->value('id') ?: $business->owner_id);
             $locationIds = DB::table('business_locations')->where('business_id', $business->id)->orderBy('id')->pluck('id')->values();
@@ -173,6 +174,38 @@ class SaverposDemoExpansionSeeder extends Seeder
         }
 
         return $business;
+    }
+
+    /**
+     * Demo branches created before the payment-account fixture existed have a
+     * null `default_payment_accounts`, and Ultimate POS reads that as "no
+     * payment type is enabled here" — the register then offers none at all.
+     * Fill in only the missing types so anything already configured stands.
+     */
+    private function syncDemoPaymentAccounts(int $businessId): void
+    {
+        $defaults = SaverposDemoRuntimeSeeder::demoPaymentAccounts();
+        $locations = DB::table('business_locations')
+            ->where('business_id', $businessId)
+            ->whereNull('deleted_at')
+            ->get(['id', 'default_payment_accounts']);
+
+        foreach ($locations as $location) {
+            $configured = json_decode((string) $location->default_payment_accounts, true);
+            if (! is_array($configured)) {
+                $configured = [];
+            }
+
+            $repaired = $configured + $defaults;
+            if ($repaired === $configured) {
+                continue;
+            }
+
+            DB::table('business_locations')->where('id', $location->id)->update([
+                'default_payment_accounts' => json_encode($repaired),
+                'updated_at' => now(),
+            ]);
+        }
     }
 
     private function contact(int $businessId, string $type, string $contactId, string $name, int $userId, $now): int
