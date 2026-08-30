@@ -49,7 +49,11 @@ In iCore cPanel:
 
 1. Create the subdomain `pos.kkcctv.com.my` and set its document root to the
    repository's `public/` directory, for example:
-   `/home/CPANEL_USER/repositories/saverpos-staging/public`.
+   `/home/CPANEL_USER/repositories/saverpos-staging-repo/public`. Note that the
+   clone directory and the cPanel *repository name* are two different things —
+   the deployed estate uses the name `saverpos-staging` for a directory whose
+   real path ends in `saverpos-staging-repo`. Read the actual path from **Git
+   Version Control → Manage → Repository Path** rather than assuming it.
 2. Select PHP 8.2 in **Select PHP Version**. Enable at least `ctype`, `curl`,
    `fileinfo`, `gd`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `tokenizer`,
    `xml`, `zip`, and `bcmath` if available.
@@ -77,6 +81,29 @@ HEAD Commit**. The task finds PHP 8.2, runs Composer, prepares writable
 directories, generates an app key only when one is missing, migrates the
 isolated database, and creates the demo fixture only when the database has no
 businesses.
+
+### cPanel will refuse to deploy while the checked-out branch is dirty
+
+**Deploy HEAD Commit** is greyed out unless *both* of cPanel's preconditions
+hold: a valid `.cpanel.yml` exists, **and** the checked-out branch has no
+uncommitted changes. cPanel's "uncommitted changes" test includes **untracked**
+files, which is easy to trip without realising.
+
+That is what blocked the first deployment attempt. Installing the Let's Encrypt
+certificate created `public/.well-known/acme-challenge/` inside the document
+root. It was untracked and not ignored, so the server's working tree read as
+dirty and the Deploy button stayed disabled — with a generic message that does
+not name the offending path. `/public/.well-known/` is now in `.gitignore`, so
+this resolves once the server pulls a commit containing that rule.
+
+The directory is recreated on **every certificate renewal**, so deleting it on
+the server is not a fix — it will come back and disable deployment again. Ignore
+it; do not delete it, and do not commit it.
+
+If Deploy is disabled again later, look for anything else written into the
+checkout that git does not know about: editor backups, `.env` variants under a
+different name, cPanel-generated files, or uploads landing outside the ignored
+`public/uploads/**` paths.
 
 If cPanel Terminal/SSH is available, the equivalent commands from the
 repository root are:

@@ -27,6 +27,11 @@ npm-debug.log
 .scribe
 /public/docs
 /public/js/skins/
+
+# Let's Encrypt/cPanel recreate this inside the document root at every SSL
+# renewal. Untracked files make cPanel treat the checked-out branch as dirty,
+# which disables its "Deploy HEAD Commit" action.
+/public/.well-known/
 .DS_Store
 .phpunit.result.cache
 

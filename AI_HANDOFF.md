@@ -9,7 +9,7 @@ Browser evidence: fresh disposable MySQL fixture; rendered browser flow passed f
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: confirm the target printer and scanner/browser matrix, then run physical label print and keyboard-wedge scan checks (needs a human at the hardware); camera scanning remains blocked on the dependency decision. Two smaller unblocked items now exist: the duplicate-`logout` route-cache blocker (see the RC-002 section below) and pushing the 12 local commits (see "Push status")
+Next safe task: **push**, then cPanel **Update from Remote** → **Deploy HEAD Commit** — the staging deployment is now blocked only on the push (see "cPanel staging inspected in the browser" below). After that: the printer/scanner matrix (needs a human at the hardware) and the duplicate-`logout` route-cache blocker (see the RC-002 section)
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel now has `pos.kkcctv.com.my` mapped to the cloned `staging` repository's `public/` directory, PHP 8.2 enabled account-wide, staging MySQL database/user created, and Let's Encrypt SSL installed. cPanel Git pull is verified at commit `bd8f49f`. The repository now contains a cPanel Git deployment task (`.cpanel.yml` plus `scripts/cpanel-staging-deploy.sh`) so shell/Terminal support is not required: after the untracked server `.env` is created, **Update from Remote** then **Deploy HEAD Commit** installs dependencies, creates a one-time key, migrates, and conditionally seeds the fictional fixture. No cPanel credentials or database password are present in this checkout.
@@ -302,6 +302,46 @@ For the migration half, export HEAD to a scratch directory as described above an
 ### RC-041 was re-verified, and is still blocked
 
 Read before doing anything else, per the incoming-agent instructions. `LegacyRepairArchiveService::assertArchiveAccess()` still injects `AuthorizationGate` and still never calls it — it checks `in_array('recommerce.repair.archive', config('recommerce.permissions'))` and `$this->cohortPolicy->allowsBusiness()`, with no `$user->can()` anywhere. The nullable-but-dereferenced `$cohortPolicy` is also still there. Every other detail in the handoff matched the source. **No RC-041 code was touched.**
+
+## cPanel staging inspected in the browser (2026-08-30) — the deploy was never runnable
+
+The operator logged into iCore cPanel and I walked the estate. Everything the previous sessions
+described as infrastructure is in place; the deployment itself has **never run**, and the reason
+turned out not to be the one recorded.
+
+### Verified present and correctly wired
+
+- **Git Version Control is enabled** on this plan (shell access is not — cPanel warns clone URLs are hidden, which is exactly why the `.cpanel.yml` route was built).
+- Repository path is `/home/kkcctv93/repositories/saverpos-staging-repo` — note the **`-repo` suffix**. The runbook had assumed `.../saverpos-staging/`. Corrected in `ICORE_CPANEL_STAGING.md`.
+- `pos.kkcctv.com.my` document root is `/home/kkcctv93/repositories/saverpos-staging-repo/public` — correct. The main domain is separate on `public_html`.
+- The staging MySQL database exists, is **0 bytes**, and its dedicated user is listed as a privileged user on it. The WordPress database and its user are separate, so the isolation the runbook required holds.
+- The server `.env` exists (556 bytes, created 2026-08-30 00:07).
+
+### Two corrections to the previous handoff
+
+1. **cPanel's HEAD is `4e68994`, not `bd8f49f`.** The server is already level with `origin/staging`, so **Update from Remote** would fetch nothing today. The deploy machinery is already on the server — `4e68994` is the commit that added it.
+2. **The missing `.env` was not the blocker.** It was already created. The checkout has no `vendor/` and no `storage/`, which confirms the deploy task has never executed.
+
+### The real blocker: cPanel disables Deploy on a dirty branch
+
+**Deploy HEAD Commit is disabled** (confirmed programmatically: `disabled: true`; *Update from Remote* is enabled). cPanel requires a valid `.cpanel.yml` — present — **and** no uncommitted changes on the checked-out branch. Its dirty test counts **untracked** files.
+
+The untracked path is `public/.well-known/acme-challenge/`, timestamped 23:49 — the moment the Let's Encrypt certificate was installed. It was not covered by `.gitignore`, so the server's tree reads dirty and the button stays greyed out behind a generic message that never names the path.
+
+**Fixed by ignoring it**, not deleting it: the directory is recreated at every certificate renewal, so deleting it on the server would re-block the next deployment. `/public/.well-known/` is now in `.gitignore`. Verified by reproducing the server condition locally — created `public/.well-known/acme-challenge/probe`, confirmed `git check-ignore` matches it at `.gitignore:34` and that `git status` reports zero `well-known` entries, then removed the probe.
+
+### What still has to happen, in order
+
+1. **Push.** The fix only reaches the server through GitHub. This is the same push that has been outstanding for two sessions.
+2. cPanel → Git Version Control → **Update from Remote** (enabled today).
+3. **Deploy HEAD Commit** should then be clickable. It runs Composer, generates `APP_KEY` into the server-only `.env`, migrates, and seeds the fictional estate only if `business` is empty.
+4. Smoke test per `ICORE_CPANEL_STAGING.md` §6.
+
+Nothing was changed on the server. No cPanel setting was modified, no file was created or deleted there, and the login was performed by the operator.
+
+### The server `.env` was deliberately not read
+
+It holds a live database password. A scripted read that would have returned it redacted was refused by the session's permission guard, and reading it via the File Manager editor was declined rather than worked around, since that would have put the password into this transcript. Its non-secret contents are therefore **unverified** — `APP_ENV`, `DB_DATABASE` and `DB_USERNAME` have not been checked against the database that actually exists. The deploy fails loudly and harmlessly if any are wrong (the bootstrap refuses any `APP_ENV` other than `staging`, and migrations abort on bad credentials against an empty database), so the cheapest confirmation is the deployment log itself.
 
 ## Push status (2026-08-30) — blocked on credentials, not on the work
 
