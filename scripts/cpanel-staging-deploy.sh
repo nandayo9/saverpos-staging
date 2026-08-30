@@ -29,7 +29,7 @@ if [[ -z "$PHP_BIN" ]]; then
 fi
 
 COMPOSER_BIN=""
-for candidate in /usr/local/bin/composer "$HOME/bin/composer" composer; do
+for candidate in /usr/local/bin/composer "${HOME:-}/bin/composer" composer; do
     if command -v "$candidate" >/dev/null 2>&1; then
         COMPOSER_BIN="$(command -v "$candidate")"
         break
@@ -37,8 +37,34 @@ for candidate in /usr/local/bin/composer "$HOME/bin/composer" composer; do
 done
 
 if [[ -z "$COMPOSER_BIN" ]]; then
-    echo "Composer was not found in this cPanel deployment environment."
-    exit 1
+    # cPanel hosting plans do not always expose a global Composer command.
+    # Bootstrap a local copy only after verifying the current installer checksum
+    # published by Composer itself. storage/ is ignored by Git and outside the
+    # Laravel web root, so this does not dirty the managed repository.
+    COMPOSER_DIR="$ROOT_DIR/storage/composer"
+    COMPOSER_BIN="$COMPOSER_DIR/composer.phar"
+    mkdir -p "$COMPOSER_DIR"
+
+    if [[ ! -f "$COMPOSER_BIN" ]]; then
+        INSTALLER="$COMPOSER_DIR/composer-setup.php"
+        if command -v curl >/dev/null 2>&1; then
+            EXPECTED_CHECKSUM="$(curl --fail --location --silent --show-error https://composer.github.io/installer.sig)"
+            curl --fail --location --silent --show-error https://getcomposer.org/installer --output "$INSTALLER"
+        else
+            EXPECTED_CHECKSUM="$("$PHP_BIN" -r 'copy("https://composer.github.io/installer.sig", "php://stdout");')"
+            "$PHP_BIN" -r 'copy($argv[1], $argv[2]);' https://getcomposer.org/installer "$INSTALLER"
+        fi
+
+        ACTUAL_CHECKSUM="$("$PHP_BIN" -r 'echo hash_file("sha384", $argv[1]);' "$INSTALLER")"
+        if [[ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]]; then
+            rm -f "$INSTALLER"
+            echo "Composer installer checksum verification failed."
+            exit 1
+        fi
+
+        "$PHP_BIN" "$INSTALLER" --quiet --install-dir="$COMPOSER_DIR" --filename=composer.phar --2
+        rm -f "$INSTALLER"
+    fi
 fi
 
 "$PHP_BIN" "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction

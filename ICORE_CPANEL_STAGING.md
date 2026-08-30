@@ -115,9 +115,10 @@ php artisan storage:link
 chmod -R ug+rwx storage bootstrap/cache
 ```
 
-If the cPanel deployment log reports that Composer is unavailable, do not
-commit `vendor/` as a workaround. That is the one remaining hosting-level
-blocker.
+If the cPanel deployment log reports that Composer is unavailable, the task
+downloads Composer into the ignored `storage/composer/` directory after
+checking the official Composer installer checksum. Do not commit `vendor/` as
+a workaround.
 
 ## 4. Create the staging environment
 
