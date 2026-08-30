@@ -34,6 +34,7 @@ npm-debug.log
 /public/.well-known/
 .DS_Store
 .phpunit.result.cache
+/error_log
 
 # These shipped runtime assets are required when deploying from GitHub.
 !/public/css/
