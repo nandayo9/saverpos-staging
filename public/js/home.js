@@ -177,14 +177,8 @@ function update_statistics(start, end) {
     var data = { start: start, end: end, location_id: location_id };
     //get purchase details
     var loader = '<i class="fas fa-sync fa-spin fa-fw margin-bottom"></i>';
-    $('.total_purchase').html(loader);
-    $('.purchase_due').html(loader);
-    $('.total_sell').html(loader);
-    $('.invoice_due').html(loader);
-    $('.total_expense').html(loader);
-    $('.total_purchase_return').html(loader);
-    $('.total_sell_return').html(loader);
-    $('.net').html(loader);
+    $('.total_purchase, .purchase_due, .total_sell, .invoice_due, .total_expense, .total_purchase_return, .total_sell_return, .net')
+        .not('.sb-dashboard-kpi__value').html(loader);
     $.ajax({
         method: 'get',
         url: '/home/get-totals',
@@ -193,11 +187,11 @@ function update_statistics(start, end) {
         success: function(data) {
             //purchase details
             $('.total_purchase').html(__currency_trans_from_en(data.total_purchase, true));
-            $('.purchase_due').html(__currency_trans_from_en(data.purchase_due, true));
+            $('.purchase_due').html(__currency_trans_from_en(data.purchase_due || 0, true));
 
             //sell details
-            $('.total_sell').html(__currency_trans_from_en(data.total_sell, true));
-            $('.invoice_due').html(__currency_trans_from_en(data.invoice_due, true));
+            $('.total_sell').html(__currency_trans_from_en(data.total_sell || 0, true));
+            $('.invoice_due').html(__currency_trans_from_en(data.invoice_due || 0, true));
             //expense details
             $('.total_expense').html(__currency_trans_from_en(data.total_expense, true));
             var total_purchase_return = data.total_purchase_return - data.total_purchase_return_paid;

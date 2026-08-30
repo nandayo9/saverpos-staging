@@ -522,7 +522,11 @@ h1, h2, h3, h4, h5, h6,
 .tw-text-slate-500,
 .tw-text-slate-600,
 .text-gray-600,
-.tw-text-gray-600 {
+.tw-text-gray-600,
+.text-gray-700,
+.tw-text-gray-700,
+.text-slate-700,
+.tw-text-slate-700 {
   color: var(--sb-muted) !important;
 }
 
@@ -702,6 +706,80 @@ table.dataTable thead th {
   font-size: 11px;
 }
 
+/* Legacy tab panes and DataTables scroll wrappers keep their own Bootstrap
+   white backgrounds. They sit inside the dark shell on list pages such as
+   Products, so explicitly theme every generated surface and row. */
+.nav-tabs-custom > .nav-tabs,
+.nav-tabs-custom > .nav-tabs > li > a,
+.nav-tabs-custom > .nav-tabs > li.active > a,
+.nav-tabs-custom > .nav-tabs > li.active > a:hover,
+.nav-tabs-custom > .nav-tabs > li.active > a:focus,
+.nav-tabs-custom > .tab-content,
+.nav-tabs-custom > .tab-content > .tab-pane,
+.dataTables_wrapper,
+.dataTables_wrapper .dataTables_scroll,
+.dataTables_wrapper .dataTables_scrollHead,
+.dataTables_wrapper .dataTables_scrollHeadInner,
+.dataTables_wrapper .dataTables_scrollBody,
+.dataTables_wrapper .dataTables_scrollFoot,
+.dataTables_wrapper .dataTables_scrollFootInner,
+table.dataTable,
+table.dataTable tbody,
+table.dataTable tbody > tr,
+table.dataTable tbody > tr > td,
+table.dataTable tfoot > tr > td {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+}
+
+.nav-tabs-custom > .nav-tabs {
+  border-bottom-color: var(--sb-border) !important;
+}
+
+.nav-tabs-custom > .nav-tabs > li > a {
+  border-color: transparent !important;
+  color: var(--sb-muted) !important;
+}
+
+.nav-tabs-custom > .nav-tabs > li > a:hover,
+.nav-tabs-custom > .nav-tabs > li > a:focus {
+  background: rgba(56, 189, 248, .08) !important;
+  color: var(--sb-text) !important;
+}
+
+.nav-tabs-custom > .nav-tabs > li.active > a,
+.nav-tabs-custom > .nav-tabs > li.active > a:hover,
+.nav-tabs-custom > .nav-tabs > li.active > a:focus {
+  border-color: var(--sb-border) var(--sb-border) var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+}
+
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_info {
+  color: var(--sb-muted) !important;
+}
+
+.dataTables_wrapper .dataTables_scrollBody {
+  border-color: var(--sb-border) !important;
+}
+
+table.dataTable tbody > tr.even,
+table.dataTable tbody > tr:nth-of-type(even),
+table.dataTable tbody > tr.selected {
+  background: #111d2e !important;
+}
+
+table.dataTable tbody > tr.odd,
+table.dataTable tbody > tr:nth-of-type(odd) {
+  background: #0d1726 !important;
+}
+
+table.dataTable tbody > tr:hover,
+table.dataTable tbody > tr.selected:hover {
+  background: rgba(56, 189, 248, .12) !important;
+}
+
 .table-striped > tbody > tr:nth-of-type(odd),
 .table-hover > tbody > tr:hover,
 table.dataTable.stripe tbody tr.odd,
@@ -713,6 +791,123 @@ table.dataTable.display tbody tr.odd {
 table.dataTable.hover tbody tr:hover,
 table.dataTable.display tbody tr:hover {
   background: rgba(56, 189, 248, .07) !important;
+}
+
+/* Report totals use the legacy .bg-gray class, which otherwise paints a
+   light gray strip with white text. Keep totals readable and consistent with
+   the dark report surface. */
+.content .bg-gray,
+.content .footer-total,
+.content .footer-total > td,
+.content table > tfoot > tr,
+.content table > tfoot > tr > td,
+table.dataTable tfoot > tr,
+table.dataTable tfoot > tr > td {
+  background: #1b2b43 !important;
+  border-color: var(--sb-border-strong) !important;
+  color: var(--sb-text) !important;
+}
+
+.content .footer-total strong,
+.content .footer-total span,
+.content .footer-total .display_currency {
+  color: var(--sb-text) !important;
+}
+
+.dataTables_wrapper .dataTables_scrollBody {
+  scrollbar-color: #34506f #0b1422;
+  scrollbar-width: thin;
+}
+
+.dataTables_wrapper .dataTables_scrollBody::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.dataTables_wrapper .dataTables_scrollBody::-webkit-scrollbar-track {
+  background: #0b1422;
+}
+
+.dataTables_wrapper .dataTables_scrollBody::-webkit-scrollbar-thumb {
+  background: #34506f;
+  border: 2px solid #0b1422;
+  border-radius: 999px;
+}
+
+.dataTables_wrapper .dataTables_scrollBody::-webkit-scrollbar-thumb:hover {
+  background: #4f7097;
+}
+
+.content .table-responsive {
+  scrollbar-color: #34506f #0b1422;
+  scrollbar-width: thin;
+}
+
+.content .table-responsive::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.content .table-responsive::-webkit-scrollbar-track {
+  background: #0b1422;
+}
+
+.content .table-responsive::-webkit-scrollbar-thumb {
+  background: #34506f;
+  border: 2px solid #0b1422;
+  border-radius: 999px;
+}
+
+.content .table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #4f7097;
+}
+
+/* Most report charts are rendered directly into a widget rather than the
+   dashboard chart frame. Apply the same dark Highcharts palette to both. */
+.content .chart-container,
+.content .highcharts-container,
+.content svg.highcharts-root {
+  background: #0d1726 !important;
+}
+
+.content .highcharts-background,
+.content .highcharts-plot-background,
+.content .highcharts-pane {
+  fill: #0d1726 !important;
+}
+
+.content .highcharts-grid-line,
+.content .highcharts-axis-line,
+.content .highcharts-tick {
+  stroke: var(--sb-border) !important;
+}
+
+.content .highcharts-axis-labels text,
+.content .highcharts-axis-title,
+.content .highcharts-data-labels text,
+.content .highcharts-legend-item text,
+.content .highcharts-title,
+.content .highcharts-subtitle {
+  fill: var(--sb-muted) !important;
+  color: var(--sb-muted) !important;
+}
+
+.content .highcharts-button-box {
+  fill: #152238 !important;
+  stroke: var(--sb-border) !important;
+}
+
+.content .highcharts-button-symbol {
+  stroke: var(--sb-muted) !important;
+}
+
+.content .highcharts-tooltip-box {
+  fill: #152238 !important;
+  stroke: var(--sb-border-strong) !important;
+}
+
+.content .highcharts-tooltip text {
+  fill: var(--sb-text) !important;
 }
 
 .pagination > li > a,
@@ -769,8 +964,8 @@ table.dataTable.display tbody tr:hover {
   box-shadow: 0 14px 30px rgba(0, 0, 0, .2) !important;
 }
 
-/* Dashboard command centre: presentation only. Existing selectors, live charts,
-   permissions and DataTable targets remain untouched. */
+/* Dashboard presentation layer: existing data hooks, permissions and live charts
+   remain untouched. */
 .saverbro-dashboard {
   --sb-dashboard-card: rgba(16, 27, 45, .92);
   --sb-dashboard-card-border: rgba(86, 116, 153, .25);
@@ -919,6 +1114,119 @@ table.dataTable.display tbody tr:hover {
   letter-spacing: -.03em;
 }
 
+.sb-dashboard-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.sb-dashboard-kpi {
+  position: relative;
+  display: flex;
+  min-height: 8.25rem;
+  align-items: center;
+  gap: 1rem;
+  overflow: hidden;
+  padding: 1.25rem;
+  border: 1px solid var(--sb-dashboard-card-border);
+  border-radius: .85rem;
+  background: linear-gradient(140deg, rgba(7, 75, 57, .96), rgba(10, 35, 38, .98));
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .2);
+  color: var(--sb-dashboard-copy);
+}
+
+.sb-dashboard-kpi::after {
+  position: absolute;
+  top: -48px;
+  right: -28px;
+  width: 132px;
+  height: 132px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, .16), transparent 68%);
+  content: "";
+  pointer-events: none;
+}
+
+.sb-dashboard-kpi--purchase {
+  background: linear-gradient(140deg, rgba(45, 29, 101, .96), rgba(23, 25, 66, .98));
+}
+
+.sb-dashboard-kpi--due {
+  background: linear-gradient(140deg, rgba(83, 54, 16, .96), rgba(48, 31, 22, .98));
+}
+
+.sb-dashboard-kpi--visits {
+  background: linear-gradient(140deg, rgba(12, 59, 100, .96), rgba(12, 31, 59, .98));
+}
+
+.sb-dashboard-kpi__icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 3rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: .8rem;
+  background: rgba(255, 255, 255, .1);
+  color: #b9f6d6;
+  font-size: 1.35rem;
+}
+
+.sb-dashboard-kpi--purchase .sb-dashboard-kpi__icon {
+  color: #d7c5ff;
+}
+
+.sb-dashboard-kpi--due .sb-dashboard-kpi__icon {
+  color: #fde68a;
+}
+
+.sb-dashboard-kpi--visits .sb-dashboard-kpi__icon {
+  color: #bae6fd;
+}
+
+.sb-dashboard-kpi__content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.sb-dashboard-kpi__label,
+.sb-dashboard-kpi__value,
+.sb-dashboard-kpi__hint {
+  margin: 0;
+}
+
+.sb-dashboard-kpi__label {
+  color: rgba(238, 246, 255, .78);
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.sb-dashboard-kpi__value {
+  margin-top: .25rem;
+  color: #f8fbff !important;
+  font-size: clamp(1.35rem, 1.8vw, 1.8rem);
+  font-weight: 800;
+  letter-spacing: -.04em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.sb-dashboard-kpi__hint {
+  margin-top: .45rem;
+  overflow: hidden;
+  color: rgba(207, 224, 241, .72);
+  font-size: .75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sb-walk-in-card {
   position: relative;
   overflow: hidden;
@@ -963,68 +1271,10 @@ table.dataTable.display tbody tr:hover {
   padding-top: 1.75rem !important;
 }
 
-.sb-command-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.25rem;
-  margin: 0 0 1.25rem;
-  padding: 1rem 1.15rem;
-  border: 1px solid var(--sb-dashboard-card-border);
-  border-radius: .9rem;
-  background: linear-gradient(110deg, rgba(17, 30, 50, .96), rgba(10, 20, 34, .96));
-  box-shadow: 0 12px 28px rgba(0, 0, 0, .17);
-}
-
-.sb-command-strip__heading h2 {
-  margin: 0;
-  color: var(--sb-dashboard-copy) !important;
-  font-size: 1rem;
-  font-weight: 650;
-}
-
-.sb-command-strip__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: .55rem;
-}
-
-.sb-command-action {
-  display: inline-flex;
-  align-items: center;
-  gap: .52rem;
-  min-height: 2.5rem;
-  padding: .55rem .8rem;
-  border: 1px solid rgba(108, 138, 174, .28);
-  border-radius: .65rem;
-  background: rgba(24, 40, 63, .8);
-  color: #c9d8ea !important;
-  font-size: .78rem;
-  font-weight: 600;
-  text-decoration: none !important;
-  transition: border-color .16s ease, background .16s ease, transform .16s ease;
-}
-
-.sb-command-action:hover,
-.sb-command-action:focus {
-  border-color: rgba(56, 189, 248, .72);
-  background: rgba(16, 66, 101, .85);
-  color: #f0f9ff !important;
-  transform: translateY(-1px);
-}
-
 .saverbro-dashboard #dashboard_date_filter:focus-visible,
-.saverbro-dashboard .select2-container--default .select2-selection--single:focus-visible,
-.sb-command-action:focus-visible {
+.saverbro-dashboard .select2-container--default .select2-selection--single:focus-visible {
   outline: 2px solid #7dd3fc;
   outline-offset: 3px;
-}
-
-.sb-command-action--primary {
-  border-color: #38bdf8;
-  background: linear-gradient(135deg, #0284c7, #075985);
-  color: white !important;
 }
 
 .saverbro-dashboard + .tw-px-5 > .tw-grid > div {
@@ -1061,19 +1311,25 @@ table.dataTable.display tbody tr:hover {
     margin-bottom: 1rem;
   }
 
-  .sb-command-strip {
-    align-items: flex-start;
-    flex-direction: column;
+  .sb-dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sb-command-strip__actions {
-    justify-content: flex-start;
+  .sb-dashboard-kpi {
+    min-height: 7.5rem;
+    padding: 1rem;
+  }
+
+}
+
+@media (max-width: 480px) {
+  .sb-dashboard-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .saverbro-dashboard *,
-  .sb-command-action {
+  .saverbro-dashboard * {
     scroll-behavior: auto !important;
     transition-duration: .01ms !important;
   }
@@ -1171,6 +1427,12 @@ body.lockscreen .pos_form_totals {
   border-top: 1px solid var(--sb-border) !important;
 }
 
+body.lockscreen .pos_form_totals .pos_totals_left,
+body.lockscreen .pos_form_totals .pos_totals_cell {
+  background: #111d2e !important;
+  border-color: var(--sb-border) !important;
+}
+
 body.lockscreen .pos_totals_label {
   color: var(--sb-muted) !important;
 }
@@ -1179,6 +1441,18 @@ body.lockscreen .pos_totals_value,
 body.lockscreen .pos_totals_right_value,
 body.lockscreen #total_payable {
   color: var(--sb-text) !important;
+}
+
+body.lockscreen .pos_totals_right_label {
+  color: #a7f3d0 !important;
+}
+
+body.lockscreen .pos_totals_value--danger {
+  color: var(--sb-danger) !important;
+}
+
+body.lockscreen .pos_totals_value--loyalty {
+  color: #c4b5fd !important;
 }
 
 body.lockscreen .pos_totals_right {
@@ -1237,6 +1511,75 @@ body.lockscreen .pos-card.is-active.brand {
 
 body.lockscreen .pos-card-name {
   color: var(--sb-text) !important;
+}
+
+body.lockscreen .product_box {
+  background: #142237 !important;
+  border-color: var(--sb-border) !important;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .18) !important;
+}
+
+body.lockscreen .product_box:hover {
+  background: var(--sb-surface-hover) !important;
+  border-color: var(--sb-accent) !important;
+}
+
+body.lockscreen .product_box .text-muted {
+  color: var(--sb-muted) !important;
+}
+
+body.lockscreen .product_box .product_price {
+  color: #6ee7b7 !important;
+}
+
+/* Business Settings is built on the older pos-tab layout. Its content pane
+   and list-group retain Bootstrap's white skin unless they are themed
+   explicitly. */
+div.pos-tab-container,
+div.pos-tab-container .pos-tab,
+div.pos-tab-container .pos-tab-menu,
+div.pos-tab-container .pos-tab-menu .list-group,
+div.pos-tab-container div.pos-tab-content {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border) !important;
+  color: var(--sb-text) !important;
+}
+
+div.pos-tab-container {
+  box-shadow: 0 18px 45px rgba(0, 0, 0, .28) !important;
+}
+
+div.pos-tab-menu div.list-group > a,
+div.pos-tab-menu div.list-group > a:hover,
+div.pos-tab-menu div.list-group > a:focus {
+  background: #111d2e !important;
+  border-color: var(--sb-border) !important;
+  color: var(--sb-text) !important;
+}
+
+div.pos-tab-menu div.list-group > a.active,
+div.pos-tab-menu div.list-group > a.active:hover,
+div.pos-tab-menu div.list-group > a.active:focus {
+  background: linear-gradient(135deg, #075985, #0c4a6e) !important;
+  border-color: var(--sb-accent) !important;
+  color: #f0f9ff !important;
+}
+
+div.pos-tab-content label,
+div.pos-tab-content .checkbox label,
+div.pos-tab-content .control-label {
+  color: var(--sb-muted) !important;
+}
+
+div.pos-tab-content .form-group > label,
+div.pos-tab-content .checkbox label {
+  color: var(--sb-text) !important;
+}
+
+div.pos-tab-content .input-group-addon {
+  background: #122137 !important;
+  color: var(--sb-muted) !important;
+  border-color: var(--sb-border-strong) !important;
 }
 
 body.lockscreen #featured_products_box:not(:empty) {

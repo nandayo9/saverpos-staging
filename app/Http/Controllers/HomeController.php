@@ -104,18 +104,31 @@ class HomeController extends Controller
 
         $is_admin = $this->businessUtil->is_admin(auth()->user());
         $walkInSummary = null;
+        $walkInMonthSummary = null;
         if ($user->can('walkin.view') || $user->can('walkin.view_all')) {
             $locationId = null;
             if (! $user->can('walkin.view_all')) {
                 $locationId = BusinessLocation::forDropdown($business_id, false)->keys()->first();
             }
             if ($locationId !== null || $user->can('walkin.view_all')) {
-                $walkInSummary = $this->walkInService->summary($business_id, $locationId, now()->startOfDay(), now()->endOfDay());
+                $now = now();
+                $walkInSummary = $this->walkInService->summary(
+                    $business_id,
+                    $locationId,
+                    $now->copy()->startOfDay()->toDateTimeString(),
+                    $now->copy()->endOfDay()->toDateTimeString()
+                );
+                $walkInMonthSummary = $this->walkInService->summary(
+                    $business_id,
+                    $locationId,
+                    $now->copy()->startOfMonth()->toDateTimeString(),
+                    $now->copy()->endOfDay()->toDateTimeString()
+                );
             }
         }
 
         if (! auth()->user()->can('dashboard.data')) {
-            return view('home.index', compact('is_admin', 'walkInSummary'));
+            return view('home.index', compact('is_admin', 'walkInSummary', 'walkInMonthSummary'));
         }
 
         $fy = $this->businessUtil->getCurrentFinancialYear($business_id);
@@ -251,7 +264,7 @@ class HomeController extends Controller
         $common_settings = ! empty(session('business.common_settings')) ? session('business.common_settings') : [];
 
 
-        return view('home.index', compact('sells_chart_1', 'sells_chart_2', 'widgets', 'all_locations', 'common_settings', 'is_admin', 'walkInSummary'));
+        return view('home.index', compact('sells_chart_1', 'sells_chart_2', 'widgets', 'all_locations', 'common_settings', 'is_admin', 'walkInSummary', 'walkInMonthSummary'));
     }
 
     /**

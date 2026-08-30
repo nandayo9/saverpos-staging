@@ -376,49 +376,49 @@
     </div>
     @if (auth()->user()->can('dashboard.data'))
         <div class="tw-px-5 tw-py-6">
-            @php
-                $command_center_modules = is_array($enabled_modules ?? null) ? $enabled_modules : [];
-                $has_command_center_actions =
-                    (in_array('pos_sale', $command_center_modules) && auth()->user()->can('sell.create')) ||
-                    auth()->user()->can('product.create') ||
-                    auth()->user()->can('purchase.create') ||
-                    auth()->user()->can('stock_transfer.create');
-            @endphp
-            @if ($has_command_center_actions)
-                <section class="sb-command-strip" aria-labelledby="command-center-actions">
-                    <div class="sb-command-strip__heading">
-                        <p class="sb-dashboard-eyebrow">Workspace</p>
-                        <h2 id="command-center-actions">Quick actions</h2>
+            <section class="sb-dashboard-kpi-grid" aria-label="Dashboard summary">
+                <article class="sb-dashboard-kpi sb-dashboard-kpi--revenue">
+                    <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-wallet"></i></span>
+                    <div class="sb-dashboard-kpi__content">
+                        <p class="sb-dashboard-kpi__label">Today sale</p>
+                        <p class="sb-dashboard-kpi__value total_sell">@format_currency(0)</p>
+                        <p class="sb-dashboard-kpi__hint">Selected dashboard period</p>
                     </div>
-                    <div class="sb-command-strip__actions">
-                        @if (in_array('pos_sale', $command_center_modules) && auth()->user()->can('sell.create'))
-                            <a class="sb-command-action sb-command-action--primary"
-                                href="{{ action([\App\Http\Controllers\SellPosController::class, 'create']) }}">
-                                <i class="fas fa-cash-register" aria-hidden="true"></i>
-                                <span>@lang('sale.pos_sale')</span>
-                            </a>
+                </article>
+
+                <article class="sb-dashboard-kpi sb-dashboard-kpi--purchase">
+                    <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-shopping-cart"></i></span>
+                    <div class="sb-dashboard-kpi__content">
+                        <p class="sb-dashboard-kpi__label">Today purchase due</p>
+                        <p class="sb-dashboard-kpi__value purchase_due">@format_currency(0)</p>
+                        <p class="sb-dashboard-kpi__hint">Amount due on purchases</p>
+                    </div>
+                </article>
+
+                <article class="sb-dashboard-kpi sb-dashboard-kpi--due">
+                    <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-file-invoice-dollar"></i></span>
+                    <div class="sb-dashboard-kpi__content">
+                        <p class="sb-dashboard-kpi__label">Outstanding invoices</p>
+                        <p class="sb-dashboard-kpi__value invoice_due">@format_currency(0)</p>
+                        <p class="sb-dashboard-kpi__hint">Amount still due</p>
+                    </div>
+                </article>
+
+                <article class="sb-dashboard-kpi sb-dashboard-kpi--visits">
+                    <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-users"></i></span>
+                    <div class="sb-dashboard-kpi__content">
+                        <p class="sb-dashboard-kpi__label">Total visits this month</p>
+                        @if (!empty($walkInMonthSummary))
+                            <p class="sb-dashboard-kpi__value">{{ $walkInMonthSummary['walk_ins'] }}</p>
+                            <p class="sb-dashboard-kpi__hint">Walk-In Intelligence · Month to date</p>
+                        @else
+                            <p class="sb-dashboard-kpi__value" aria-label="Visits unavailable">—</p>
+                            <p class="sb-dashboard-kpi__hint">Monthly walk-in data unavailable</p>
                         @endif
-                        @can('product.create')
-                            <a class="sb-command-action" href="{{ action([\App\Http\Controllers\ProductController::class, 'create']) }}">
-                                <i class="fas fa-box" aria-hidden="true"></i>
-                                <span>@lang('product.add_product')</span>
-                            </a>
-                        @endcan
-                        @can('purchase.create')
-                            <a class="sb-command-action" href="{{ action([\App\Http\Controllers\PurchaseController::class, 'create']) }}">
-                                <i class="fas fa-truck-loading" aria-hidden="true"></i>
-                                <span>@lang('purchase.add_purchase')</span>
-                            </a>
-                        @endcan
-                        @can('stock_transfer.create')
-                            <a class="sb-command-action" href="{{ action([\App\Http\Controllers\StockTransferController::class, 'create']) }}">
-                                <i class="fas fa-exchange-alt" aria-hidden="true"></i>
-                                <span>@lang('lang_v1.add_stock_transfer')</span>
-                            </a>
-                        @endcan
                     </div>
-                </section>
-            @endif
+                </article>
+            </section>
+
             <div class="tw-grid tw-grid-cols-1 tw-gap-4 sm:tw-gap-5 lg:tw-grid-cols-2">
                 @if (auth()->user()->can('sell.view') || auth()->user()->can('direct_sell.view'))
                     @if (!empty($all_locations))
