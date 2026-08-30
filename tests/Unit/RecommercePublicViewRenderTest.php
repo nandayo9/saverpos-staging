@@ -3,9 +3,8 @@
 namespace Tests\Unit;
 
 use Carbon\Carbon;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use Tests\Fixtures\RendersRecommerceViews;
 use Tests\TestCase;
 
 /**
@@ -17,24 +16,13 @@ use Tests\TestCase;
  */
 class RecommercePublicViewRenderTest extends TestCase
 {
+    use RendersRecommerceViews;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        // A global view composer reads app settings on every render, so the
-        // `system` table has to exist even for a layout-less document.
-        config([
-            'database.default' => 'sqlite',
-            'database.connections.sqlite.database' => ':memory:',
-        ]);
-        DB::purge('sqlite');
-        Schema::connection('sqlite')->create('system', function (Blueprint $table): void {
-            $table->increments('id');
-            $table->string('key');
-            $table->text('value')->nullable();
-        });
-
-        app('view')->addNamespace('recommerce', base_path('Modules/Recommerce/Resources/views'));
+        $this->bootRecommerceViewRendering();
     }
 
     public function test_the_certification_page_renders_the_masked_serial_and_never_the_raw_one(): void
@@ -141,6 +129,6 @@ class RecommercePublicViewRenderTest extends TestCase
 
     private function render(string $view, array $data): string
     {
-        return (string) view($view, $data)->render();
+        return $this->renderRecommerceView($view, $data);
     }
 }

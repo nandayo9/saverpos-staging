@@ -583,6 +583,14 @@ error on every repair record. All 17 module views now compile with no
 leftovers, and `RecommerceBladeCompilesTest` fails if that regresses. This is
 local test evidence, not release evidence.
 
+**Operations screens rendered in tests (2026-08-30).**
+The device registry, operations dashboard, reconciliation index, and transfer
+exceptions screens now render in tests, with assertions that their permission
+gating hides what a role may not see and that their degraded states (missing
+product, missing device row, single configured location) render rather than
+throw. Rendered coverage is 8 of 17 module views; the rest remain
+compilation-only. Local test evidence, not release evidence.
+
 **Unauthenticated documents rendered in tests (2026-08-30).**
 The public certification page, the public repair status page, and the print
 label are now rendered rather than asserted as source, each checked against the
