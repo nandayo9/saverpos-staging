@@ -343,6 +343,7 @@ class RepairJobController extends Controller
             'canCollect' => $job->isCustomerRepair()
                 && $job->state === \Modules\Recommerce\Support\RepairJobStateMachine::STATE_READY
                 && $authorizationGate->allowsWriteLocation($user, 'recommerce.repair.collection', $businessId, $job->location_id),
+            'canStartRepeat' => $this->canStartRepeat($job, $user, $authorizationGate),
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
     }
@@ -496,6 +497,25 @@ class RepairJobController extends Controller
             'lock_version' => $updated->lock_version,
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
+    }
+
+    /**
+     * A repeat visit reopens a *closed* customer repair, and `startRepeat`
+     * authorizes it with the intake permission rather than the collection one.
+     * The button used to live inside the collection block, which only renders
+     * while the job is READY -- so it could never be shown in the one state it
+     * works in.
+     */
+    private function canStartRepeat(RepairJob $job, User $user, AuthorizationGate $authorizationGate): bool
+    {
+        return $job->isCustomerRepair()
+            && $job->state === RepairJobStateMachine::STATE_CLOSED
+            && $authorizationGate->allowsWriteLocation(
+                $user,
+                'recommerce.repair.intake',
+                (int) $job->business_id,
+                $job->location_id
+            );
     }
 
     /**

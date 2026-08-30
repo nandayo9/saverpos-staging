@@ -523,6 +523,61 @@ class RecommerceWarrantyClaimTest extends TestCase
         $this->assertIsString($reread->coverage_end_at->format('d M Y'));
     }
 
+    /**
+     * The Repeat visit button was unreachable in every state, and would have
+     * failed three ways if reached: it rendered only inside the collection
+     * block (which requires READY), carried a hardcoded `disabled` whenever the
+     * job was not CLOSED, and posted an empty `command_uuid` that the submit
+     * handler stripped before sending. `startRepeat` only accepts a CLOSED
+     * customer repair, and authorizes it with the intake permission.
+     */
+    public function test_a_closed_customer_repair_can_offer_a_repeat_visit(): void
+    {
+        $this->assertTrue(
+            $this->canStartRepeatFor($this->sourceJob(), $this->userGranting(['recommerce.repair.intake']))
+        );
+    }
+
+    public function test_a_repeat_visit_is_not_offered_before_the_job_is_closed(): void
+    {
+        DB::table('recommerce_repair_jobs')->where('id', 31)->update(['state' => 'READY']);
+
+        $this->assertFalse(
+            $this->canStartRepeatFor($this->sourceJob(), $this->userGranting(['recommerce.repair.intake'])),
+            'startRepeat rejects anything that is not CLOSED, so the button must not be offered.'
+        );
+    }
+
+    public function test_a_repeat_visit_needs_the_granted_intake_permission_not_the_collection_one(): void
+    {
+        $this->assertFalse(
+            $this->canStartRepeatFor($this->sourceJob(), $this->userGranting(['recommerce.repair.collection'])),
+            'The collection permission must not stand in for the intake permission startRepeat checks.'
+        );
+    }
+
+    public function test_a_repeat_visit_is_not_offered_on_an_internal_refurbishment(): void
+    {
+        DB::table('recommerce_repair_jobs')->where('id', 31)->update(['job_type' => 'INTERNAL_REFURBISHMENT']);
+
+        $this->assertFalse(
+            $this->canStartRepeatFor($this->sourceJob(), $this->userGranting(['recommerce.repair.intake']))
+        );
+    }
+
+    protected function canStartRepeatFor(RepairJob $job, User $user): bool
+    {
+        $method = new \ReflectionMethod(\Modules\Recommerce\Http\Controllers\RepairJobController::class, 'canStartRepeat');
+        $method->setAccessible(true);
+
+        return $method->invoke(
+            new \Modules\Recommerce\Http\Controllers\RepairJobController(),
+            $job,
+            $user,
+            new AuthorizationGate(new CohortPolicy())
+        );
+    }
+
     protected function warrantyClaimsFor(RepairJob $job)
     {
         $method = new \ReflectionMethod(\Modules\Recommerce\Http\Controllers\RepairJobController::class, 'warrantyClaims');

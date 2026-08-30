@@ -1,9 +1,9 @@
 # AI Handoff
 
 Current milestone: Recommerce — live staging smoke verification
-Last completed task: **The repair intake customer search now reaches every customer** — the page seeded 200 contacts and filtered them in the browser, so no one past the 200th could be found or selected, while the server search endpoint built for exactly that had no caller and no tests. Before that: RC-039's warranty claim UI, the demo payment-account repair for the already-seeded estate, and proof that the staging auto-deploy has never shipped a commit.
+Last completed task: **The Repeat visit button was unusable in every state and now works** — it rendered only while the job was READY (the one state `startRepeat` rejects), was unconditionally disabled there, and posted an idempotency key the submit handler stripped. Before that: the intake customer search could not reach customer 201, RC-039's warranty claim UI, the demo payment-account repair, and proof that the staging auto-deploy has never shipped a commit.
 Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **188 tests / 1135 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
+Tests passing: **193 tests / 1148 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: unchanged from the previous session for the core flows. New this session: non-browser runtime evidence on a disposable MySQL fixture (both demo branches reset to the deployed state — `Util::payment_types()` returned `[]` before the expansion seeder and all twelve types including `cash` after it), plus an authenticated smoke attempt on `pos.kkcctv.com.my` that **failed to confirm the fix is live**: both staging branches still store an empty payment map. See "Cash smoke attempted on staging" below.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -13,6 +13,44 @@ Next safe task: fix the staging CD so a push actually reaches the site — the w
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## The Repeat visit button never worked, in any state (2026-08-30)
+
+Chased the loose end flagged at the end of the intake-search work. It was worse than a missing idempotency key: the
+button could not be used at all, and had **three independent defects** stacked on top of each other.
+
+1. **It rendered in the wrong state.** The form sat inside `@if($canCollect && $job->state !== 'CLOSED')`, and
+   `$canCollect` requires `STATE_READY`. `startRepeat()` accepts **only** a `CLOSED` job. So the button appeared
+   exclusively in a state where the action is invalid, and never in the one state where it works.
+2. **It was always disabled.** The button carried `@if($job->state !== 'CLOSED')disabled@endif`. Inside a block that
+   only renders while the job is `READY`, that condition is always true — the button was unconditionally disabled.
+3. **Its idempotency key was never sent.** The form posts `<input type="hidden" name="command_uuid" value="">`, and the
+   shared `.collection-form` handler drops empty values (`String(value).trim() !== ''`) before building the payload.
+   `RepairCollectionController::repeat()` validates `command_uuid` as `required|uuid`, so the request could only ever
+   return 422 with the masked message.
+
+Net effect: the only working path to a repeat visit was the one `WarrantyClaimService::createClaim()` creates
+internally — which, until the previous commit, also had no UI.
+
+### The fix
+
+Gated on `$canStartRepeat` — customer repair, `state === CLOSED`, and `allowsWriteLocation` on
+**`recommerce.repair.intake`**, which is the permission `assertRepeatAccess()` actually checks for a closed job (not the
+collection permission the surrounding block uses). The dead `disabled` attribute is gone, the collect and repeat forms
+are now gated independently, and the submit handler fills `command_uuid` before serialising. The v4 generator is hoisted
+to one shared `sbCommandUuid()` rather than duplicated per form.
+
+### Coverage
+
+Four gate tests plus a view contract test; suite **193 tests / 1148 assertions green**. Three mutations applied and all
+killed: accepting any state, substituting the collection permission for the intake one, and dropping the
+customer-repair guard each fail a test.
+
+### Still not verified in a browser
+
+Every UI fix in this run — the warranty claim card, the intake customer search, and this — is covered by controller and
+source-contract tests, not by a rendered page. The house idiom for views here is source assertions, and a rendered
+smoke needs an authenticated session. Worth doing on the disposable local fixture when someone can log in.
 
 ## Repair intake could not reach customer 201 (2026-08-30)
 

@@ -48,7 +48,32 @@ class RecommerceDeviceLifecycleUiContractTest extends TestCase
         $this->assertStringContainsString('command_uuid', $view);
 
         $this->assertStringContainsString("'warrantyClaims' => \$this->warrantyClaims(\$job)", $controller);
+        $this->assertStringContainsString("'canStartRepeat' => \$this->canStartRepeat(", $controller);
         $this->assertStringContainsString("'canClaimWarranty' => \$this->canClaimWarranty(", $controller);
         $this->assertStringContainsString('WarrantyClaimService::PERMISSION_MANAGE', $controller);
+    }
+
+    /**
+     * The Repeat visit button could never be used: it rendered only inside the
+     * collection block (READY only), carried `disabled` whenever the job was
+     * not CLOSED -- which was always, inside that block -- and posted an empty
+     * command_uuid that the submit handler strips before sending, so the route
+     * would have rejected it as missing anyway.
+     */
+    public function test_repeat_visit_is_offered_on_closed_jobs_and_carries_an_idempotency_key(): void
+    {
+        $view = file_get_contents(base_path('Modules/Recommerce/Resources/views/repair/show.blade.php'));
+
+        $this->assertStringContainsString('@if($canCollect || $canStartRepeat)', $view);
+        $this->assertStringContainsString('@if($canStartRepeat)<form class="collection-form"', $view);
+
+        // The old gate and the always-on disabled attribute must both be gone.
+        $this->assertStringNotContainsString("@if(\$canCollect && \$job->state !== 'CLOSED')", $view);
+        $this->assertStringNotContainsString("@if(\$job->state !== 'CLOSED')disabled@endif", $view);
+
+        // The handler drops empty values, so the key has to be filled in first.
+        $this->assertStringContainsString('var uuidField = form.elements.command_uuid;', $view);
+        $this->assertStringContainsString('uuidField.value = sbCommandUuid();', $view);
+        $this->assertSame(1, substr_count($view, 'function sbCommandUuid()'), 'One shared uuid helper, not one per form.');
     }
 }

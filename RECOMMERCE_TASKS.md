@@ -404,6 +404,19 @@ both render paths keep the chosen customer even when they rebuild the list.
 
 ### RC-035 — Complete customer QC, payment policy, and collection
 
+**Status:** Implemented locally. The repeat-visit surface was repaired
+2026-08-30: the **Repeat visit** button was unreachable in every state and
+would have failed three ways if reached. It rendered only inside the collection
+block, which requires `READY`; it carried `disabled` whenever the job was not
+`CLOSED`, which is always true inside that block; and it posted an empty
+`command_uuid` that the submit handler strips before sending, so the route
+would have rejected the request as missing. `RepairCollectionService::
+startRepeat()` accepts only a `CLOSED` customer repair and authorizes it with
+`recommerce.repair.intake`, so the button is now gated on exactly that, its
+dead `disabled` attribute is gone, and the browser supplies the v4
+`command_uuid` the deduplication depends on. Until this, the only working path
+to a repeat visit was the one `WarrantyClaimService` creates internally.
+
 - **Objective:** Close service custody only after technical and commercial prerequisites.
 - **Scope:** customer QC, ready state, POS balance summary, authorized outstanding-balance override, collector evidence, custody close, warranty record.
 - **Likely files/modules affected:** Recommerce QC/collection services/controllers/views/policies/events.
