@@ -732,10 +732,11 @@ Rather than weaken or bypass the anti-bot boundary, `scripts/cpanel-staging-poll
 fetches `origin/staging` from inside the cPanel account, refuses non-fast-forward
 history, prevents overlapping deployments with a runtime lock directory, and
 calls the existing cPanel deploy script only when the branch has advanced. It
-needs one cPanel **Update from Remote** so the helper reaches the managed
-checkout, one Cron Job pointing to that helper, and one initial cPanel deploy.
-The final schedule and a Cron-driven live deployment remain unverified until
-they are configured through the cPanel UI.
+needed one cPanel **Update from Remote** so the helper reached the managed
+checkout. cPanel then accepted the exact five-minute Cron command on 2026-08-30:
+`/bin/bash /home/kkcctv93/repositories/saverpos-staging-repo/scripts/cpanel-staging-poll.sh >> /home/kkcctv93/repositories/saverpos-staging-repo/storage/logs/cpanel-staging-cron.log 2>&1`.
+The first Cron-driven deployment and served dark-UI verification remain
+unverified until a subsequent `staging` commit advances the server checkout.
 
 **Payment-account repair now reaches the already-seeded estate (2026-08-30).**
 The earlier record said the deployed estate only had to rerun the expansion

@@ -86,9 +86,8 @@ isolated database, and creates the demo fixture only when the database has no
 businesses.
 
 After the initial server `.env` and repository setup, use **Update from
-Remote** followed by **Deploy HEAD Commit** once to install the Cron helper and
-publish the current checkout. Then add this cPanel **Cron Job** every five
-minutes (replace `CPANEL_USER` with the account user):
+Remote** once to install the Cron helper, then add this cPanel **Cron Job**
+every five minutes (replace `CPANEL_USER` with the account user):
 
 ```text
 */5 * * * * /bin/bash /home/CPANEL_USER/repositories/saverpos-staging-repo/scripts/cpanel-staging-poll.sh >> /home/CPANEL_USER/repositories/saverpos-staging-repo/storage/logs/cpanel-staging-cron.log 2>&1
@@ -98,6 +97,14 @@ The helper uses a lock to prevent overlapping Composer/database work and exits
 without deploying when `staging` has not changed. GitHub's former direct cPanel
 API workflow is manual-dispatch diagnostic only; it must not be re-enabled on
 push while the anti-bot challenge protects cPanel UAPI.
+
+To perform the first publish, push one reviewed, harmless trigger commit to
+`staging` after the Cron entry exists. The next interval fetches that advance
+and invokes `scripts/cpanel-staging-deploy.sh`; inspect
+`storage/logs/cpanel-staging-cron.log` before claiming success. This is also
+the normal path for later deploys — push to `staging`, then wait up to five
+minutes. Use the cPanel Git UI only for recovery or to repair the managed
+checkout, not for routine deployment.
 
 ### cPanel will refuse to deploy while the checked-out branch is dirty
 
@@ -218,7 +225,10 @@ production data on this site.
 
 ## Updating staging
 
-Pull the approved `staging` commit in cPanel, then run:
+Push the reviewed commit to `staging` and let the five-minute Cron job fetch
+and deploy it. Verify the Cron log and the intended browser-visible change.
+If the job cannot fast-forward or the checkout needs recovery, use cPanel
+**Update from Remote** before retrying. The deploy helper then runs:
 
 ```bash
 composer install --no-dev --optimize-autoloader
