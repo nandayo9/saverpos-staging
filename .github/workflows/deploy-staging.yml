@@ -1,0 +1,31 @@
+name: Deploy staging
+
+on:
+  push:
+    branches:
+      - staging
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy through cPanel UAPI
+        env:
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
+          CPANEL_USERNAME: ${{ secrets.CPANEL_USERNAME }}
+          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
+          CPANEL_REPOSITORY_ROOT: ${{ secrets.CPANEL_REPOSITORY_ROOT }}
+        run: |
+          set -eu
+          test -n "$CPANEL_HOST"
+          test -n "$CPANEL_USERNAME"
+          test -n "$CPANEL_API_TOKEN"
+          test -n "$CPANEL_REPOSITORY_ROOT"
+          curl --fail --silent --show-error \
+            -H "Authorization: cpanel ${CPANEL_USERNAME}:${CPANEL_API_TOKEN}" \
+            --get "https://${CPANEL_HOST}:2083/execute/VersionControlDeployment/create" \
+            --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}"
