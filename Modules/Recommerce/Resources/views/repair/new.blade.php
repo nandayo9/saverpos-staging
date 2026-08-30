@@ -48,7 +48,7 @@
         </div>
     </div>
 
-    <div id="repair-intake" data-csrf-token="{{ csrf_token() }}" data-intake-url="{{ route('recommerce.repair.intake') }}" data-device-search-url="{{ route('recommerce.repair.devices.search') }}">
+    <div id="repair-intake" data-csrf-token="{{ csrf_token() }}" data-intake-url="{{ route('recommerce.repair.intake') }}" data-device-search-url="{{ route('recommerce.repair.devices.search') }}" data-customer-search-url="{{ route('recommerce.repair.customers') }}">
         <div id="repair-intake-result" class="alert" style="display:none" role="alert" aria-live="polite"></div>
         <form id="repair-intake-form" novalidate>
             <div class="row">
@@ -178,11 +178,73 @@
     const message = function (text, kind) { result.textContent = text; result.className = 'alert alert-' + kind; result.style.display = 'block'; result.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
     const field = function (id) { return document.getElementById(id).value.trim(); };
 
-    customerSearch.addEventListener('input', function () {
-        const term = this.value.trim().toLowerCase();
-        Array.prototype.forEach.call(customer.options, function (option, index) {
-            option.hidden = index > 0 && term !== '' && option.text.toLowerCase().indexOf(term) === -1;
+    // The select is seeded with the first 200 customers by name only, so a
+    // client-side filter over those options cannot find anyone past the 200th.
+    // Search goes to the server; the current selection is always kept so a
+    // chosen customer never disappears out from under the form.
+    const customerHelp = document.getElementById('repair-customer-help');
+    const seededOptions = Array.prototype.slice.call(customer.options);
+    let customerSearchToken = 0;
+
+    const renderCustomers = function (rows) {
+        const selectedValue = customer.value;
+        const selectedText = customer.selectedIndex > 0 ? customer.options[customer.selectedIndex].text : '';
+        customer.innerHTML = '';
+        customer.appendChild(new Option('Select a customer', ''));
+        let selectionPresent = false;
+        rows.forEach(function (row) {
+            const label = row.name + (row.reference ? ' · ' + row.reference : '') + (row.mobile ? ' · ' + row.mobile : '');
+            customer.appendChild(new Option(label, String(row.id)));
+            if (String(row.id) === selectedValue) { selectionPresent = true; }
         });
+        if (selectedValue && !selectionPresent) { customer.appendChild(new Option(selectedText, selectedValue)); }
+        customer.value = selectedValue;
+    };
+
+    const restoreSeededCustomers = function () {
+        const selectedValue = customer.value;
+        const selectedText = customer.selectedIndex > 0 ? customer.options[customer.selectedIndex].text : '';
+        customer.innerHTML = '';
+        let selectionPresent = false;
+        seededOptions.forEach(function (option) {
+            customer.appendChild(option.cloneNode(true));
+            if (option.value === selectedValue) { selectionPresent = true; }
+        });
+        // A customer found by search may sit past the seeded 200; clearing the
+        // box must not silently drop them from the form.
+        if (selectedValue && !selectionPresent) { customer.appendChild(new Option(selectedText, selectedValue)); }
+        customer.value = selectedValue;
+    };
+
+    customerSearch.addEventListener('input', function () {
+        const term = this.value.trim();
+        const token = ++customerSearchToken;
+        if (term.length < 2) {
+            restoreSeededCustomers();
+            customerHelp.textContent = 'Type at least 2 characters to search every customer by name, contact reference, or mobile.';
+            return;
+        }
+        customerHelp.textContent = 'Searching customers…';
+        window.setTimeout(async function () {
+            if (token !== customerSearchToken) { return; }
+            try {
+                const url = new URL(root.dataset.customerSearchUrl, window.location.origin);
+                url.searchParams.set('q', term);
+                const response = await fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+                if (!response.ok) { throw new Error('Customer search is unavailable.'); }
+                const data = await response.json();
+                if (token !== customerSearchToken) { return; }
+                const rows = data.data || [];
+                renderCustomers(rows);
+                customerHelp.textContent = rows.length
+                    ? rows.length + ' matching customer(s). If the customer is new, use Quick create and then refresh this page.'
+                    : 'No customer matches that search. Use Quick create and then refresh this page.';
+            } catch (error) {
+                if (token !== customerSearchToken) { return; }
+                customerHelp.textContent = 'Customer search is unavailable. Showing the first 200 customers by name.';
+                restoreSeededCustomers();
+            }
+        }, 250);
     });
 
     document.getElementById('repair-device-search').addEventListener('click', async function () {

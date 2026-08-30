@@ -72,4 +72,34 @@ class RecommerceCustomerRepairContractTest extends TestCase
         $this->assertStringContainsString('function down()', $migration);
         $this->assertStringContainsString('dropIfExists', $migration);
     }
+
+    /**
+     * The intake select is seeded with only the first 200 contacts by name, so
+     * a client-side filter over those options can never reach customer 201.
+     * The search box must call the server endpoint, which had shipped with no
+     * caller at all, and must keep the chosen customer in the list.
+     */
+    public function test_intake_customer_search_uses_the_server_endpoint_not_a_client_side_filter(): void
+    {
+        $view = $this->source('Modules/Recommerce/Resources/views/repair/new.blade.php');
+        $controller = $this->source('Modules/Recommerce/Http/Controllers/RepairJobController.php');
+
+        $this->assertStringContainsString("data-customer-search-url=\"{{ route('recommerce.repair.customers') }}\"", $view);
+        $this->assertStringContainsString('root.dataset.customerSearchUrl', $view);
+        // Both render paths -- the search result and the restored seed list --
+        // must re-append a chosen customer that is not in the list they build,
+        // or clearing the box silently drops a customer found past the 200th.
+        $this->assertStringContainsString('restoreSeededCustomers', $view);
+        $this->assertSame(
+            2,
+            substr_count($view, 'customer.appendChild(new Option(selectedText, selectedValue))'),
+            'Both the search result and the restored seed list must keep the current selection.'
+        );
+
+        // The abandoned filter hid options instead of querying the server.
+        $this->assertStringNotContainsString('option.hidden = index > 0', $view);
+
+        $this->assertStringContainsString('public function customers(', $controller);
+        $this->assertStringContainsString("->limit(200)", $controller);
+    }
 }

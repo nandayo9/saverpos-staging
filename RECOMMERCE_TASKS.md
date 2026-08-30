@@ -361,6 +361,16 @@ Risk levels: **Low**, **Medium**, **High**, **Critical**.
 
 ### RC-032 — Add customer repair intake and privacy controls
 
+**Status:** Implemented locally. Customer selection was repaired 2026-08-30:
+the intake page seeds its customer select with the first 200 contacts by name
+and its search box filtered only those options in the browser, so a business
+with more than 200 customers could not select — or even find — anyone sorted
+after the 200th, despite `GET /recommerce/repair/customers` already existing to
+search the whole book by name, contact reference, or mobile. That endpoint had
+**no caller anywhere in the application and no test coverage**. The search box
+now calls it (debounced, 2-character minimum, stale responses discarded) and
+both render paths keep the chosen customer even when they rebuild the list.
+
 - **Objective:** Accept customer-owned devices without fake catalog stock.
 - **Scope:** contact link, registry reuse/create, custody, reported issue, condition/evidence, accessories, consent/terms, secret-handling decision, receipt/label.
 - **Likely files/modules affected:** Recommerce customer-intake services/controllers/views, repair/device entities, file/privacy policies.

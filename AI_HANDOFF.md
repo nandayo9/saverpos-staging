@@ -1,9 +1,9 @@
 # AI Handoff
 
 Current milestone: Recommerce — live staging smoke verification
-Last completed task: **RC-039's warranty claim UI** — the claim service and route had no caller anywhere in the application, so the repair record now carries a Warranty claims card and a permission-gated claim form; a latent missing-datetime-cast defect that would have fatalled that card was fixed with it. Before that: the demo payment-account repair was extended to the already-seeded estate, and the staging auto-deploy was proved never to have shipped a commit.
+Last completed task: **The repair intake customer search now reaches every customer** — the page seeded 200 contacts and filtered them in the browser, so no one past the 200th could be found or selected, while the server search endpoint built for exactly that had no caller and no tests. Before that: RC-039's warranty claim UI, the demo payment-account repair for the already-seeded estate, and proof that the staging auto-deploy has never shipped a commit.
 Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **181 tests / 1117 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
+Tests passing: **188 tests / 1135 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: unchanged from the previous session for the core flows. New this session: non-browser runtime evidence on a disposable MySQL fixture (both demo branches reset to the deployed state — `Util::payment_types()` returned `[]` before the expansion seeder and all twelve types including `cash` after it), plus an authenticated smoke attempt on `pos.kkcctv.com.my` that **failed to confirm the fix is live**: both staging branches still store an empty payment map. See "Cash smoke attempted on staging" below.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -13,6 +13,49 @@ Next safe task: fix the staging CD so a push actually reaches the site — the w
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## Repair intake could not reach customer 201 (2026-08-30)
+
+RC-039's "service and route with no caller" turned out not to be a one-off, so all 51 Recommerce routes were checked for
+a reference in any Blade view or JS file. **Three had none:** `recommerce.repair.legacy_archive.store` (the blocked
+RC-041 work, expected), `recommerce.repair.public_status` (a false positive — `RepairPublicLookupService:64` builds that
+URL server-side), and `recommerce.repair.customers`, which was genuinely dead.
+
+### The bug that hid behind it
+
+`RepairJobController::createPage()` seeds the intake customer `<select>` with `->limit(200)` contacts ordered by name.
+The "Search by name, reference, or mobile" box then filtered **only those 200 options in the browser**
+(`option.hidden = index > 0 && …`). So in any business with more than 200 customers, everyone sorted after the 200th was
+invisible and unselectable, and the search box could never find them. The page's own help text — "If the customer is
+new, use Quick create and then refresh this page" — did not help either: a new contact named "Zainab" is still not in
+the first 200.
+
+Meanwhile `GET /recommerce/repair/customers` already did the right thing — authorized, throttled 60/min, 2-character
+minimum, searches `name`/`mobile`/`contact_id` across the whole business, limit 20 — and nothing called it.
+
+### The fix
+
+The search box now queries that endpoint (250 ms debounce, a token so a stale response cannot overwrite a newer one,
+falling back to the seeded list if the request fails). Both render paths re-append the currently selected customer when
+it is absent from the list they build — without that, picking a customer found by search and then clearing the search
+box silently dropped the selection, which was a bug in the first version of this change.
+
+### Coverage
+
+Six behavioural tests for the endpoint (it had none) plus a view contract test. Suite **188 tests / 1135 assertions
+green**. Four mutations applied: dropping the type filter, the 2-character guard, and the business scope each fail a
+test.
+
+**One mutation survived, and it is a finding rather than a gap:** removing `->whereNull('deleted_at')` changes nothing,
+because `App\Contact` uses `SoftDeletes` and its global scope already excludes deleted rows. The explicit filter is
+redundant in both `customers()` and `createPage()`. It is harmless and pre-existing, so it was left alone — worth
+knowing before someone "fixes" a test to cover it.
+
+### Worth a look later
+
+`repair/show.blade.php`'s repeat-visit form posts `command_uuid` from an empty hidden input, and its JS drops empty
+values before sending — so that request appears to carry no idempotency key at all. Not investigated here; it is a
+different task from this one.
 
 ## RC-039 warranty claims reached the UI (2026-08-30)
 
