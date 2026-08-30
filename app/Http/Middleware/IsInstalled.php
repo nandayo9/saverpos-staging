@@ -16,7 +16,9 @@ class IsInstalled
      */
     public function handle($request, Closure $next)
     {
-        $envPath = base_path('.env');
+        // The cPanel staging runtime keeps .env in the live sibling folder;
+        // environmentFilePath() honors bootstrap/app.php's external path.
+        $envPath = app()->environmentFilePath();
         if (! file_exists($envPath)) {
             return redirect(url('/').'/install');
         } else {
