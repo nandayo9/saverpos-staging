@@ -227,6 +227,11 @@ Route::middleware('auth')->prefix('recommerce')->group(function () {
         ->middleware('throttle:20,1')
         ->name('recommerce.repair.collection.repeat');
 
+    Route::post('/repair/{jobCode}/warranty/claim', 'WarrantyClaimController@store')
+        ->where('jobCode', '[A-Za-z0-9-]+')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.repair.warranty.store');
+
     Route::get('/reconciliation', 'ReconciliationController@index')
         ->middleware('throttle:30,1')
         ->name('recommerce.reconciliation.index');

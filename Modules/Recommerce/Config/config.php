@@ -57,6 +57,7 @@ return [
         'recommerce.repair.billing',
         'recommerce.repair.collection',
         'recommerce.repair.collection.override',
+        'recommerce.warranty.manage',
     ],
     'cohort' => [
         'business_id' => env('RECOMMERCE_COHORT_BUSINESS_ID'),
