@@ -50,6 +50,7 @@ return [
         'recommerce.repair.transition',
         'recommerce.diagnostic.view',
         'recommerce.diagnostic.submit',
+        'recommerce.diagnostic.manage',
         'recommerce.repair.parts.reserve',
         'recommerce.repair.parts.use',
         'recommerce.repair.parts.resolve',

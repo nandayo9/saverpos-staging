@@ -2898,7 +2898,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
             'sort_order' => 1,
         ]);
 
-        $service = new DiagnosticTemplateService();
+        $service = new DiagnosticTemplateService(new AuthorizationGate(new CohortPolicy()));
         $published = $service->publish($version, 900);
         $session = $service->startSession($job, $published, 900);
         $submitted = $service->submitSession($session, [[

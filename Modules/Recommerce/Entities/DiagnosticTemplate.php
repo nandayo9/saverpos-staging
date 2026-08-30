@@ -11,6 +11,10 @@ class DiagnosticTemplate extends Model
 
     protected $guarded = ['id', 'template_uuid'];
 
+    protected $casts = [
+        'location_id' => 'integer',
+    ];
+
     public function versions(): HasMany
     {
         return $this->hasMany(DiagnosticTemplateVersion::class, 'template_id');

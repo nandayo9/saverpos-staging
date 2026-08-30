@@ -45,6 +45,9 @@ class DiagnosticController extends Controller
             ->with(['template', 'checks'])
             ->where('business_id', $businessId)
             ->where('status', 'PUBLISHED')
+            ->whereHas('template', function ($query) use ($job): void {
+                $query->whereNull('location_id')->orWhere('location_id', $job->location_id);
+            })
             ->get()
             ->filter(function (DiagnosticTemplateVersion $version) use ($job): bool {
                 $template = $version->template;

@@ -29,6 +29,7 @@ class DataController extends Controller
             'recommerce.repair.transition' => 'Transition repair states',
             'recommerce.diagnostic.view' => 'View diagnostics',
             'recommerce.diagnostic.submit' => 'Submit diagnostics',
+            'recommerce.diagnostic.manage' => 'Author diagnostic templates',
             'recommerce.repair.parts.reserve' => 'Reserve repair parts',
             'recommerce.repair.parts.use' => 'Issue and install repair parts',
             'recommerce.repair.parts.resolve' => 'Resolve repair part consumption',

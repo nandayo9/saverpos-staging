@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 use LogicException;
 use Modules\Recommerce\Entities\RepairJob;
 use Modules\Recommerce\Entities\RepairQuote;
+use Modules\Recommerce\Services\DiagnosticTemplateService;
 use Modules\Recommerce\Services\RepairJobTransitionService;
 use Modules\Recommerce\Services\RepairQuoteService;
 use Modules\Recommerce\Support\AuthorizationGate;
@@ -34,6 +35,7 @@ class RecommerceRepairQuoteTest extends TestCase
                 'recommerce.repair.view',
                 'recommerce.repair.transition',
                 'recommerce.repair.quote.manage',
+                'recommerce.diagnostic.manage',
             ],
             'recommerce.cohort.business_id' => 7,
             'recommerce.cohort.location_id' => 101,
@@ -88,6 +90,8 @@ class RecommerceRepairQuoteTest extends TestCase
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_28_000008_create_recommerce_repair_jobs.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_28_000012_enhance_customer_repair_intake.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_29_000017_create_recommerce_repair_quotes.php'))->up();
+        (require base_path('Modules/Recommerce/Database/Migrations/2026_08_28_000009_create_recommerce_diagnostics.php'))->up();
+        (require base_path('Modules/Recommerce/Database/Migrations/2026_08_30_000028_add_location_scope_to_diagnostic_templates.php'))->up();
 
         DB::table('recommerce_devices')->insert([
             'id' => 11,
@@ -228,6 +232,50 @@ class RecommerceRepairQuoteTest extends TestCase
         $service->decide($this->authorizedUser(), $quote, 'APPROVED', []);
     }
 
+    public function test_published_diagnostic_version_remains_unchanged_when_a_revision_is_edited(): void
+    {
+        $service = new DiagnosticTemplateService(new AuthorizationGate(new CohortPolicy()));
+        $draft = $service->createDraft($this->authorizedUser(), 101, [
+            'template_code' => 'BATTERY-CHECK', 'name' => 'Battery check', 'category_code' => 'MOBILE',
+            'job_type' => 'CUSTOMER_REPAIR', 'rubric' => ['grade' => 'A'],
+        ], [[
+            'check_key' => 'battery_health', 'label' => 'Battery health', 'outcome_type' => 'NUMERIC',
+            'unit' => '%', 'minimum_value' => 0, 'maximum_value' => 100,
+            'allowed_outcomes' => ['PASS'], 'is_required' => true,
+        ]]);
+        $published = $service->publish($draft, 900);
+        $revision = $service->createRevision($this->authorizedUser(), $published->template);
+        $service->updateDraft($this->authorizedUser(), $revision, [
+            'template_code' => 'BATTERY-CHECK', 'name' => 'Battery check revised', 'category_code' => 'MOBILE',
+            'job_type' => 'CUSTOMER_REPAIR', 'rubric' => ['grade' => 'A'],
+        ], [[
+            'check_key' => 'battery_health', 'label' => 'Battery health (revised)', 'outcome_type' => 'NUMERIC',
+            'unit' => '%', 'minimum_value' => 0, 'maximum_value' => 100,
+            'allowed_outcomes' => ['PASS'], 'is_required' => true,
+        ]]);
+
+        $this->assertSame('PUBLISHED', $published->fresh()->status);
+        $this->assertSame('Battery health', $published->fresh('checks')->checks->first()->label);
+        $this->assertSame('Battery health (revised)', $revision->fresh('checks')->checks->first()->label);
+    }
+
+    public function test_diagnostic_authoring_requires_the_actual_granted_permission(): void
+    {
+        $unauthorized = new class extends User
+        {
+            public function can($ability, $arguments = []): bool { return false; }
+            public function permitted_locations($business_id = null) { return [101]; }
+        };
+        $unauthorized->id = 900;
+        $unauthorized->business_id = 7;
+        Auth::setUser($unauthorized);
+
+        $this->expectException(AuthorizationException::class);
+        (new DiagnosticTemplateService(new AuthorizationGate(new CohortPolicy())))->createDraft($unauthorized, 101, [
+            'template_code' => 'UNAUTH-CHECK', 'name' => 'Should not save',
+        ], [['check_key' => 'check', 'label' => 'Check', 'outcome_type' => 'STATUS']]);
+    }
+
     public function test_declined_and_expired_quotes_cannot_be_approved(): void
     {
         $service = $this->quoteService();
@@ -361,6 +409,7 @@ class RecommerceRepairQuoteTest extends TestCase
                     'recommerce.repair.view',
                     'recommerce.repair.transition',
                     'recommerce.repair.quote.manage',
+                    'recommerce.diagnostic.manage',
                 ], true);
             }
 

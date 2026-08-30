@@ -98,7 +98,7 @@ class RecommerceServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(DiagnosticTemplateService::class, function () {
-            return new DiagnosticTemplateService();
+            return new DiagnosticTemplateService($this->app->make(AuthorizationGate::class));
         });
 
         $this->app->singleton(RepairJobIntakeService::class, function ($app) {

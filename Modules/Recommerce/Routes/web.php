@@ -180,6 +180,36 @@ Route::middleware('auth')->prefix('recommerce')->group(function () {
         ->middleware('throttle:20,1')
         ->name('recommerce.repair.diagnostics.submit');
 
+    Route::get('/diagnostic-templates', 'DiagnosticTemplateController@index')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.diagnostic.templates.index');
+    Route::get('/diagnostic-templates/new', 'DiagnosticTemplateController@create')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.diagnostic.templates.create');
+    Route::post('/diagnostic-templates', 'DiagnosticTemplateController@store')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.diagnostic.templates.store');
+    Route::get('/diagnostic-templates/{templateId}/versions/{versionId}/edit', 'DiagnosticTemplateController@edit')
+        ->whereNumber('templateId')->whereNumber('versionId')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.diagnostic.templates.edit');
+    Route::put('/diagnostic-templates/{templateId}/versions/{versionId}', 'DiagnosticTemplateController@update')
+        ->whereNumber('templateId')->whereNumber('versionId')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.diagnostic.templates.update');
+    Route::post('/diagnostic-templates/{templateId}/versions/{versionId}/publish', 'DiagnosticTemplateController@publish')
+        ->whereNumber('templateId')->whereNumber('versionId')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.diagnostic.templates.publish');
+    Route::post('/diagnostic-templates/{templateId}/versions/{versionId}/retire', 'DiagnosticTemplateController@retire')
+        ->whereNumber('templateId')->whereNumber('versionId')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.diagnostic.templates.retire');
+    Route::post('/diagnostic-templates/{templateId}/revision', 'DiagnosticTemplateController@revision')
+        ->whereNumber('templateId')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.diagnostic.templates.revision');
+
     Route::post('/repair/{jobCode}/quotes', 'QuoteController@store')
         ->where('jobCode', '[A-Za-z0-9-]+')
         ->middleware('throttle:20,1')
