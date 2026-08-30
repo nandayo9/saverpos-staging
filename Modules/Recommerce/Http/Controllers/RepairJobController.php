@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use LogicException;
 use Modules\Recommerce\Entities\RepairJob;
+use Modules\Recommerce\Entities\WarrantyClaim;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Services\RepairJobIntakeService;
 use Modules\Recommerce\Services\RepairJobTransitionService;
@@ -18,6 +19,7 @@ use Modules\Recommerce\Support\AuthorizationGate;
 use Modules\Recommerce\Support\RepairJobStateMachine;
 use Modules\Recommerce\Services\RepairPublicLookupService;
 use Modules\Recommerce\Services\RepairCollectionService;
+use Modules\Recommerce\Services\WarrantyClaimService;
 use Modules\Recommerce\Support\Identity\StrongIdentifierHasher;
 
 class RepairJobController extends Controller
@@ -336,6 +338,8 @@ class RepairJobController extends Controller
             ),
             'financialEvidence' => $financialEvidence,
             'collectionSummary' => $this->collectionSummary($job, $user, $authorizationGate),
+            'warrantyClaims' => $this->warrantyClaims($job),
+            'canClaimWarranty' => $this->canClaimWarranty($job, $user, $authorizationGate),
             'canCollect' => $job->isCustomerRepair()
                 && $job->state === \Modules\Recommerce\Support\RepairJobStateMachine::STATE_READY
                 && $authorizationGate->allowsWriteLocation($user, 'recommerce.repair.collection', $businessId, $job->location_id),
@@ -492,6 +496,39 @@ class RepairJobController extends Controller
             'lock_version' => $updated->lock_version,
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
+    }
+
+    /**
+     * Only a customer repair can carry a warranty claim, and only a writer at
+     * that job's location may raise one. Internal refurbishment has no customer
+     * policy to claim against.
+     */
+    private function canClaimWarranty(RepairJob $job, User $user, AuthorizationGate $authorizationGate): bool
+    {
+        return $job->isCustomerRepair()
+            && $authorizationGate->allowsWriteLocation(
+                $user,
+                WarrantyClaimService::PERMISSION_MANAGE,
+                (int) $job->business_id,
+                $job->location_id
+            );
+    }
+
+    /**
+     * Claims raised from this job, plus any claim that produced it, so a repeat
+     * job shows the decision it came from rather than looking unexplained.
+     */
+    private function warrantyClaims(RepairJob $job)
+    {
+        return WarrantyClaim::query()
+            ->with('lines')
+            ->where('business_id', $job->business_id)
+            ->where(function ($query) use ($job): void {
+                $query->where('source_repair_job_id', $job->id)
+                    ->orWhere('repair_job_id', $job->id);
+            })
+            ->orderByDesc('id')
+            ->get();
     }
 
     private function collectionSummary(RepairJob $job, User $user, AuthorizationGate $authorizationGate): ?array

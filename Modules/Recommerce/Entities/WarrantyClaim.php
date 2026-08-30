@@ -16,6 +16,12 @@ class WarrantyClaim extends Model
     protected $casts = [
         'policy_snapshot_json' => 'array',
         'decision_evidence_json' => 'array',
+        // Written as Carbon by the service, but read back as raw strings
+        // without these, which breaks any date formatting on a re-read claim.
+        'coverage_start_at' => 'datetime',
+        'coverage_end_at' => 'datetime',
+        'claim_requested_at' => 'datetime',
+        'claimed_on' => 'date',
     ];
 
     /** Read the immutable actual-cost authority stored by the POS job snapshot. */

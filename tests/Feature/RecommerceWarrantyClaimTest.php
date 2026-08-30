@@ -423,6 +423,175 @@ class RecommerceWarrantyClaimTest extends TestCase
         $this->assertNull($row->policy_version);
     }
 
+    /**
+     * RC-039 shipped a claim service and a POST route with no way to reach
+     * either from the UI. The repair record now carries the claim card, so
+     * these pin what that card is given.
+     */
+    public function test_the_repair_record_lists_the_claim_raised_from_the_job(): void
+    {
+        $claim = $this->service()->createClaim(
+            $this->user(),
+            $this->sourceJob(),
+            '77777777-7777-4777-8777-777777777730',
+            ['claimed_on' => now()->subDay()->toDateString(), 'covered_amount' => 30]
+        );
+
+        $listed = $this->warrantyClaimsFor($this->sourceJob());
+
+        $this->assertCount(1, $listed);
+        $this->assertSame($claim->claim_number, $listed->first()->claim_number);
+        $this->assertSame('IN_COVERAGE', $listed->first()->coverage_status);
+        $this->assertTrue($listed->first()->relationLoaded('lines'), 'Claim lines must be eager loaded for the card.');
+        $this->assertNotEmpty($listed->first()->lines);
+    }
+
+    public function test_the_repeat_job_shows_the_claim_that_created_it(): void
+    {
+        $claim = $this->service()->createClaim(
+            $this->user(),
+            $this->sourceJob(),
+            '77777777-7777-4777-8777-777777777731',
+            ['claimed_on' => now()->subDay()->toDateString(), 'covered_amount' => 30]
+        );
+        $repeatJob = RepairJob::query()->findOrFail($claim->repair_job_id);
+
+        $listed = $this->warrantyClaimsFor($repeatJob);
+
+        $this->assertCount(1, $listed, 'A repeat job must explain itself by showing its originating claim.');
+        $this->assertSame($claim->claim_number, $listed->first()->claim_number);
+    }
+
+    public function test_a_claim_on_another_job_does_not_appear_on_this_record(): void
+    {
+        $this->service()->createClaim(
+            $this->user(),
+            $this->sourceJob(),
+            '77777777-7777-4777-8777-777777777732',
+            ['claimed_on' => now()->subDay()->toDateString()]
+        );
+
+        $otherJob = $this->secondCustomerJob();
+
+        $this->assertCount(0, $this->warrantyClaimsFor($otherJob));
+    }
+
+    /**
+     * The permission must be checked against what the user was *granted*, not
+     * merely against what the module catalogues -- the distinction RC-041's
+     * bypass turned on. This double's can() never reads the config catalogue.
+     */
+    public function test_the_claim_form_is_refused_to_a_user_who_was_not_granted_the_permission(): void
+    {
+        $granted = $this->userGranting(['recommerce.warranty.manage']);
+        $ungranted = $this->userGranting(['recommerce.repair.view']);
+
+        $this->assertTrue($this->canClaimWarrantyFor($this->sourceJob(), $granted));
+        $this->assertFalse($this->canClaimWarrantyFor($this->sourceJob(), $ungranted));
+    }
+
+    public function test_the_claim_form_is_refused_on_an_internal_refurbishment_job(): void
+    {
+        DB::table('recommerce_repair_jobs')->where('id', 31)->update(['job_type' => 'INTERNAL_REFURBISHMENT']);
+
+        $this->assertFalse(
+            $this->canClaimWarrantyFor($this->sourceJob(), $this->userGranting(['recommerce.warranty.manage'])),
+            'Internal refurbishment has no customer policy to claim against.'
+        );
+    }
+
+    /**
+     * The card formats these dates, and only the in-memory model held Carbon:
+     * without casts a claim re-read from the database returned raw strings, so
+     * `coverage_end_at->format()` fatalled on every page load that listed one.
+     */
+    public function test_a_reread_claim_exposes_its_dates_as_formattable_instances(): void
+    {
+        $claim = $this->service()->createClaim(
+            $this->user(),
+            $this->sourceJob(),
+            '77777777-7777-4777-8777-777777777733',
+            ['claimed_on' => now()->subDay()->toDateString(), 'covered_amount' => 30]
+        );
+
+        $reread = \Modules\Recommerce\Entities\WarrantyClaim::query()->findOrFail($claim->id);
+
+        $this->assertInstanceOf(\Carbon\CarbonInterface::class, $reread->claim_requested_at);
+        $this->assertInstanceOf(\Carbon\CarbonInterface::class, $reread->coverage_start_at);
+        $this->assertInstanceOf(\Carbon\CarbonInterface::class, $reread->coverage_end_at);
+        $this->assertInstanceOf(\Carbon\CarbonInterface::class, $reread->claimed_on);
+        $this->assertIsString($reread->coverage_end_at->format('d M Y'));
+    }
+
+    protected function warrantyClaimsFor(RepairJob $job)
+    {
+        $method = new \ReflectionMethod(\Modules\Recommerce\Http\Controllers\RepairJobController::class, 'warrantyClaims');
+        $method->setAccessible(true);
+
+        return $method->invoke(new \Modules\Recommerce\Http\Controllers\RepairJobController(), $job);
+    }
+
+    protected function canClaimWarrantyFor(RepairJob $job, User $user): bool
+    {
+        $method = new \ReflectionMethod(\Modules\Recommerce\Http\Controllers\RepairJobController::class, 'canClaimWarranty');
+        $method->setAccessible(true);
+
+        return $method->invoke(
+            new \Modules\Recommerce\Http\Controllers\RepairJobController(),
+            $job,
+            $user,
+            new AuthorizationGate(new CohortPolicy())
+        );
+    }
+
+    protected function userGranting(array $abilities): User
+    {
+        $user = new class extends User {
+            public array $granted = [];
+
+            public function can($ability, $arguments = []): bool
+            {
+                return in_array($ability, $this->granted, true);
+            }
+
+            public function permitted_locations($business_id = null)
+            {
+                return [101];
+            }
+        };
+        $user->id = 900;
+        $user->business_id = 7;
+        $user->granted = $abilities;
+
+        return $user;
+    }
+
+    protected function secondCustomerJob(): RepairJob
+    {
+        DB::table('recommerce_repair_jobs')->insert([
+            'id' => 91,
+            'business_id' => 7,
+            'location_id' => 101,
+            'device_id' => 11,
+            'contact_id' => 405,
+            'job_uuid' => '11111111-1111-4111-8111-111111111121',
+            'command_uuid' => '11111111-1111-4111-8111-111111111122',
+            'job_code' => 'SB-RP-COVERAGE02',
+            'job_type' => 'CUSTOMER_REPAIR',
+            'state' => 'CLOSED',
+            'priority' => 'NORMAL',
+            'source_type' => 'POS_SELL',
+            'source_id' => 9001,
+            'lock_version' => 1,
+            'opened_at' => now()->subDays(5),
+            'closed_at' => now()->subDay(),
+            'created_by' => 900,
+            'updated_by' => 900,
+        ]);
+
+        return RepairJob::query()->where('job_code', 'SB-RP-COVERAGE02')->firstOrFail();
+    }
+
     protected function mapRecommerceRoutes(): void
     {
         (new \Modules\Recommerce\Providers\RouteServiceProvider(app()))->map();

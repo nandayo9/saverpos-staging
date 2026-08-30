@@ -440,7 +440,20 @@ Risk levels: **Low**, **Medium**, **High**, **Critical**.
 
 ### RC-039 — Add warranty coverage and claim jobs
 
-**Status:** Implemented locally: coverage source, versioned policy evidence, claim lines, and repeat-job creation are covered; UI smoke and production-policy review remain pending
+**Status:** Implemented locally: coverage source, versioned policy evidence, claim lines, repeat-job creation, and the repair-record claim UI are covered; a rendered browser smoke and the production-policy review remain pending.
+
+The UI was the real gap behind "UI smoke pending": the claim service and `POST
+/recommerce/repair/{jobCode}/warranty/claim` shipped with **no caller** — no
+view referenced the route and no screen listed a claim, so the feature was
+unreachable from the application. The repair record now carries a Warranty
+claims card that lists each claim (number, coverage status, decision reason,
+policy, cover end, claim lines) and links a repeat job back to the claim that
+created it, plus a claim form gated on `recommerce.warranty.manage` at the
+job's location and restricted to customer repairs. A latent defect was fixed
+with it: `WarrantyClaim` cast none of its datetime columns, so a claim re-read
+from the database returned raw strings and `coverage_end_at->format()` would
+have fatalled on any page listing one — the in-memory model held Carbon, which
+is why every existing test passed. Six tests added, each mutation-checked.
 
 - **Objective:** Preserve policy evidence and handle repeat service without reopening history.
 - **Scope:** service coverage instance, source sale/job, coverage decision, claim link, covered/chargeable line separation.

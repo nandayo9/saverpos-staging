@@ -52,6 +52,9 @@
 
     <div class="record-card"><h2>Collection</h2><div class="card-body">@if($collectionSummary)<p><strong>POS sale</strong> {{ $collectionSummary['sale_transaction_id'] ?: 'Not billed' }} · billed RM {{ number_format($collectionSummary['billed_total'], 2) }} · paid RM {{ number_format($collectionSummary['paid_amount'], 2) }}@if($collectionSummary['outstanding_amount'] > 0) · outstanding RM {{ number_format($collectionSummary['outstanding_amount'], 2) }}@endif</p>@if($collectionSummary['pending_parts'])<p class="text-muted">{{ $collectionSummary['pending_parts'] }} installed part(s) still wait for billing.</p>@endif@else<p class="text-muted">Collection evidence is available after the repair is QC-passed and billed.</p>@endif@if($canCollect && $job->state !== 'CLOSED')<div class="collection-actions"><form class="collection-form" data-csrf-token="{{ csrf_token() }}" action="{{ route('recommerce.repair.collection.collect', $job->job_code) }}"><input type="hidden" name="_token" value=""><label for="collector-name">Collector</label><input id="collector-name" name="collector_name" maxlength="160" required><label for="collector-phone">Phone (optional)</label><input id="collector-phone" name="collector_phone" maxlength="60"><label for="override-reason">Override reason (unpaid only)</label><input id="override-reason" name="override_reason" maxlength="255"><button class="btn btn-success btn-sm" type="submit">Collect and close</button></form><form class="collection-form" data-csrf-token="{{ csrf_token() }}" action="{{ route('recommerce.repair.collection.repeat', $job->job_code) }}"><input type="hidden" name="command_uuid" value=""><button class="btn btn-default btn-sm" type="submit" @if($job->state !== 'CLOSED')disabled@endif>Repeat visit</button></form></div><div id="collection-result" class="alert" style="display:none;margin-top:10px" role="status"></div>@endif</div></div>
 
+    <div class="record-card"><h2>Warranty claims</h2><div class="card-body">@forelse ($warrantyClaims as $claim)<div class="checklist-item"><div><strong>{{ $claim->claim_number }}</strong> <span class="outcome outcome-{{ $claim->coverage_status === 'IN_COVERAGE' ? 'pass' : 'na' }}">{{ str_replace('_', ' ', $claim->coverage_status) }}</span><br><small class="text-muted">{{ $claim->decision_reason }}</small><br><small class="text-muted">Claimed {{ optional($claim->claim_requested_at)->format('d M Y') }}@if($claim->policy_name) · policy {{ $claim->policy_name }}@endif@if($claim->coverage_end_at) · cover ends {{ $claim->coverage_end_at->format('d M Y') }}@endif</small>@foreach($claim->lines as $line)<br><small class="text-muted">{{ str_replace('_', ' ', $line->billing_treatment) }} · {{ $line->description }} · RM {{ number_format((float) $line->amount, 2) }}</small>@endforeach</div><span class="outcome text-muted">@if((int) $claim->repair_job_id === (int) $job->id)Repeat job from this claim@elseif($claim->repair_job_id)Repeat job #{{ $claim->repair_job_id }}@else No repeat job @endif</span></div>@empty<p class="text-muted">No warranty claim has been raised against this job.</p>@endforelse
+@if($canClaimWarranty)<form id="warranty-claim-form" class="no-print" style="margin-top:14px" action="{{ route('recommerce.repair.warranty.store', $job->job_code) }}" data-csrf-token="{{ csrf_token() }}"><div class="row"><div class="col-sm-5 form-group"><label for="warranty-claimed-on">Claim date</label><input id="warranty-claimed-on" name="claimed_on" class="form-control" type="date" required></div><div class="col-sm-5 form-group"><label for="warranty-covered-amount">Covered amount (optional)</label><input id="warranty-covered-amount" name="covered_amount" class="form-control" type="number" min="0" step="0.01" inputmode="decimal"></div><div class="col-sm-2" style="padding-top:25px"><button class="btn btn-primary btn-block" type="submit">Raise claim</button></div></div></form><div id="warranty-claim-result" class="alert" style="display:none" role="status"></div>@endif</div></div>
+
     <div class="record-card"><h2>Quote versions</h2><div class="card-body">@forelse ($job->quotes as $quote)<div class="checklist-item"><div><strong>Version {{ $quote->version_number }} · {{ $quote->status }}</strong>@if($quote->summary)<br><small class="text-muted">{{ $quote->summary }}</small>@endif<br><small class="text-muted">Total RM {{ number_format((float) $quote->total_amount, 2) }}@if($quote->expires_at) · expires {{ optional($quote->expires_at)->format('d M Y') }}@endif</small></div><span class="outcome text-muted">{{ optional($quote->sent_at)->format('d M Y H:i') ?: 'Draft' }}</span></div>@empty<p class="text-muted">No quote versions recorded.</p>@endforelse</div></div>
 
     <div class="record-card"><h2>POS sale and payment evidence</h2><div class="card-body">@if($financialEvidence['sale'])<dl><dt>Sale reference</dt><dd>{{ $financialEvidence['sale']->ref_no ?: $financialEvidence['sale']->invoice_no ?: $financialEvidence['sale']->id }}</dd><dt>Sale status</dt><dd>{{ $financialEvidence['sale']->status }}</dd><dt>Payments</dt><dd>{{ $financialEvidence['payment_count'] }} recorded · RM {{ number_format((float) $financialEvidence['payment_total'], 2) }}</dd></dl>@else<p class="text-muted">No linked finalized POS sale or payment evidence has been linked yet. POS remains the financial authority.</p>@endif</div></div>
@@ -97,6 +100,50 @@
             });
         });
     });
+})();
+(function(){
+    var form = document.getElementById('warranty-claim-form');
+    if (!form) { return; }
+    var box = document.getElementById('warranty-claim-result');
+    form.addEventListener('submit', function(event){
+        event.preventDefault();
+        var button = form.querySelector('button');
+        button.disabled = true;
+        var payload = { command_uuid: commandUuid(), claimed_on: form.elements.claimed_on.value };
+        var covered = form.elements.covered_amount.value.trim();
+        if (covered !== '') { payload.covered_amount = covered; }
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': form.dataset.csrfToken },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+        }).then(function(response){
+            return response.json().then(function(parsed){ return { ok: response.ok, parsed: parsed }; });
+        }).then(function(result){
+            if (!result.ok) { throw new Error(result.parsed.message || 'The warranty claim was rejected.'); }
+            box.textContent = 'Claim ' + result.parsed.claim_number + ': ' + result.parsed.coverage_status.replace(/_/g, ' ') + '.';
+            box.className = 'alert alert-success';
+            box.style.display = 'block';
+            setTimeout(function(){ window.location.reload(); }, 500);
+        }).catch(function(error){
+            box.textContent = error.message;
+            box.className = 'alert alert-warning';
+            box.style.display = 'block';
+            button.disabled = false;
+        });
+    });
+
+    // The route requires a v4 command_uuid so a resubmitted claim is returned
+    // rather than duplicated; randomUUID is absent on older Safari/http origins.
+    function commandUuid() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') { return window.crypto.randomUUID(); }
+        var bytes = new Uint8Array(16);
+        window.crypto.getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        var hex = [].map.call(bytes, function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
+        return [hex.slice(0,8), hex.slice(8,12), hex.slice(12,16), hex.slice(16,20), hex.slice(20)].join('-');
+    }
 })();
 </script>
 @endsection

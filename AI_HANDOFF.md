@@ -1,9 +1,9 @@
 # AI Handoff
 
 Current milestone: Recommerce — live staging smoke verification
-Last completed task: **The demo payment-account repair now reaches the already-seeded staging estate** — `SaverposDemoExpansionSeeder` (the seeder that actually runs against the deployed database) now fills in the POS `default_payment_accounts` types a demo branch is missing, and both demo seeders share one `SaverposDemoRuntimeSeeder::demoPaymentAccounts()` shape. The previous record claimed rerunning the expansion would unblock the Cash smoke; it would not have — the shape had only been added to the fresh-database seeder. Before that: the dark presentation pass and the `MYR` currency repair landed, staging was deployed and live, and RC-002 was certified on PHP 8.2.33 + MySQL 8.
+Last completed task: **RC-039's warranty claim UI** — the claim service and route had no caller anywhere in the application, so the repair record now carries a Warranty claims card and a permission-gated claim form; a latent missing-datetime-cast defect that would have fatalled that card was fixed with it. Before that: the demo payment-account repair was extended to the already-seeded estate, and the staging auto-deploy was proved never to have shipped a commit.
 Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **174 tests / 1092 assertions, all green** — re-verified 2026-08-30 on PHP 8.2.33 (the 170/1083 baseline was reproduced first, then 4 tests added). Zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
+Tests passing: **181 tests / 1117 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: unchanged from the previous session for the core flows. New this session: non-browser runtime evidence on a disposable MySQL fixture (both demo branches reset to the deployed state — `Util::payment_types()` returned `[]` before the expansion seeder and all twelve types including `cash` after it), plus an authenticated smoke attempt on `pos.kkcctv.com.my` that **failed to confirm the fix is live**: both staging branches still store an empty payment map. See "Cash smoke attempted on staging" below.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -13,6 +13,51 @@ Next safe task: fix the staging CD so a push actually reaches the site — the w
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## RC-039 warranty claims reached the UI (2026-08-30)
+
+The ledger recorded RC-039's remaining gap as "UI smoke pending". It was not a smoke gap — **there was no UI**.
+`WarrantyClaimService` and `POST /recommerce/repair/{jobCode}/warranty/claim` were implemented and tested, but nothing
+in the application referenced the route and no screen listed a claim, so the feature could only be exercised by a
+hand-made request. `grep -rn 'warranty' Modules/Recommerce/Resources/views/` returns only unrelated device/intake
+fields; there is no warranty view.
+
+### What landed
+
+`repair/show.blade.php` gains a **Warranty claims** card:
+
+- lists each claim with number, coverage status, decision reason, policy name, cover end date and claim lines;
+- labels the repeat job a claim produced, and shows a repeat job the claim it came from;
+- carries the claim form (claim date + optional covered amount) only when `$canClaimWarranty` holds.
+
+`RepairJobController::show()` supplies both, through two extracted private methods so the decisions are testable:
+`warrantyClaims()` (claims where the job is either the source or the repeat, business-scoped, lines eager-loaded) and
+`canClaimWarranty()` (customer repair **and** `allowsWriteLocation` on `WarrantyClaimService::PERMISSION_MANAGE`). The
+form posts a browser-generated v4 `command_uuid`, so a resubmitted claim is returned rather than duplicated — the
+service already deduplicates on `(business_id, command_uuid)`.
+
+### A latent defect found while building it
+
+`WarrantyClaim` cast **none** of its datetime columns. The service assigns Carbon, so the in-memory model formats fine
+and every existing test passed — but a claim **re-read from the database** returned raw strings, and the card's
+`$claim->coverage_end_at->format('d M Y')` would have fatalled on any repair record listing a claim. Added
+`coverage_start_at`, `coverage_end_at`, `claim_requested_at` (datetime) and `claimed_on` (date) casts, with a test that
+re-reads a saved claim rather than trusting the instance the service returned.
+
+### Coverage
+
+Six tests added (five in `RecommerceWarrantyClaimTest`, one view/controller contract test), suite **181 tests / 1117
+assertions green**, `recommerce-static-check` green. **Five mutations applied and all killed:** dropping the
+`isCustomerRepair` guard, dropping the permission check, dropping the repeat-job clause, dropping the job filter
+entirely, and removing the datetime casts each fail exactly one new test. The permission test deliberately uses a user
+double whose `can()` is independent of `recommerce.permissions`, per the rule this handoff records after RC-041 — a
+config-driven double could not tell "catalogued" from "granted".
+
+### Not done
+
+No rendered browser smoke: that needs an authenticated session, and entering a password to log in is outside what this
+session does. The production-policy review is also still open, and `policy_version` stays null until policy versioning
+is real (the snapshot's `version_number` is still hardcoded, as the service's own comment says).
 
 ## The auto-deploy has never shipped a commit (2026-08-30) — proved by byte comparison
 
