@@ -575,7 +575,21 @@ created. The stock-POS mechanism behind the symptom is now pinned exactly:
 key, so a partial map throws `TypeError: Cannot read properties of undefined
 (reading 'account')` and the Cash button dies silently. That missing guard is
 pre-existing stock code, out of RC-002 scope, and needs its own decision. The
-Cash smoke stays unverified until the deployment failure is diagnosed.
+Cash smoke stays unverified until the deployment failure is fixed.
+
+**Staging CD does not deploy pushed commits (2026-08-30).** Diagnosed and
+proved rather than inferred: `public/css/saverbro-dark-pos.css` served from
+`pos.kkcctv.com.my` is byte-identical (sha256 `3c2ab4f7...`, 25482 bytes) to
+its state at `03d49f2`, so the site runs a checkout from before `e69b8dd` and
+the last four commits have never been deployed. The workflow calls only
+cPanel's `VersionControlDeployment/create`, which deploys the **server**
+checkout's HEAD; it never performs the **Update from Remote** step that
+`ICORE_CPANEL_STAGING.md` documents as the required first half, so every push
+redeploys stale code and reports success. `curl --fail` also cannot see cPanel
+UAPI errors, which are returned as HTTP 200 with an `errors` array. Deploying
+currently requires the manual cPanel steps. Fixing the pipeline is an
+outward-facing change to a credentialed deploy path and is not authorized by
+this record.
 
 The first ten implementation tasks are `RC-001` through `RC-010`. They deliberately resolve source/runtime/data uncertainty and establish security, transactions, audit, canonical device identity, and safe code allocation before any UI or stock mutation is built.
 

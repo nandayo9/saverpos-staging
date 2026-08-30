@@ -9,10 +9,56 @@ Browser evidence: unchanged from the previous session for the core flows. New th
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: find out why `ba7b90f` did not reach the staging estate — read the GitHub Actions run for the push and the cPanel deployment log (neither was readable from this session) — then rerun the Cash smoke; then the responsive UI acceptance, the printer/scanner matrix (needs a human at the hardware), the duplicate-`logout` route-cache blocker, the `public/js/pos.js:3037` partial-map guard decision, and the repository-visibility decision
+Next safe task: fix the staging CD so a push actually reaches the site — the workflow deploys the server's stale checkout and never updates from remote (see "The auto-deploy has never shipped a commit"), which is why the Cash smoke could not pass; confirm the deployed commit in cPanel first. Until then, deploying requires the manual cPanel Update-from-Remote + Deploy HEAD Commit steps. Then rerun the Cash smoke; then the responsive UI acceptance, the printer/scanner matrix (needs a human at the hardware), the duplicate-`logout` route-cache blocker, the `public/js/pos.js:3037` partial-map guard decision, and the repository-visibility decision
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## The auto-deploy has never shipped a commit (2026-08-30) — proved by byte comparison
+
+Chased the failed Cash smoke to its cause. **`pos.kkcctv.com.my` is running a checkout from before `e69b8dd`.**
+Three workflow runs have reported success while deploying stale code.
+
+### The proof
+
+`e69b8dd` is the only recent commit that touches a web-served file (`public/css/saverbro-dark-pos.css`; `3c939c8`,
+`28f129f`, `45e30c8`, `bfd0bf4`, `e9b82f3` and `ba7b90f` touch none). Fetching that file from the live site and hashing
+it in the browser:
+
+```text
+live    25482 bytes  sha256 3c2ab4f70cadbcef475bfcc4681d3cf065ed5d614fc20439877e5a3cf6df32fe
+HEAD    30238 bytes  sha256 549513caf3ba07641443bbffea4d6960d10399f7b67f39ada5419ced4c9c1f39
+```
+
+The live hash is byte-identical to that file at `03d49f2` — its state from the root commit until `e69b8dd` changed it.
+So `e69b8dd`, `bfd0bf4`, `e9b82f3` and `ba7b90f` are all absent from the server, which is why the payment map is still
+empty. The currency repair is not live either; the dashboard's `RM` was never evidence of a deployment.
+
+### Why
+
+`.github/workflows/deploy-staging.yml` calls **only** `VersionControlDeployment/create`, which deploys the HEAD of the
+**server's** checkout. Nothing in it performs cPanel's **Update from Remote** — the `git pull` that would bring the new
+commit down. `ICORE_CPANEL_STAGING.md` states the required sequence verbatim: "use **Update from Remote** followed by
+**Deploy HEAD Commit**." The workflow implements only the second half, so every push redeploys the same stale checkout,
+succeeds, and changes nothing. The site staying healthy across all three runs is consistent with exactly that.
+
+A second defect compounds it: `curl --fail` only catches HTTP-level failures, and cPanel UAPI returns **HTTP 200 with an
+`errors` array** on failure. Even with the correct sequence, a failed deployment would still report a green run.
+
+### This corrects the previous handoff
+
+"A push now deploys — this changes the visibility question" (below) was an inference from reading the workflow file, not
+an observed end-to-end deployment. It is wrong: **a push to `staging` publishes to GitHub and does not reach the site.**
+The site's working state came from the operator's manual cPanel Update-from-Remote + Deploy steps, not from CD. The
+repository-visibility question stands on its own merits, but not on the CD argument given there.
+
+### Not fixed here — needs a decision
+
+The repair is to call cPanel's update-from-remote before the deploy, and to parse the UAPI response body instead of
+trusting the exit code. Both were left undone deliberately: this changes a credentialed, outward-facing CD pipeline, the
+exact UAPI module/function for the update step cannot be verified from this session, and a wrong guess would be pushed
+straight into the deploy path. Confirm the deployed commit in **cPanel → Git Version Control → Manage** before changing
+anything — it should read a commit at or before `03d49f2`.
 
 ## Cash smoke attempted on staging (2026-08-30) — the deploy did not take effect
 
