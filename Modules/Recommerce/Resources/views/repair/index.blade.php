@@ -28,24 +28,24 @@
 @endphp
 <style>
     .sb-repair-list { max-width:1180px; margin:0 auto; }
-    .sb-repair-list .box { border-radius:10px; border-top:3px solid #4f46e5; box-shadow:0 5px 18px rgba(15,23,42,.05); }
-    .sb-repair-list .box-title { color:#172033; font-weight:700; }
-    .sb-repair-list .summary { display:flex; gap:18px; flex-wrap:wrap; color:#58657a; }
-    .sb-repair-list .summary strong { display:block; color:#172033; font-size:20px; }
-    .sb-repair-list .summary .is-alert strong { color:#b91c1c; }
-    .sb-repair-list .summary .is-warn strong { color:#92400e; }
+    .sb-repair-list .box { border-radius:10px; border-top:3px solid var(--sb-accent,#4f46e5); box-shadow:0 5px 18px rgba(0,0,0,.28); }
+    .sb-repair-list .box-title { color:var(--sb-text,#172033); font-weight:700; }
+    .sb-repair-list .summary { display:flex; gap:18px; flex-wrap:wrap; color:var(--sb-muted,#58657a); }
+    .sb-repair-list .summary strong { display:block; color:var(--sb-text,#172033); font-size:20px; }
+    .sb-repair-list .summary .is-alert strong { color:var(--sb-danger,#b91c1c); }
+    .sb-repair-list .summary .is-warn strong { color:var(--sb-warning,#92400e); }
     .sb-repair-list .empty-state { padding:26px 18px; text-align:center; }
-    .sb-repair-list .empty-state h4 { color:#172033; font-weight:700; margin-bottom:6px; }
-    .sb-repair-list .empty-state p { margin:0 0 14px; color:#64748b; }
+    .sb-repair-list .empty-state h4 { color:var(--sb-text,#172033); font-weight:700; margin-bottom:6px; }
+    .sb-repair-list .empty-state p { margin:0 0 14px; color:var(--sb-muted,#64748b); }
     .sb-repair-list .actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
     .sb-prio { font-size:12px; font-weight:700; letter-spacing:.02em; }
-    .sb-prio-urgent { display:inline-block; background:#b91c1c; color:#fff; border-radius:999px; padding:3px 9px; }
-    .sb-prio-high { color:#b91c1c; }
-    .sb-prio-normal { color:#475569; font-weight:600; }
-    .sb-prio-low { color:#64748b; font-weight:600; }
-    .sb-due-overdue { color:#b91c1c; font-weight:700; }
-    .sb-due-today { color:#92400e; font-weight:700; }
+    .sb-prio-urgent { display:inline-block; background:#7f1d1d; color:#fecaca; border-radius:999px; padding:3px 9px; }
+    .sb-prio-high { color:var(--sb-danger,#b91c1c); }
+    .sb-prio-normal { color:var(--sb-muted,#475569); font-weight:600; }
+    .sb-prio-low { color:var(--sb-muted,#64748b); font-weight:600; }
+    .sb-due-overdue { color:var(--sb-danger,#b91c1c); font-weight:700; }
+    .sb-due-today { color:var(--sb-warning,#92400e); font-weight:700; }
     .sb-due-flag { display:block; font-size:11px; font-weight:700; letter-spacing:.03em; }
 
     @media (max-width:767px) {
@@ -62,10 +62,10 @@
            stay on screen instead of scrolling out of the viewport. */
         .sb-repair-list table.sb-jobs, .sb-repair-list table.sb-jobs tbody, .sb-repair-list table.sb-jobs tr, .sb-repair-list table.sb-jobs td { display:block; width:100%; }
         .sb-repair-list table.sb-jobs thead { display:none; }
-        .sb-repair-list table.sb-jobs tr { border:1px solid #e2e8f0; border-radius:9px; padding:10px 12px; margin-bottom:10px; }
+        .sb-repair-list table.sb-jobs tr { border:1px solid var(--sb-border,#e2e8f0); border-radius:9px; padding:10px 12px; margin-bottom:10px; }
         .sb-repair-list table.sb-jobs td { border:0; padding:3px 0; display:flex; gap:10px; align-items:baseline; justify-content:space-between; }
-        .sb-repair-list table.sb-jobs td::before { content:attr(data-label); color:#64748b; font-size:12px; font-weight:600; flex:0 0 auto; }
-        .sb-repair-list table.sb-jobs td[data-label="Repair code"] { padding-bottom:7px; margin-bottom:5px; border-bottom:1px solid #eef2f7; }
+        .sb-repair-list table.sb-jobs td::before { content:attr(data-label); color:var(--sb-muted,#64748b); font-size:12px; font-weight:600; flex:0 0 auto; }
+        .sb-repair-list table.sb-jobs td[data-label="Repair code"] { padding-bottom:7px; margin-bottom:5px; border-bottom:1px solid var(--sb-border,#eef2f7); }
     }
 </style>
 <section class="container-fluid sb-repair-list" aria-labelledby="repair-workbench-title">

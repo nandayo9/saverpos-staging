@@ -1,9 +1,9 @@
 # AI Handoff
 
 Current milestone: Recommerce — live staging smoke verification
-Last completed task: **Four more screens render in tests, and the harness is now a shared trait** — device registry, operations dashboard, reconciliation and transfer exceptions, with mutation-checked assertions that their permission gating and degraded states behave. Rendered coverage is 8 of 17 views. Before that: the three unauthenticated documents; rendering the repair record caught a Blade fatal shipped in `843192e`/`a80eaf7`.
+Last completed task: **The Recommerce screens are on the dark palette now** — the earlier dark pass covered stock POS surfaces only, and the module's own screens still painted white cards with dark type inside the dark chrome. Five in-app screens converted to `--sb-*` tokens with light-theme fallbacks, status tones re-derived with measured contrast, and a guard test. Before that: four operations screens rendered; the three unauthenticated documents; the Blade fatal caught by rendering.
 Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **240 tests / 1237 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
+Tests passing: **268 tests / 1265 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: unchanged from the previous session for the core flows. New this session: non-browser runtime evidence on a disposable MySQL fixture (both demo branches reset to the deployed state — `Util::payment_types()` returned `[]` before the expansion seeder and all twelve types including `cash` after it), plus an authenticated smoke attempt on `pos.kkcctv.com.my` that **failed to confirm the fix is live**: both staging branches still store an empty payment map. See "Cash smoke attempted on staging" below.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -13,6 +13,57 @@ Next safe task: fix the staging CD so a push actually reaches the site — the w
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## The Recommerce screens were never actually dark (2026-08-30)
+
+The recorded dark-UI pass covered **stock POS** surfaces — utility classes, Highcharts, DataTables, date widgets,
+breadcrumbs, legacy alerts. It did not touch the module's own screens, and `public/css/saverbro-dark-pos.css` contains
+**zero** rules for `sb-record`, `sb-repair`, `sb-ops`, `record-card` or `checklist-item`. Those screens ship their own
+`<style>` blocks, all written for a white card: `background:#fff`, `color:#172033`, pale borders. They rendered as light
+slabs inside the dark chrome, and nothing tested it.
+
+Converted the five in-app screens onto the `--sb-*` palette: `repair/show` (12 hardcoded values), `repair/index` (16),
+`repair/new` (14), `partials/status-tones`, and the one remaining value in `dashboard/index`.
+
+### The three standalone documents were deliberately left light
+
+`device/public-certification`, `repair/public-status` and `labels/device` carry no layout and never load the shared
+stylesheet. The label in particular **must** stay light — it prints on white stock. They are exempt in the guard test
+with that reason recorded.
+
+### Status tones were re-derived, not recoloured by eye
+
+The five tone pairs were pale grounds with dark type, correct for a white card. On the dark surface they measured
+13–14:1 against the background — bright blobs. They are now deep grounds with light type. Measured text-on-pill
+contrast: intake 7.66, active 7.29, blocked 7.28, done 7.58, closed 8.40, all above the 7:1 AAA threshold; each pill now
+sits at 1.4–1.8:1 against the surface, which reads as a chip rather than a flare. A print block restores the original
+light pairs.
+
+One token was measured and rejected: `--sb-faint` is **3.70:1** on `--sb-surface-raised`, below the 4.5:1 AA floor for
+normal text. It had been used for the low-priority label; that now uses `--sb-muted` (6.67:1). `--sb-faint` remains
+defined and is fine for decoration, not for type.
+
+### The fallbacks are the old light values, not dark ones
+
+First pass wrote dark fallbacks — `var(--sb-text,#edf4ff)`. That is wrong for the only case a fallback fires: if the
+shared stylesheet fails to load, the variables are undefined **and** the page is the stock light theme, so a near-white
+fallback paints white-on-white. Every fallback is now the value that rule had before the conversion, so a missing
+stylesheet degrades to exactly the previous light design. `dashboard/index` already used this pattern
+(`var(--sb-text, #1f2937)`) and was the precedent worth following.
+
+### The guard
+
+`RecommerceDarkPaletteTest` asserts, per in-app view, that a screen styling its own surfaces references the `--sb-*`
+palette and paints no light background outside a print block. Print blocks are stripped before the check because they
+are supposed to be light. Mutation-checked: putting `background:#fff` back on the record card fails it.
+`partials/status-tones` is exempt from the palette rule with its reason documented — its hues are not in the palette
+and inventing tokens for them would be worse.
+
+### Not verified in a browser
+
+This is source and test evidence. The dark stylesheet's own effect was never rendered here, and the previous session's
+rendered check covered the Dashboard, device registry and POS register — not these repair screens. Suite is **268 tests
+/ 1265 assertions**.
 
 ## Four operations screens rendered, and the harness factored out (2026-08-30)
 

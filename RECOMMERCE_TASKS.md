@@ -600,6 +600,20 @@ text displayed to a customer over an unauthenticated link), and a label whose
 scan target is never printed as text. 13 of 17 module views remain
 compilation-only. Local test evidence, not release evidence.
 
+**Recommerce screens brought onto the dark palette (2026-08-30).**
+The earlier presentation pass covered stock POS surfaces; the shared stylesheet
+has no rules for the module's own classes, so the Recommerce screens still
+painted white cards with near-black type inside the dark chrome. `repair/show`,
+`repair/index`, `repair/new`, `dashboard/index` and the shared status-tone
+partial now take their colours from the `--sb-*` tokens, with each fallback set
+to the value the rule had before, so a missing stylesheet degrades to the old
+light design instead of white-on-white. Status tones were re-derived for a dark
+ground with measured contrast (7.28-8.40:1 text-on-pill, all above AAA) and keep
+a light print variant; `--sb-faint` was measured at 3.70:1 and dropped for type.
+The three standalone documents stay light on purpose — the print label goes on
+white stock. `RecommerceDarkPaletteTest` guards the rule. Source and test
+evidence only; not rendered in a browser.
+
 **Presentation UI follow-up — PASSED locally (2026-08-30).**
 The shared dark stylesheet now covers the remaining light utility surfaces,
 Highcharts chart backgrounds, DataTables loading state, date widgets,

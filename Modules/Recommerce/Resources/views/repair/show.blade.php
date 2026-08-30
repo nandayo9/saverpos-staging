@@ -2,27 +2,45 @@
 
 @section('content')
 <style>
-    .sb-record { max-width:1100px; margin:0 auto; color:#172033; }
-    .sb-record .record-header,.sb-record .record-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 5px 18px rgba(15,23,42,.05); margin-bottom:16px; }
+    /* Screen styling follows the shared dark POS palette; the print block at
+       the end restores a light record for white stock. Each fallback is the
+       value this rule used before the conversion, so if the shared stylesheet
+       ever fails to load the screen degrades to the old light design rather
+       than painting near-white text on the stock POS chrome. */
+    .sb-record { max-width:1100px; margin:0 auto; color:var(--sb-text,#172033); }
+    .sb-record .record-header,.sb-record .record-card { background:var(--sb-surface-raised,#fff); border:1px solid var(--sb-border,#e5e7eb); border-radius:10px; box-shadow:0 5px 18px rgba(0,0,0,.28); margin-bottom:16px; }
     .sb-record .record-header { padding:20px; display:flex; justify-content:space-between; gap:18px; align-items:flex-start; }
     .sb-record h1 { font-size:25px; margin:0 0 7px; font-weight:700; }
-    .sb-record h2 { font-size:16px; margin:0; padding:14px 18px; border-bottom:1px solid #eef0f4; }
+    .sb-record h2 { font-size:16px; margin:0; padding:14px 18px; border-bottom:1px solid var(--sb-border,#eef0f4); }
     .sb-record .card-body { padding:18px; }
     .sb-record dl { margin:0; display:grid; grid-template-columns:150px 1fr; gap:9px 16px; }
-    .sb-record dt { color:#64748b; font-weight:500; }
+    .sb-record dt { color:var(--sb-muted,#64748b); font-weight:500; }
     .sb-record dd { margin:0; font-weight:600; }
     .sb-record .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
-    .sb-record .badge { display:inline-block; border-radius:999px; padding:5px 11px; background:#eef2ff; color:#4338ca; font-weight:700; font-size:12px; }
-    .sb-record .timeline { border-left:2px solid #dbeafe; padding-left:16px; }
+    .sb-record .badge { display:inline-block; border-radius:999px; padding:5px 11px; background:#312e81; color:#c7d2fe; font-weight:700; font-size:12px; }
+    .sb-record .timeline { border-left:2px solid var(--sb-border-strong,#dbeafe); padding-left:16px; }
     .sb-record .timeline-item { position:relative; margin-bottom:14px; }
-    .sb-record .timeline-item:before { content:""; position:absolute; left:-23px; top:5px; width:8px; height:8px; border-radius:50%; background:#4f46e5; }
-    .sb-record .timeline-time { color:#64748b; font-size:12px; }
-    .sb-record .checklist-item { display:flex; justify-content:space-between; gap:14px; padding:9px 0; border-bottom:1px solid #f1f5f9; }
+    .sb-record .timeline-item:before { content:""; position:absolute; left:-23px; top:5px; width:8px; height:8px; border-radius:50%; background:var(--sb-accent,#4f46e5); }
+    .sb-record .timeline-time { color:var(--sb-muted,#64748b); font-size:12px; }
+    .sb-record .checklist-item { display:flex; justify-content:space-between; gap:14px; padding:9px 0; border-bottom:1px solid var(--sb-border,#f1f5f9); }
     .sb-record .outcome { font-weight:700; font-size:12px; white-space:nowrap; }
-    .sb-record .outcome-pass { color:#15803d; }.sb-record .outcome-fail { color:#b91c1c; }.sb-record .outcome-na { color:#64748b; }
+    .sb-record .outcome-pass { color:var(--sb-success,#15803d); }.sb-record .outcome-fail { color:var(--sb-danger,#b91c1c); }.sb-record .outcome-na { color:var(--sb-muted,#64748b); }
     .sb-record .toolbar { display:flex; gap:8px; flex-wrap:wrap; }
+    .sb-record .text-muted { color:var(--sb-muted,#64748b) !important; }
     @media(max-width:700px){.sb-record .record-header{display:block}.sb-record .toolbar{margin-top:15px}.sb-record .grid{grid-template-columns:1fr}.sb-record dl{grid-template-columns:1fr;gap:3px;margin-bottom:10px}}
-    @media print { body{background:#fff!important}.no-print{display:none!important}.sb-record{max-width:none}.sb-record .record-header,.sb-record .record-card{box-shadow:none;border-color:#d1d5db;break-inside:avoid}a{color:#172033;text-decoration:none} }
+    @media print {
+        body{background:#fff!important}.no-print{display:none!important}
+        .sb-record{max-width:none;color:#172033}
+        .sb-record .record-header,.sb-record .record-card{background:#fff;box-shadow:none;border-color:#d1d5db;break-inside:avoid}
+        .sb-record h2{border-bottom-color:#eef0f4}
+        .sb-record dt,.sb-record .timeline-time,.sb-record .outcome-na,.sb-record .text-muted{color:#64748b !important}
+        .sb-record .badge{background:#eef2ff;color:#4338ca}
+        .sb-record .timeline{border-left-color:#dbeafe}
+        .sb-record .timeline-item:before{background:#4f46e5}
+        .sb-record .checklist-item{border-bottom-color:#f1f5f9}
+        .sb-record .outcome-pass{color:#15803d}.sb-record .outcome-fail{color:#b91c1c}
+        a{color:#172033;text-decoration:none}
+    }
 </style>
 
 <section class="container-fluid sb-record" aria-labelledby="repair-record-title">
