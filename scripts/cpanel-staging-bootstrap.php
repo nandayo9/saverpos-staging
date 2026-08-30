@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\SaverposDemoExpansionSeeder;
 use Database\Seeders\SaverposDemoRuntimeSeeder;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
@@ -39,7 +40,12 @@ if (! Schema::hasTable('business')) {
 }
 
 if (DB::table('business')->exists()) {
-    echo "A business already exists; leaving the staging data untouched.\n";
+    echo "A business already exists; applying the idempotent fictional demo expansion only when the SAVERPOS Demo business is present.\n";
+    if (Artisan::call('db:seed', ['--class' => SaverposDemoExpansionSeeder::class, '--force' => true, '--no-interaction' => true]) !== 0) {
+        fwrite(STDERR, Artisan::output());
+        exit(1);
+    }
+    echo Artisan::output();
     exit(0);
 }
 
