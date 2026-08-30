@@ -452,6 +452,8 @@ to a repeat visit was the one `WarrantyClaimService` creates internally.
 
 ### RC-038 — Implement trade-in offer and ownership acquisition
 
+**Status update (2026-08-31): Architecture drafted in `RCR_010_RC038_TRADE_IN_ACQUISITION_DECISION.md`; implementation remains blocked pending management's acquisition-accounting, settlement, contact-role, and catalog-mapping decisions. Source review confirms the native `UltimatePosPurchaseWriter` is the safe financial seam, while the current one-to-one `DevicePurchaseAssignment` cannot represent a later trade-in without an append-only acquisition-history table. No trade-in data, stock, payment, or ownership mutation was added.**
+
 - **Objective:** Acquire a customer device while preserving its identity/history and financial source.
 - **Scope:** lookup/intake, condition/diagnosis, versioned offer/approval, configured POS/accounting acquisition link, ownership/custody transition, reject/return.
 - **Likely files/modules affected:** Recommerce trade-in migrations/entities/services/views/policies; approved POS/accounting integration adapter.
