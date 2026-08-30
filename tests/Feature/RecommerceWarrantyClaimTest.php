@@ -565,6 +565,85 @@ class RecommerceWarrantyClaimTest extends TestCase
         );
     }
 
+    /**
+     * Every other view assertion in this suite reads Blade *source*, which
+     * cannot catch a template that throws when it runs -- the missing datetime
+     * casts on WarrantyClaim were found by reading, not by a red test, and
+     * would have fatalled this page for every claim it listed. These render the
+     * real screen with only the Ultimate POS layout stubbed out.
+     */
+    public function test_the_repair_record_renders_a_claim_read_back_from_the_database(): void
+    {
+        $claim = $this->service()->createClaim(
+            $this->user(),
+            $this->sourceJob(),
+            '77777777-7777-4777-8777-777777777740',
+            ['claimed_on' => now()->subDay()->toDateString(), 'covered_amount' => 30]
+        );
+
+        $html = $this->renderRepairRecord($this->sourceJob(), ['canClaimWarranty' => true]);
+
+        $this->assertStringContainsString('Warranty claims', $html);
+        $this->assertStringContainsString($claim->claim_number, $html);
+        $this->assertStringContainsString('IN COVERAGE', $html);
+        $this->assertStringContainsString('<form id="warranty-claim-form"', $html);
+    }
+
+    public function test_a_closed_job_renders_a_repeat_visit_button_that_is_not_disabled(): void
+    {
+        $html = $this->renderRepairRecord($this->sourceJob(), ['canStartRepeat' => true]);
+
+        $this->assertStringContainsString('>Repeat visit</button>', $html);
+        $this->assertStringContainsString('/repair/SB-RP-COVERAGE01/repeat', $html);
+        $this->assertStringNotContainsString('disabled>Repeat visit', $html);
+    }
+
+    public function test_the_repair_record_hides_both_actions_from_a_reader(): void
+    {
+        $html = $this->renderRepairRecord($this->sourceJob());
+
+        // The submit handler names the form id unconditionally, so assert on
+        // the element itself rather than the string.
+        $this->assertStringNotContainsString('<form id="warranty-claim-form"', $html);
+        $this->assertStringNotContainsString('>Repeat visit</button>', $html);
+        $this->assertStringContainsString('No warranty claim has been raised against this job.', $html);
+    }
+
+    /**
+     * Renders `recommerce::repair.show` for real. The relations the screen only
+     * iterates are stubbed empty so this stays independent of the parts, quote
+     * and diagnostic tables; what matters here is that the Blade executes.
+     */
+    protected function renderRepairRecord(RepairJob $job, array $overrides = []): string
+    {
+        $this->mapRecommerceRoutes();
+        app('view')->addNamespace('recommerce', base_path('Modules/Recommerce/Resources/views'));
+        app('view')->getFinder()->prependLocation(base_path('tests/Fixtures/views'));
+        app('view')->flushFinderCache();
+
+        $job->setRelation('contact', null);
+        $job->setRelation('assignee', null);
+        $job->loadMissing('device');
+        $job->device->setRelation('identifiers', collect());
+        foreach (['checklistItems', 'stateTransitions', 'partReservations', 'partUsages', 'quotes', 'diagnosticSessions'] as $relation) {
+            $job->setRelation($relation, collect());
+        }
+
+        return (string) view('recommerce::repair.show', array_merge([
+            'job' => $job,
+            'allowedTransitions' => [],
+            'diagnosticViewEnabled' => false,
+            'transitionEnabled' => false,
+            'costVisible' => false,
+            'financialEvidence' => ['sale' => null, 'payment_count' => 0, 'payment_total' => null],
+            'collectionSummary' => null,
+            'canCollect' => false,
+            'canStartRepeat' => false,
+            'warrantyClaims' => $this->warrantyClaimsFor($job),
+            'canClaimWarranty' => false,
+        ], $overrides))->render();
+    }
+
     protected function canStartRepeatFor(RepairJob $job, User $user): bool
     {
         $method = new \ReflectionMethod(\Modules\Recommerce\Http\Controllers\RepairJobController::class, 'canStartRepeat');

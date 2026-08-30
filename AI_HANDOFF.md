@@ -1,9 +1,9 @@
 # AI Handoff
 
 Current milestone: Recommerce — live staging smoke verification
-Last completed task: **The Repeat visit button was unusable in every state and now works** — it rendered only while the job was READY (the one state `startRepeat` rejects), was unconditionally disabled there, and posted an idempotency key the submit handler stripped. Before that: the intake customer search could not reach customer 201, RC-039's warranty claim UI, the demo payment-account repair, and proof that the staging auto-deploy has never shipped a commit.
+Last completed task: **Recommerce views are rendered in tests now, and it immediately caught a fatal I had shipped** — `843192e` and `a80eaf7` left Blade directives uncompiled (`@endif@if`, `claim@elseif`), which turned the repair record into a PHP parse error while every source-assertion test stayed green. Fixed, plus a guard that compiles all 17 module views. Before that: the Repeat visit button, the intake customer search, RC-039's claim UI.
 Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **193 tests / 1148 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
+Tests passing: **230 tests / 1192 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: unchanged from the previous session for the core flows. New this session: non-browser runtime evidence on a disposable MySQL fixture (both demo branches reset to the deployed state — `Util::payment_types()` returned `[]` before the expansion seeder and all twelve types including `cash` after it), plus an authenticated smoke attempt on `pos.kkcctv.com.my` that **failed to confirm the fix is live**: both staging branches still store an empty payment map. See "Cash smoke attempted on staging" below.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -13,6 +13,56 @@ Next safe task: fix the staging CD so a push actually reaches the site — the w
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## Views are rendered in tests now — and doing it caught a fatal I had shipped (2026-08-30)
+
+The three previous fixes were all covered the same way this module has always covered views: by asserting against the
+Blade **source**. That cannot catch a template that throws when it runs, which is exactly how the missing datetime casts
+got as far as they did. So the repair record is now rendered for real in tests, with only the Ultimate POS layout
+stubbed (`tests/Fixtures/views/layouts/app.blade.php` prepended to the view finder).
+
+**It failed on the first run, and the bug was mine.**
+
+### What was wrong
+
+Blade's `compileStatements` matches `\B@directive`. A directive that immediately follows a **word character** — including
+the `f` of a preceding `@endif` — is not compiled; it is emitted as literal text. On these dense, single-line templates
+that is very easy to write and completely invisible to a source-string assertion.
+
+`repair/show.blade.php` had five such directives, three of them pre-existing:
+
+| Written as | Introduced |
+| --- | --- |
+| `@endif@else` (Collection card) | pre-existing |
+| `@endif@if($canCollect …)` | pre-existing, edited by `a80eaf7` |
+| `</form>@endif@if($canStartRepeat)` | `a80eaf7` |
+| `@endif@if($claim->coverage_end_at)` | `843192e` |
+| `…this claim@elseif(…)` | `843192e` |
+
+Before my work the three leftovers happened to **balance** — an uncompiled `@else` and its uncompiled `@endif` cancel —
+so the page still parsed and merely leaked literal `@else…@endif` text into the HTML. My two additions broke the
+balance, and the compiled template became a **PHP parse error**: `syntax error, unexpected token "endif"`. In other
+words, `843192e` and `a80eaf7` shipped a repair record screen that would have fatalled for every job. Both commits were
+green, mutation-checked, and reviewed.
+
+Fixed by separating each directive from the preceding word character. All 17 module views now compile with zero
+leftovers.
+
+### The guard
+
+`tests/Unit/RecommerceBladeCompilesTest.php` compiles **every** Blade file in the module and asserts two things per
+view: the compiled PHP passes `php -l`, and no Blade directive survives uncompiled. 34 tests, one pair per view.
+
+Verified against the actual history rather than assumed: restoring the view as it stood at `a80eaf7` fails 2 of them,
+and restoring it as it stood at `7d5adbc` — before any of my work, when it still parsed — fails 1, catching the literal
+`@else` leak that had been in the page all along.
+
+### Where this leaves the view idiom
+
+Source assertions are still fine for *intent* (is the form gated, does it post to the right route). They are not
+sufficient on their own, and this module had nothing else. Suite is now **230 tests / 1192 assertions**. The repair
+record is the only screen rendered so far; the other 16 views are covered for compilation only. Rendering the rest needs
+their controller data shapes and is worth doing.
 
 ## The Repeat visit button never worked, in any state (2026-08-30)
 

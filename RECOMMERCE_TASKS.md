@@ -572,6 +572,17 @@ is why every existing test passed. Six tests added, each mutation-checked.
 
 ## Operational verification status
 
+**Blade compilation guarded across the module (2026-08-30).**
+Recommerce views were only ever asserted as source strings, which cannot catch
+a template that throws when it runs. The repair record is now rendered for real
+in tests, and that immediately exposed five Blade directives written directly
+after a word character (`@endif@if`, `claim@elseif`) — Blade leaves those
+uncompiled, so three pre-existing ones leaked literal `@else…@endif` into the
+page and two added on 2026-08-30 unbalanced the leftovers into a PHP parse
+error on every repair record. All 17 module views now compile with no
+leftovers, and `RecommerceBladeCompilesTest` fails if that regresses. This is
+local test evidence, not release evidence.
+
 **Presentation UI follow-up — PASSED locally (2026-08-30).**
 The shared dark stylesheet now covers the remaining light utility surfaces,
 Highcharts chart backgrounds, DataTables loading state, date widgets,
