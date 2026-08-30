@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # cPanel Git deployment entry point for the isolated SAVERPOS staging estate.
-# It intentionally refuses to run without the untracked server .env file.
+# The Git checkout is kept separate from the live document root so cPanel can
+# deploy a clean branch while the runtime .env and ACME files remain private.
 set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+DEPLOY_PATH="${SAVERPOS_DEPLOY_PATH:-"$ROOT_DIR/../saverpos-staging"}"
 cd "$ROOT_DIR"
 
-if [[ ! -f .env ]]; then
-    echo "Missing .env. Create the server-only staging .env before deploying."
+if [[ ! -f "$DEPLOY_PATH/.env" ]]; then
+    echo "Missing $DEPLOY_PATH/.env. Create the server-only staging .env before deploying."
     exit 1
 fi
+export SAVERPOS_ENV_PATH="$DEPLOY_PATH"
 
 php_version_is_82() {
     "$1" -r 'exit((PHP_VERSION_ID >= 80200 && PHP_VERSION_ID < 80300) ? 0 : 1);' >/dev/null 2>&1
@@ -73,7 +76,7 @@ mkdir -p storage/app/public storage/framework/cache storage/framework/sessions \
     storage/framework/testing storage/framework/views storage/logs bootstrap/cache
 chmod -R ug+rwX storage bootstrap/cache
 
-if ! grep -Eq '^APP_KEY=base64:' .env; then
+if ! grep -Eq '^APP_KEY=base64:' "$DEPLOY_PATH/.env"; then
     "$PHP_BIN" artisan key:generate --force --no-interaction
 fi
 
@@ -84,5 +87,19 @@ fi
 "$PHP_BIN" scripts/cpanel-staging-bootstrap.php
 "$PHP_BIN" artisan config:clear --no-interaction
 "$PHP_BIN" artisan view:clear --no-interaction
+
+# Publish the built application into the stable live directory. Preserve
+# cPanel-managed files such as public/.well-known, while linking the runtime
+# directories back to the checkout so one deployment has one source of truth.
+mkdir -p "$DEPLOY_PATH/public"
+cp -a "$ROOT_DIR/public/." "$DEPLOY_PATH/public/"
+for link in vendor bootstrap storage; do
+    destination="$DEPLOY_PATH/$link"
+    if [[ -e "$destination" && ! -L "$destination" ]]; then
+        echo "Refusing to replace non-symlink live path: $destination"
+        exit 1
+    fi
+    ln -sfn "$ROOT_DIR/$link" "$destination"
+done
 
 echo "SAVERPOS cPanel staging deployment completed."

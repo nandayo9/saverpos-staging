@@ -15,6 +15,19 @@ $app = new Illuminate\Foundation\Application(
     $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
 );
 
+// cPanel keeps the private runtime estate beside (not inside) the managed
+// Git checkout.  Prefer an explicitly supplied path for CLI deployment, then
+// fall back to the sibling live directory used by PHP-FPM web requests.
+$externalEnvironmentPath = getenv('SAVERPOS_ENV_PATH');
+if (is_string($externalEnvironmentPath) && $externalEnvironmentPath !== '' && is_dir($externalEnvironmentPath)) {
+    $app->useEnvironmentPath($externalEnvironmentPath);
+} else {
+    $siblingEnvironmentPath = dirname(__DIR__) . '/../saverpos-staging';
+    if (is_dir($siblingEnvironmentPath)) {
+        $app->useEnvironmentPath($siblingEnvironmentPath);
+    }
+}
+
 /*
 |--------------------------------------------------------------------------
 | Bind Important Interfaces

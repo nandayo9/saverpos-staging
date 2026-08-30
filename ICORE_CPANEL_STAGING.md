@@ -10,10 +10,13 @@ production deployment and must use a new, isolated MySQL database.
 Private GitHub repository (staging branch)
         |
         v
-iCore cPanel Git Version Control or cPanel upload
+/home/CPANEL_USER/repositories/saverpos-staging-repo (managed checkout)
+        |
+        v  cPanel deployment task
+/home/CPANEL_USER/repositories/saverpos-staging (live runtime + .env)
         |
         v
-pos.kkcctv.com.my -> Laravel public/ document root -> iCore MySQL database
+pos.kkcctv.com.my -> .../saverpos-staging/public -> iCore MySQL database
 ```
 
 The repository root is the contents of
@@ -48,12 +51,10 @@ recreate them during deployment.
 In iCore cPanel:
 
 1. Create the subdomain `pos.kkcctv.com.my` and set its document root to the
-   repository's `public/` directory, for example:
-   `/home/CPANEL_USER/repositories/saverpos-staging-repo/public`. Note that the
-   clone directory and the cPanel *repository name* are two different things —
-   the deployed estate uses the name `saverpos-staging` for a directory whose
-   real path ends in `saverpos-staging-repo`. Read the actual path from **Git
-   Version Control → Manage → Repository Path** rather than assuming it.
+   separate live directory:
+   `/home/CPANEL_USER/repositories/saverpos-staging/public`. The Git checkout
+   remains at `/home/CPANEL_USER/repositories/saverpos-staging-repo`; read the
+   actual checkout path from **Git Version Control → Manage → Repository Path**.
 2. Select PHP 8.2 in **Select PHP Version**. Enable at least `ctype`, `curl`,
    `fileinfo`, `gd`, `mbstring`, `openssl`, `pdo`, `pdo_mysql`, `tokenizer`,
    `xml`, `zip`, and `bcmath` if available.
@@ -89,16 +90,13 @@ hold: a valid `.cpanel.yml` exists, **and** the checked-out branch has no
 uncommitted changes. cPanel's "uncommitted changes" test includes **untracked**
 files, which is easy to trip without realising.
 
-That is what blocked the first deployment attempt. Installing the Let's Encrypt
-certificate created `public/.well-known/acme-challenge/` inside the document
-root. It was untracked and not ignored, so the server's working tree read as
-dirty and the Deploy button stayed disabled — with a generic message that does
-not name the offending path. `/public/.well-known/` is now in `.gitignore`, so
-this resolves once the server pulls a commit containing that rule.
+The first deployment attempt was also blocked by the lack of a global Composer
+command. The deployment task now installs a checksum-verified local Composer
+copy when necessary. Keeping the live directory separate means cPanel's
+Let's Encrypt files and the server-only `.env` never dirty the Git checkout.
 
-The directory is recreated on **every certificate renewal**, so deleting it on
-the server is not a fix — it will come back and disable deployment again. Ignore
-it; do not delete it, and do not commit it.
+The live `public/.well-known/` directory is recreated on **every certificate
+renewal**. Do not delete it or commit it; it is outside the managed checkout.
 
 If Deploy is disabled again later, look for anything else written into the
 checkout that git does not know about: editor backups, `.env` variants under a
@@ -122,9 +120,11 @@ a workaround.
 
 ## 4. Create the staging environment
 
-Create `.env` on the server using cPanel's file editor. Start from
-`.env.cpanel-staging.example`, replace the three `CPANEL_...` values, and type
-the database password directly in cPanel; never put it in GitHub:
+Create `.env` in the live directory
+`/home/CPANEL_USER/repositories/saverpos-staging/.env` using cPanel's file
+editor. Start from `.env.cpanel-staging.example`, replace the three
+`CPANEL_...` values, and type the database password directly in cPanel; never
+put it in GitHub:
 
 ```dotenv
 APP_NAME=SAVERPOS
@@ -156,7 +156,9 @@ RECOMMERCE_COHORT_VARIATION_IDS=DEMO_VARIATION_ID
 ```
 
 The first cPanel deployment generates the key in this server-only file. Do not
-reuse the local `.env` key.
+reuse the local `.env` key. The deployment task reads this file while building
+the checkout, then publishes the result to the live directory and links its
+`vendor`, `bootstrap`, and `storage` directories back to the checkout.
 
 ## 5. Build the fictional demo estate
 
