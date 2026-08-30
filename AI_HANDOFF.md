@@ -5,14 +5,50 @@ Last completed task: **The demo payment-account repair now reaches the already-s
 Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
 Tests passing: **174 tests / 1092 assertions, all green** — re-verified 2026-08-30 on PHP 8.2.33 (the 170/1083 baseline was reproduced first, then 4 tests added). Zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
-Browser evidence: unchanged from the previous session (receive, A→B transfer, Branch B POS sale, exact-device return, Branch B reconciliation `PASS · core 1 · tracked 1 · legacy 0`, device timeline, RC-037 exceptions; live staging smoke passed the same core flow). New this session is non-browser runtime evidence on a disposable MySQL fixture: with both demo branches reset to the deployed estate's state, `Util::payment_types()` returned `[]` before the expansion seeder and all twelve types including `cash` after it. The Cash path on `pos.kkcctv.com.my` remains unverified until an approved deployment reruns the seeder.
+Browser evidence: unchanged from the previous session for the core flows. New this session: non-browser runtime evidence on a disposable MySQL fixture (both demo branches reset to the deployed state — `Util::payment_types()` returned `[]` before the expansion seeder and all twelve types including `cash` after it), plus an authenticated smoke attempt on `pos.kkcctv.com.my` that **failed to confirm the fix is live**: both staging branches still store an empty payment map. See "Cash smoke attempted on staging" below.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: deploy the payment-account repair to staging (an approved, outward-facing action — a push to `staging` now auto-deploys), then rerun the Cash-specific smoke on the fictional estate; then the responsive UI acceptance, the printer/scanner matrix (needs a human at the hardware), the duplicate-`logout` route-cache blocker (see the RC-002 section), and the repository-visibility decision
+Next safe task: find out why `ba7b90f` did not reach the staging estate — read the GitHub Actions run for the push and the cPanel deployment log (neither was readable from this session) — then rerun the Cash smoke; then the responsive UI acceptance, the printer/scanner matrix (needs a human at the hardware), the duplicate-`logout` route-cache blocker, the `public/js/pos.js:3037` partial-map guard decision, and the repository-visibility decision
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## Cash smoke attempted on staging (2026-08-30) — the deploy did not take effect
+
+`ba7b90f` was pushed with the operator's approval (`e9b82f3..ba7b90f`), which should have triggered
+`.github/workflows/deploy-staging.yml` and reseeded the estate. The operator signed in and the smoke was driven from
+there. **The fix is not live.** On `pos.kkcctv.com.my`, both branches still report a stored map of exactly
+`{"advance":{"is_enabled":1,"account":null}}` — and `advance` is injected by `app/BusinessLocation.php` on top of an
+**empty** decode, so the column itself is still NULL. `SaverposDemoExpansionSeeder` has not run against that database.
+
+**Do not read the dashboard's `RM` as proof of deployment.** The currency repair shipped in `e9b82f3`, which was already
+live before this session; it says nothing about `ba7b90f`. Nor does the payment-method dropdown in the payment modal:
+`payment[0][method]` listed all twelve types, but that select is rendered from the **global** `payment_types()` list, not
+the location-scoped one. The only trustworthy signal is the per-location `data-default_payment_accounts` attribute on
+`select#select_location_id`, read above.
+
+Whether the GitHub Actions run failed, is queued, or the cPanel deploy errored is **unknown** — `gh` and `curl` were both
+blocked by this session's permission guard, so the Actions run and the cPanel deploy log were never read. That is the
+next thing to check.
+
+### Root cause of the "Cash button does nothing" symptom, now pinned exactly
+
+Clicking Cash (`.pos-express-finalize`) throws in stock POS code:
+
+```text
+TypeError: Cannot read properties of undefined (reading 'account')  —  public/js/pos.js:3037
+```
+
+`default_accounts && default_accounts[payment_type]['account']` guards the *map* but not the *key*. With a map holding
+only `advance`, any other payment type dereferences `undefined` and the handler dies before it can build a payment row —
+so the button appears inert with no user-visible error. Populating the map (the seeder fix) removes the trigger for the
+demo estate. The missing key-existence guard in `public/js/pos.js` is **pre-existing stock Ultimate POS code**, is out of
+RC-002 scope, and was deliberately left alone; it is worth a decision separately, because any location with a partial
+map hits it.
+
+Nothing was written on the server: the tracked line (`SB-DV-00000019-1`, AVAILABLE/ON_HAND at Branch B) was assembled in
+the cart but never finalized, so no sale, payment, or device movement was created.
 
 ## Demo payment accounts repaired for the already-seeded estate (2026-08-30)
 

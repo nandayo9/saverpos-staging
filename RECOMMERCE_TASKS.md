@@ -564,8 +564,18 @@ deployed estate's state: `Util::payment_types()` returned `[]` for both
 branches beforehand — the register offered no payment method at all, so this
 was never Cash-specific — and all twelve types including `cash` afterwards,
 with a rerun leaving `updated_at` unchanged. The disposable database was
-dropped after the run. The Cash-specific smoke on `pos.kkcctv.com.my` still
-has to be rerun after an explicitly approved deployment.
+dropped after the run.
+
+**Staging Cash smoke attempted and still unconfirmed (2026-08-30).** The fix
+was pushed with approval, but the authenticated smoke on `pos.kkcctv.com.my`
+shows both branches still storing an empty payment map, so the seeder has not
+run against that database and the deployment did not take effect. No sale was
+created. The stock-POS mechanism behind the symptom is now pinned exactly:
+`public/js/pos.js:3037` guards the payment-account map but not the requested
+key, so a partial map throws `TypeError: Cannot read properties of undefined
+(reading 'account')` and the Cash button dies silently. That missing guard is
+pre-existing stock code, out of RC-002 scope, and needs its own decision. The
+Cash smoke stays unverified until the deployment failure is diagnosed.
 
 The first ten implementation tasks are `RC-001` through `RC-010`. They deliberately resolve source/runtime/data uncertainty and establish security, transactions, audit, canonical device identity, and safe code allocation before any UI or stock mutation is built.
 
