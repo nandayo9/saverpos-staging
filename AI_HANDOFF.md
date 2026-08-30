@@ -215,7 +215,7 @@ The defect was sharper than "status is monochrome". The view carries a **"Parts 
 
 Reservation states are `RESERVED / ISSUED / RELEASED / CONSUMED` and usage states `INSTALLED_PENDING_BILLING / CONSUMED` (read from `RepairPartService`, not guessed). Mapped onto the same tone system as the repair list: RESERVED→intake, ISSUED→active, INSTALLED_PENDING_BILLING→blocked, CONSUMED→done, RELEASED→closed. **The legend itself was converted to the same classes**, so both halves of the screen now speak one language, and the mapping matches what the legend already said.
 
-The tone CSS is duplicated into this view's own `<style>`, scoped under `#recommerce-parts`, because each Recommerce view carries its own inline styles. **That duplication is now in two places (`repair/index`, `parts/show`) and should be extracted to a shared Blade partial before it reaches a third** — flagged rather than done, since introducing a shared partial changes structure across views.
+The tone CSS is duplicated into this view's own `<style>`, scoped under `#recommerce-parts`, because each Recommerce view carries its own inline styles. ~~**That duplication is now in two places...**~~ **DONE (2026-08-30)** — extracted to `recommerce::partials.status-tones`; see below.
 
 Observed while rendering, pre-existing and not changed: the stock dropdown prints raw 4-decimal quantities ("4.0000 available"), and currency placement is inconsistent between the projected invoice ("RM 85.00") and recorded costs ("85.00 RM"). Also `@forelse` at line 111 is closed with `@endforeach` and has no `@empty` branch — harmless, since the surrounding `@if` handles the empty case and the compiled PHP is valid, but it should be a plain `@foreach`.
 
@@ -234,4 +234,14 @@ Committed after review. Everything found during that review is folded in: the co
 `Modules/Recommerce/Config/config.php` and `Modules/Recommerce/Routes/web.php` carried both RC-039 and blocked RC-041 lines, so committing either file wholesale would have silently landed the archive permission and route. Before staging, the RC-041 permission (`recommerce.repair.archive`) and the `POST /repair/legacy-archive` route were stripped, RC-039 was verified to stand alone (its 12 tests and the 47 unit tests pass with RC-041 absent), the staged diff of both files was inspected to confirm only warranty lines were present, and the RC-041 lines were restored to the working tree immediately after the commit.
 
 The working tree is now exactly RC-041 and nothing else: two modified lines in the shared files plus six untracked files. **RC-041 remains blocked on the RCR-001 disposition and the authorization bypass documented above — nothing in `7d5adbc` depends on or enables it.**
+
+## Status tones extracted to a shared partial (2026-08-30)
+
+The tone system had been copied into two views with different scoping (`.sb-repair-list .sb-status*` in `repair/index`, `#recommerce-parts .sb-status*` in `parts/show`). It is now one file, `Modules/Recommerce/Resources/views/partials/status-tones.blade.php`, included by both with `@include('recommerce::partials.status-tones')`. The partial documents what each tone means (intake / active / blocked / done / closed) so a third view maps its own states onto the vocabulary instead of inventing colours.
+
+Verified as a pure extraction rather than assumed: both views were rendered before and after, and the body markup compares byte-identical while all five tone colour pairs are preserved.
+
+**One deliberate visual change, not a no-op:** `parts/show` previously used `padding:3px 9px` on its pills against `repair/index`'s `4px 10px`. The shared rule is `4px 10px`, so the parts pills are 1px larger each way — the point of the extraction being that the two screens now agree. Re-screenshotted to confirm the view still reads correctly.
+
+Suite green at 167 tests / 1056 assertions; static check passes.
 

@@ -3,6 +3,7 @@
 @section('title', $customerWorkspace ? 'Customer Repairs' : 'Repair workbench')
 
 @section('content')
+@include('recommerce::partials.status-tones')
 @php
     // Terminal states no longer compete for attention on the due-date column.
     $sbClosedStates = ['READY', 'COLLECTED', 'COMPLETED', 'CANCELLED', 'REJECTED'];
@@ -38,14 +39,6 @@
     .sb-repair-list .empty-state p { margin:0 0 14px; color:#64748b; }
     .sb-repair-list .actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
-    /* Status and priority carry meaning by colour, not decoration. Pairs are
-       chosen for AA contrast rather than inherited from Bootstrap defaults. */
-    .sb-status { display:inline-block; border-radius:999px; padding:4px 10px; font-size:11px; font-weight:700; letter-spacing:.02em; white-space:nowrap; }
-    .sb-status-intake { background:#e0e7ff; color:#3730a3; }
-    .sb-status-active { background:#dbeafe; color:#1e40af; }
-    .sb-status-blocked { background:#fef3c7; color:#92400e; }
-    .sb-status-done { background:#d1fae5; color:#065f46; }
-    .sb-status-closed { background:#e5e7eb; color:#374151; }
     .sb-prio { font-size:12px; font-weight:700; letter-spacing:.02em; }
     .sb-prio-urgent { display:inline-block; background:#b91c1c; color:#fff; border-radius:999px; padding:3px 9px; }
     .sb-prio-high { color:#b91c1c; }

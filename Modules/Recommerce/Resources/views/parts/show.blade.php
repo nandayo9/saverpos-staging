@@ -12,14 +12,7 @@
         'RELEASED' => 'closed',
     ];
 @endphp
-<style>
-    #recommerce-parts .sb-status { display:inline-block; border-radius:999px; padding:3px 9px; font-size:11px; font-weight:700; letter-spacing:.02em; white-space:nowrap; }
-    #recommerce-parts .sb-status-intake { background:#e0e7ff; color:#3730a3; }
-    #recommerce-parts .sb-status-active { background:#dbeafe; color:#1e40af; }
-    #recommerce-parts .sb-status-blocked { background:#fef3c7; color:#92400e; }
-    #recommerce-parts .sb-status-done { background:#d1fae5; color:#065f46; }
-    #recommerce-parts .sb-status-closed { background:#e5e7eb; color:#374151; }
-</style>
+@include('recommerce::partials.status-tones')
     <section class="container" id="recommerce-parts" data-csrf-token="{{ csrf_token() }}">
         <div class="row">
             <div class="col-md-9">
