@@ -794,6 +794,52 @@ currently requires the manual cPanel steps. Fixing the pipeline is an
 outward-facing change to a credentialed deploy path and is not authorized by
 this record.
 
+**Repair write paths exercised in the browser (2026-08-30).**
+The three repair mutations were driven signed in against the disposable demo
+estate, and all three behave as specified. No application defect was found; one
+decision is raised below.
+
+| Path | Evidence |
+| --- | --- |
+| State transition — rejection | From `AWAITING_APPROVAL` with no evidence, the move to `WAITING_PARTS` was refused and the result box rendered |
+| State transition — success | With `{"approval_satisfied":true}` the job moved to `WAITING_PARTS`, `lock_version` 3 → 4, and the evidence persisted verbatim into `recommerce_repair_state_transitions`; the page reloaded on success |
+| Intake | `RepairJobIntakeService` created job `SB-RP-1D9A…` in `RECEIVED` through the real cohort/permission gate: customer-owned device `SB-DV-00000022-1` (`CUSTOMER` / `NONE` / `RECEIVED`), all six checklist outcomes as entered, `command_hash` set, `intake_snapshot_json` = `{"source":"customer_repair_counter"}`, one active lookup token |
+| Public tracking | The issued token opened the customer status page, showing only code, category/brand/model, state, and the customer-facing update — no contact details, notes, diagnostics, or pricing |
+| Part reservation | A `RESERVED` row for quantity 1 was created and `variation_location_details.qty_available` stayed at `1.0000`, so the "reservations reduce available quantity without mutating POS stock" boundary holds; the form then correctly reported no available stock |
+
+Cross-check on the demo fixture: the job the real intake service produced matches
+the shape `SaverposDemoRepairFixture` writes, differing only where intended —
+the service records a `command_hash` from the submitted payload, the fixture
+leaves it null because no payload was submitted.
+
+The estate was restored from a pre-pass dump afterwards, so the demo queue is
+back to its reproducible four-job spread with POS stock intact. Local
+authenticated evidence on a disposable database — not staging, production, or
+release evidence.
+
+**Transition errors discard the guidance the domain produced — decision needed
+(2026-08-30).** `RepairJobController::transition` catches
+`ValidationException|LogicException` and replaces every message with
+`'Repair transition was rejected.'`. The state machine and quote service author
+precise, non-sensitive operator guidance that never reaches the operator —
+"Work cannot begin before approval policy is satisfied.", "READY requires an
+explicit resolution code.", "QC rework requires a failure reason.", "Approve the
+current quote version before starting repair work." Most consequential is the
+concurrency message `Repair job changed; reload before retrying.`: a user whose
+`expected_lock_version` is stale is told only that the transition was rejected,
+so the natural response is to retry the same stale form, which cannot succeed.
+
+This is **not being changed here** because the module holds two conventions and
+choosing between them is a disclosure decision, not a bug fix.
+`RepairJobController::intake`, in the same controller, returns
+`$exception->getMessage()` verbatim; `DiagnosticController` uses the generic
+form in both of its actions. `RECOMMERCE_SECURITY_AND_PERMISSIONS.md` forbids
+putting *sensitive values* in exception messages — these carry no values at all,
+and the endpoint is authenticated behind `recommerce.repair.transition` and the
+cohort gate — but which convention is intended for authenticated 422s is
+unresolved. Deciding it should also settle whether `ValidationException` keeps
+the generic response while `LogicException` surfaces its message.
+
 **Repair flow walked in an authenticated browser — two defects found (2026-08-30).**
 The seeded queue was driven signed in against the local demo estate: the repair
 workbench, a repair record, the parts workbench, tracked receiving, and the
