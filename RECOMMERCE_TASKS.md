@@ -692,6 +692,11 @@ code 5, before the deployment command ran. The live stylesheet fingerprint is
 still the old `3c2ab4f7…`; use cPanel **Update from Remote → Deploy HEAD**
 manually and verify the served asset before claiming the dark UI is live.
 
+The deployment target also needs confirmation: the cPanel inspection recorded
+the domain root as `saverpos-staging-repo/public`, while the deployment script
+defaults to the sibling `saverpos-staging/public`. No path change is being
+invented until the operator confirms which directory serves the domain.
+
 **Payment-account repair now reaches the already-seeded estate (2026-08-30).**
 The earlier record said the deployed estate only had to rerun the expansion
 seeder before the Cash smoke. That was wrong: the complete POS
