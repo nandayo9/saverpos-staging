@@ -1,9 +1,9 @@
 # AI Handoff
 
 Current milestone: Recommerce — tracked transfer exception workflow
-Last completed task: Reviewed the uncommitted RC-039 warranty work and fixed a confirmed 500-on-denial defect in its controller
+Last completed task: Landed RC-039 (warranty coverage and claim jobs) as commit `7d5adbc`, holding the blocked RC-041 lines out of the shared config and route files
 Last commit: `869bf36` + the cohort deny-by-default commit on `staging`, committed locally and **not yet pushed** to `https://github.com/nandayo9/saverpos-staging.git`. NOTE: the working tree is still dirty by design — the RC-039 warranty work and the blocked, undocumented RC-041 legacy repair archive remain uncommitted and were deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **166 tests / 1053 assertions, all green** — verified 2026-08-30 (154/1013 inherited; +3 gate-invariant, +4 deny-by-default, +2 warranty-route, +2 warranty-boundary and +1 warranty-determinism test added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
+Tests passing: **167 tests / 1056 assertions, all green** — verified 2026-08-30 (154/1013 inherited; +3 gate-invariant, +4 deny-by-default, +2 warranty-route, +2 warranty-boundary and +1 warranty-determinism test added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: fresh disposable MySQL fixture; rendered browser flow passed for receive, pending/completed A→B transfer, Branch B POS sale, exact-device customer return, Branch B reconciliation (`PASS · core 1 · tracked 1 · legacy 0`), complete Device timeline, and RC-037 receiving exceptions (`MISSING` + `EXTRA` recorded, one manager resolution)
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -220,4 +220,18 @@ The tone CSS is duplicated into this view's own `<style>`, scoped under `#recomm
 Observed while rendering, pre-existing and not changed: the stock dropdown prints raw 4-decimal quantities ("4.0000 available"), and currency placement is inconsistent between the projected invoice ("RM 85.00") and recorded costs ("85.00 RM"). Also `@forelse` at line 111 is closed with `@endforeach` and has no `@empty` branch — harmless, since the surrounding `@if` handles the empty case and the compiled PHP is valid, but it should be a plain `@foreach`.
 
 Suite green at 166 tests / 1053 assertions; static check passes; div balance 19/19; no hardcoded status labels remain in the view.
+
+## RC-039 landed (2026-08-30) — commit `7d5adbc`
+
+Committed after review. Everything found during that review is folded in: the controller's missing `AuthorizationException`/`ValidationException` imports (500 instead of 404, and leaked validation detail), the same-day coverage boundary, deterministic warranty-line selection, and two table columns the service never assigned.
+
+**Columns fixed at commit time.** `claimed_on` and `policy_name` are dedicated columns on `recommerce_warranty_claims` that the service only ever wrote into the JSON evidence, so every row stored NULL and reporting could not filter by claim date or policy without unpacking JSON. Both are now persisted, covered by `test_claim_persists_queryable_date_and_policy_columns` and mutation-checked.
+
+**`policy_version` is deliberately left NULL.** The snapshot hardcodes `version_number => 1`, so writing that column would record a version that is not real. RC-039's objective calls for *versioned* policy evidence; what exists is a snapshot with a constant version. **Policy versioning is nominal, not implemented** — that gap is unresolved and should be decided before anyone relies on the version field.
+
+### How the RC-041 entanglement was handled
+
+`Modules/Recommerce/Config/config.php` and `Modules/Recommerce/Routes/web.php` carried both RC-039 and blocked RC-041 lines, so committing either file wholesale would have silently landed the archive permission and route. Before staging, the RC-041 permission (`recommerce.repair.archive`) and the `POST /repair/legacy-archive` route were stripped, RC-039 was verified to stand alone (its 12 tests and the 47 unit tests pass with RC-041 absent), the staged diff of both files was inspected to confirm only warranty lines were present, and the RC-041 lines were restored to the working tree immediately after the commit.
+
+The working tree is now exactly RC-041 and nothing else: two modified lines in the shared files plus six untracked files. **RC-041 remains blocked on the RCR-001 disposition and the authorization bypass documented above — nothing in `7d5adbc` depends on or enables it.**
 
