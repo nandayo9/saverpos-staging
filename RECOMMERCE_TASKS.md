@@ -676,6 +676,14 @@ exact device was returned; and Branch B reconciliation reported
 not proof that the current local branch has been deployed, and it does not
 advance RC-045 or RC-046.
 
+**Publish completed; served deployment still unverified (2026-08-30).**
+The reviewed branch was pushed successfully and GitHub Actions run `33300110323`
+completed successfully for `17266ca`. A read-only served-asset check still found
+the live dark stylesheet at hash `3c2ab4f7…` versus `798306ec…` in the local
+published checkout. The cPanel **Update from Remote → Deploy HEAD** step remains
+required before claiming that the current branch is deployed or repeating the
+smoke as deployment evidence.
+
 **Payment-account repair now reaches the already-seeded estate (2026-08-30).**
 The earlier record said the deployed estate only had to rerun the expansion
 seeder before the Cash smoke. That was wrong: the complete POS
