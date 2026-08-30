@@ -102,4 +102,31 @@ class RecommerceCustomerRepairContractTest extends TestCase
         $this->assertStringContainsString('public function customers(', $controller);
         $this->assertStringContainsString("->limit(200)", $controller);
     }
+
+    /**
+     * Quick create used to be a plain link to ContactController@create opened
+     * with target="_blank". That endpoint returns `contact/create.blade.php`,
+     * which begins at `<div class="modal-dialog">` and extends no layout -- so
+     * the new tab showed a bare, unstyled form fragment with no CSS, no JS
+     * validation and no way back. It has to use the app's own modal trigger.
+     */
+    public function test_quick_create_opens_the_contact_modal_rather_than_a_bare_fragment(): void
+    {
+        $view = $this->source('Modules/Recommerce/Resources/views/repair/new.blade.php');
+        $fragment = $this->source('resources/views/contact/create.blade.php');
+
+        // The endpoint really does return a layout-less fragment.
+        $this->assertStringStartsWith('<div class="modal-dialog', trim($fragment));
+        $this->assertStringNotContainsString("@extends('layouts.app')", $fragment);
+
+        $this->assertStringContainsString('btn-modal', $view);
+        $this->assertStringContainsString('data-container=".contact_modal"', $view);
+        $this->assertStringContainsString("ContactController::class, 'create'", $view);
+
+        // public/js/app.js binds the modal's select2 and validation directly on
+        // .contact_modal at page load, so the container must ship in the markup.
+        $this->assertStringContainsString('class="modal fade contact_modal"', $view);
+
+        $this->assertStringNotContainsString('target="_blank"', $view);
+    }
 }

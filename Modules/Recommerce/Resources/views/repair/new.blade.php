@@ -66,9 +66,9 @@
                                             <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->contact_id ? ' · '.$customer->contact_id : '' }}{{ $customer->mobile ? ' · '.$customer->mobile : '' }}</option>
                                         @endforeach
                                     </select>
-                                    <span class="input-group-btn"><a class="btn btn-default" href="{{ route('contacts.create', ['type' => 'customer']) }}" target="_blank" rel="noopener">Quick create</a></span>
+                                    <span class="input-group-btn"><button type="button" class="btn btn-default btn-modal" data-href="{{ action([\App\Http\Controllers\ContactController::class, 'create'], ['type' => 'customer']) }}" data-container=".contact_modal">Quick create</button></span>
                                 </div>
-                                <span id="repair-customer-help" class="help-block">Search by name, contact reference, or mobile. If the customer is new, use <strong>Quick create</strong> and then refresh this page.</span>
+                                <span id="repair-customer-help" class="help-block">Search by name, contact reference, or mobile. If the customer is new, use <strong>Quick create</strong>, then search for them here.</span>
                             </div>
 
                             <div class="sb-search">
@@ -161,6 +161,8 @@
         </form>
     </div>
 </section>
+
+<div class="modal fade contact_modal" tabindex="-1" role="dialog" aria-labelledby="repair-quick-create-title"></div>
 
 <script>
 (function () {

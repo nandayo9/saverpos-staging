@@ -1,18 +1,70 @@
 # AI Handoff
 
 Current milestone: Recommerce — live staging smoke verification
-Last completed task: **The dark conversion was rendered and measured in a browser, and it found a real defect** — the checklist emits `outcome-not-applicable` but only `.outcome-na` was styled, so an N/A row inherited the brightest text on the dark card and outranked PASS and FAIL. Fixed and guarded. Measured contrast: 33 distinct text styles across the two screens, none below AA.
+Last completed task: **Quick create on the repair intake screen was opening a layout-less modal fragment in a new tab** — `ContactController@create` returns a modal body, not a page, so the link produced a bare unstyled form with no validation and no way back. Rewired to the app's own `btn-modal` + `.contact_modal` idiom. Before that: the dark conversion was rendered and measured, which found the `outcome-not-applicable` defect.
 Latest implementation commit: see `git log -1` on `staging`; local and `origin/staging` were level at `e9b82f3` before this change, so the currency/dark-UI work described in the previous handoff **is** published (the earlier "origin/staging remains at `bfd0bf4`" note was stale — history was rewritten and pushed). NOTE: the working tree is still dirty by design — the pre-existing uncommitted work is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **269 tests / 1269 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
+Tests passing: **270 tests / 1276 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: the dark repair record and repair queue were rendered from the real Blade against the real stylesheet and measured for contrast (0 of 33 text styles below AA; worst 5.94:1). Earlier sessions' flow evidence (receive, transfer, sale, return, reconciliation) is unchanged. The full authenticated chrome and `repair/new`, `parts/show`, `diagnostics/show` remain unrendered.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: fix the staging CD so a push actually reaches the site — the workflow deploys the server's stale checkout and never updates from remote (see "The auto-deploy has never shipped a commit"), which is why the Cash smoke could not pass; confirm the deployed commit in cPanel first. Until then, deploying requires the manual cPanel Update-from-Remote + Deploy HEAD Commit steps. Then rerun the Cash smoke; then the responsive UI acceptance, the printer/scanner matrix (needs a human at the hardware), the duplicate-`logout` route-cache blocker, the `public/js/pos.js:3037` partial-map guard decision, and the repository-visibility decision
+Next safe task: seed a repair job into the local demo fixture so the repair flow can be walked end to end (there are currently 0), and reconcile `.env`'s sqlite connection with the MySQL the demo router actually uses; then the staging CD gap, which still means none of these commits reach `pos.kkcctv.com.my`
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
+
+## Quick create opened a bare HTML fragment (2026-08-30)
+
+Reported as "the flow seems not working" on the customer repair intake screen. Confirmed and fixed.
+
+The intake page offered:
+
+```html
+<a class="btn btn-default" href="{{ route('contacts.create', ['type' => 'customer']) }}" target="_blank" rel="noopener">Quick create</a>
+```
+
+`ContactController@create` returns `resources/views/contact/create.blade.php`, which **begins at
+`<div class="modal-dialog modal-lg">` and extends no layout**. It is a modal body, not a page. Opening it in a new tab
+therefore produced a bare, unstyled form fragment: no stylesheet, no jQuery validation, no select2, no CSRF-aware submit
+wiring, and no way back to the intake screen. There was no way for the flow to work.
+
+### The fix is the app's own idiom
+
+`resources/views/contact/index.blade.php` shows the canonical usage: a `btn-modal` trigger carrying `data-href` and
+`data-container=".contact_modal"`, with the container div present in the page. The intake screen now does the same,
+using a `<button type="button">` rather than an anchor so the control is focusable without a dummy `href`.
+
+**The container has to ship in the initial markup.** `public/js/app.js:525` binds
+`$('.contact_modal').on('shown.bs.modal', …)` — a **direct** binding, not delegated — and that handler is what
+initialises select2 inside the modal and attaches the `#contact_add_form` validation. A container injected later would
+never receive it.
+
+### The help text was also wrong, and is now obsolete
+
+It said "use Quick create and then refresh this page", which was written when the customer select was a fixed list of
+200 rendered server-side. Since the search box now queries `/recommerce/repair/customers` live, a customer created in
+the modal is findable immediately — no refresh. The text now says so.
+
+### Verified how far it can be without a session
+
+`RecommerceCustomerRepairContractTest` asserts the endpoint really does return a layout-less fragment (so the test fails
+if stock POS ever changes that), that the view uses `btn-modal` + `data-container`, that the `.contact_modal` container
+is in the markup, and that no `target="_blank"` remains. Suite **270 tests / 1276 assertions**.
+
+**Not verified:** clicking it. That needs a signed-in session on the local fixture. The modal's own behaviour is stock
+POS code used unchanged elsewhere, so the risk is in the wiring, which is what the test pins.
+
+### Two things found while diagnosing, not fixed
+
+1. **The local demo fixture has 0 repair jobs.** `SaverposDemoRuntimeSeeder` creates devices and purchases but never a
+   repair job, so the repair queue renders its empty state and there is no record to open. Anyone walking the repair
+   flow locally has to create a job first — which is exactly the intake screen that Quick create was blocking.
+2. **`.env` points at a database that does not exist**: `DB_CONNECTION=sqlite`,
+   `DB_DATABASE=/private/tmp/saverbro_recommerce_demo.sqlite`. The served app is unaffected because
+   `scripts/saverpos-demo-router.php` overrides the connection to MySQL per request, but every `php artisan` command run
+   against this checkout fails on the missing file — including `route:list`. That is the source of the
+   "Database file at path … does not exist" errors in `storage/logs/laravel.log`.
 
 ## Browser check of the dark conversion — one real defect found (2026-08-30)
 

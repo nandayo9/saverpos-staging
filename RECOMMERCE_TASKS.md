@@ -600,6 +600,19 @@ text displayed to a customer over an unauthenticated link), and a label whose
 scan target is never printed as text. 13 of 17 module views remain
 compilation-only. Local test evidence, not release evidence.
 
+**Quick create on repair intake was broken (2026-08-30).**
+The intake screen linked to `ContactController@create` with `target="_blank"`,
+but that endpoint returns `contact/create.blade.php`, which starts at
+`<div class="modal-dialog">` and extends no layout. The new tab showed a bare
+unstyled fragment with no validation, no select2 and no way back, so customer
+quick-create could not work at all. Rewired to the app's own `btn-modal` +
+`.contact_modal` idiom, with the container in the initial markup because
+`public/js/app.js:525` binds it directly at page load. The help text no longer
+says to refresh the page: the customer search added earlier queries the server,
+so a newly created customer is findable immediately. Two related findings left
+open: the local demo fixture contains 0 repair jobs, and `.env` points at a
+non-existent sqlite file that only affects `artisan`, not the served app.
+
 **Dark conversion rendered and measured (2026-08-30).**
 The repair record and repair queue were rendered from the real Blade against
 the real stylesheet and measured with `getComputedStyle`: 33 distinct text
