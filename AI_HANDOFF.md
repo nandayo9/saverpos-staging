@@ -2,7 +2,8 @@
 
 Current milestone: Recommerce — staging Cash flow and Dashboard dark UI are verified; server-local cPanel Cron deployment is verified and avoids the protected external API; the demo estate can now walk the repair flow; RC-041 is authorized and implemented as an evidence-limited, scoped archive adapter
 Current status update (2026-08-31): RC-041 archive writes and read-only inspection are committed and covered by focused/full tests. The checkout still has no licensed provider Repair source or legacy Repair tables, so full historical completeness remains unverified. RC-038 trade-in acquisition is implemented locally (uncommitted/undeployed): deterministic versioned pricing, structured evidence, approval gates, one-unit native purchase seam, append-only acquisition/reversal history, and a server-rendered UI. Full suite is green at 354 tests / 1,728 assertions. An isolated MySQL clone migrated and browser-proved valuation, approval, a one-unit `due` native purchase, and exact Device acquisition state; browser payment and reversal remain unverified.
-Last completed task: **Prove RC-038 native settlement** — the accepted trade-in's `due` purchase was paid through UltimatePOS's own payment modal; the payment row and `paid` status are native, and every trade-in-scoped Recommerce row is byte-identical across settlement. The deferred-settlement boundary is now evidence, not argument.
+Last completed task: **Write the structural permission guard owed since RC-006** — `RecommercePermissionGatekeepingTest` now fails if any Recommerce service or controller reaches an authorisation answer without `AuthorizationGate`. It was blocked for weeks by RC-041's bypass; that is resolved, so the invariant is now enforced rather than merely believed.
+Previous task: **Prove RC-038 native settlement** — the accepted trade-in's `due` purchase was paid through UltimatePOS's own payment modal; the payment row and `paid` status are native, and every trade-in-scoped Recommerce row is byte-identical across settlement. The deferred-settlement boundary is now evidence, not argument.
 Previous task: **Close RC-038's required-test list and commit the slice** — five mutation-checked tests for accept/reject exclusion, stale-offer retry, device reuse with preserved history, and full artifact reconciliation; the RC-038 working tree is now committed. Found while reviewing it: **trade-in reversal has no route, controller action, or UI**, so it cannot be performed or browser-proven at all.
 Previous task: **Drive diagnostics, QC and collection** — diagnostics was unreachable (no template, and no route creates one) and is now seeded; the submitted-session review showed raw check keys out of order and now reads its immutable snapshot; collection closed a job with exact custody handover. **RC-033's quote endpoints have no UI caller at all** — raised, not built.
 Previous task: **Exercise the repair write paths** — transition (reject + succeed), intake through the real service and gate, public tracking token, and part reservation all verified signed in against the disposable demo estate, which was restored afterwards. No application defect found; **one decision is owed** on whether authenticated 422s surface domain guidance (see below).
@@ -10,17 +11,56 @@ Previous task: **Walk the repair flow signed in** — the seeded queue was drive
 Previous task: **Seed the demo repair queue** — `SaverposDemoRepairFixture` opens four fictional customer repair jobs across four states in both demo seeders, closing the "0 repair jobs" gap that made the repair screens unwalkable. Not deployed: the commit has not been pushed, so staging still has no repair jobs until it is.
 Previous task: **Fix Dashboard chart dark surfaces** — commit `4dfc4b5` adds semantic chart surfaces, dark Highcharts canvas/controls/tooltips, and a stylesheet file-mtime cache-buster. The pushed commit was deployed by the server-local Cron and verified live on 2026-08-30.
 Latest implementation commits: the newest committed functional slice is **Authorize and scope legacy repair archive** plus **Preserve legacy repair archive snapshots**. RC-038 is a new uncommitted local working-tree slice; do not push/deploy without an explicit release instruction. The earlier diagnostics, repair-queue, and deployment commits remain historical evidence.
-Tests passing: **359 tests / 1783 assertions, all green** on PHP 8.2.33. `recommerce-static-check`, Blade view caching, and the RC-038 focused suite pass.
+Tests passing: **363 tests / 1797 assertions, all green** on PHP 8.2.33. `recommerce-static-check`, Blade view caching, and the RC-038 focused suite pass.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: all 13 in-app screens rendered from real Blade against the real CSS cascade and audited at 375/768/1280 — 0 below AA, 0 unlabelled controls, 0 light surfaces, 0 horizontal overflow. The live Dashboard now loads the cache-busted dark stylesheet; both Highcharts canvases compute to `rgb(13, 23, 38)`, controls to `rgb(21, 34, 56)`, axis text to `rgb(151, 169, 193)`, and no chart background/control retains white. Staging interaction also passed: currency displayed RM; receipt transaction 8 created `SB-DV-00000019-1`; transfer `CASH-SMOKE-TRANSFER-20260830` completed; Cash sale `INV-0002` posted for RM 1,200.00; the exact device was returned; Branch B reconciliation reported `PASS · core 2 · tracked 2 · legacy 0`.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 release approval (payment proof is **done**; **reversal proof is blocked on there being no reversal UI at all**, not on scheduling); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data; transition-error disclosure convention (see the write-path section)
 Authorization note (2026-08-31): the native role-editor metadata now has a human-readable label for every catalogued Recommerce permission, including `recommerce.repair.archive`; `RecommerceBoundaryTest` guards config/label parity. RC-041 archive authorization is committed and routed through `AuthorizationGate`.
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: decide whether RC-038 V1 ships without a reversal UI, or gets one (needs a decision on how the native purchase-return reference is supplied and confirmed). With payment proven, that is the last RC-038 evidence gap. Alternatively obtain product decisions for the uncalled RC-033 quote UI and authenticated-422 disclosure convention. Do not push/deploy the local commits without an explicit release instruction. Do not bypass, disable globally, or automate the JavaScript anti-bot challenge. Do not advance RC-045/RC-046 from this flow evidence alone.
+Next safe task: the board is now decision-bound. RC-038's last gap is the reversal UI; RC-033's quote UI, the authenticated-422 disclosure convention, RC-022, RC-043 and the duplicate `logout` route all need an operator call before code. Nothing further is safely buildable without one. Alternatively obtain product decisions for the uncalled RC-033 quote UI and authenticated-422 disclosure convention. Do not push/deploy the local commits without an explicit release instruction. Do not bypass, disable globally, or automate the JavaScript anti-bot challenge. Do not advance RC-045/RC-046 from this flow evidence alone.
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` and `database/seeders/SaverposDemo*` (disposable demo DB only — never production)
 Architecture decisions required: camera-scan dependency sourcing (RC-022), notification channel (RC-043), whether authenticated 422 responses surface domain guidance or stay generic (the module currently does both), and whether RC-033 gets a quote UI (its three endpoints have no caller). RC-038 V1 decisions and deferred work are recorded in `RCR_010_RC038_TRADE_IN_ACQUISITION_DECISION.md`.
 Hosting prep: iCore cPanel has PHP 8.2, MySQL, and Let's Encrypt SSL. Browser inspection confirmed the managed repository path `/home/kkcctv93/repositories/saverpos-staging-repo`; one **Update from Remote** moved it to the helper-containing checkout. cPanel now confirms the server-local Cron entry `*/5 * * * * /bin/bash /home/kkcctv93/repositories/saverpos-staging-repo/scripts/cpanel-staging-poll.sh >> /home/kkcctv93/repositories/saverpos-staging-repo/storage/logs/cpanel-staging-cron.log 2>&1`. The Cron log records the fast-forward, Composer/install output, database/config/view steps, and `SAVERPOS cPanel staging deployment completed.` GitHub API-triggered deployment remains unusable: workflow run `33300932113` (four attempts) and a read-only local request receive an HTTP 200 JavaScript "One moment, please…" anti-bot page rather than UAPI JSON. The verified Cron helper polls the public `staging` branch internally with a lock and fast-forward-only guard. No cPanel credentials or database password are present in this checkout.
+
+## The gate is now structurally enforced, not just believed (2026-08-31)
+
+RC-006 owed a "structural guard that no service decides permissions without the gate". It stayed unwritten because
+RC-041's `LegacyRepairArchiveService` would have turned it red on sight — it injected `AuthorizationGate` and never
+called it. RC-041 has since been authorized and reworked onto the gate, so the blocker is gone and the guard is
+written.
+
+`RecommercePermissionGatekeepingTest` enforces four things across every file in `Modules/Recommerce/Services/` and
+`Http/Controllers/`:
+
+1. **No authorisation primitive appears inline** — `->can(`, `->cannot(`, `Gate::allows/denies/authorize/check`,
+   `hasPermissionTo`, `hasAnyPermission`, `hasDirectPermission`. This is the defect shape that matters: checking
+   `$user->can()` directly satisfies the permission half and silently skips the cohort half.
+2. **Anything naming a catalogued permission must reference `AuthorizationGate`.**
+3. **Only the gate and the role editor may read `config('recommerce.permissions')`** — re-reading the catalogue is how
+   a class would re-implement the gate's permission half.
+4. **The one exemption justifies itself.** `DataController` names all 37 permissions because it renders role-editor
+   labels; the guard asserts it contains no authorisation primitive, so the exemption cannot quietly become a hole.
+
+### The invariant was already true — this makes it stay true
+
+Surveyed before asserting: zero services or controllers call `->can(` or read the catalogue, and 17 of 25 services
+inject the gate (the other eight — writers, recorders, the timeline, the label renderer, the pricing calculator —
+decide nothing). Three services matched a first, sloppier grep for `'recommerce.*'`; all three turned out to be a
+route name, an event topic and `recommerce.enabled`, not permissions. That is why the guard matches against the
+**catalogue** rather than a string pattern.
+
+### Two details that keep it honest
+
+- It reads the catalogue by `require`-ing the module config file, not via `config()`. Several tests narrow
+  `recommerce.permissions` to a handful of entries; sourcing from `config()` would let any of them silently shrink what
+  this guard checks.
+- It asserts the catalogue actually loaded (`> 30` entries). Mutation-checked: emptying the catalogue turns the guard
+  **red**, rather than letting it pass vacuously — the same "an empty comparison is not evidence" trap that bit the
+  settlement diff earlier today.
+
+All four mutations were caught: an inline `->can()` in a service, a service naming a permission without the gate, a
+service re-reading the catalogue, and the empty-catalogue case.
 
 ## Native settlement proven — money moves in POS, nothing moves in Recommerce (2026-08-31)
 
@@ -145,11 +185,12 @@ That is the single highest-value thing the next session can unblock.
 
 Do not invent any of these; each would put fabricated business rules into a POS.
 
-- **RC-038** trade-in acquisition accounting · **RC-042** retention periods and secret policy · **RC-043** notification
-  channel · **RC-044** metric definitions · **RC-040/045/046** approved environments, data, and real people
-- **RC-041** disposition: revert, park on a branch, or rework onto `AuthorizationGate`. Until settled, two owed tests
-  stay unwritten (config/label parity; a structural guard that no service decides permissions without the gate) — both
-  would go red purely because those untracked files exist.
+- ~~**RC-038** trade-in acquisition accounting~~ **RESOLVED** — see `RCR_010`. · **RC-042** retention periods and secret
+  policy · **RC-043** notification channel · **RC-044** metric definitions · **RC-040/045/046** approved environments,
+  data, and real people
+- ~~**RC-041** disposition, and the two owed tests it blocked.~~ **RESOLVED (2026-08-31)** — RC-041 was authorized and
+  reworked onto `AuthorizationGate`; both owed tests are now written and green: config/label parity in
+  `RecommerceBoundaryTest`, and the structural guard in `RecommercePermissionGatekeepingTest`.
 - **Repository visibility** — `nandayo9/saverpos-staging` is public.
 - **The duplicate `logout` route name** blocks `route:cache`; stock POS code, needs someone to choose which route keeps
   the name.
