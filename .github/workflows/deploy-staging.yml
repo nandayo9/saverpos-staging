@@ -25,17 +25,32 @@ jobs:
           test -n "$CPANEL_USERNAME"
           test -n "$CPANEL_API_TOKEN"
           test -n "$CPANEL_REPOSITORY_ROOT"
-          update_response="$(curl --fail --silent --show-error \
+          cpanel_request() {
+            curl --fail --silent --show-error --location \
+              --noproxy '*' --retry 3 --retry-all-errors --retry-delay 2 \
+              --connect-timeout 20 --max-time 120 "$@"
+          }
+
+          validate_response() {
+            operation="$1"
+            response="$2"
+            if ! printf '%s\n' "$response" | jq -e \
+              '.result.status == 1 and (.result.errors == null or (.result.errors | length == 0))' >/dev/null; then
+              printf '%s\n' "$response" | jq -c --arg operation "$operation" \
+                '{operation:$operation,status:.result.status,errors:.result.errors,messages:.result.messages,warnings:.result.warnings}' >&2 || true
+              return 1
+            fi
+          }
+
+          update_response="$(cpanel_request \
             -H "Authorization: cpanel ${CPANEL_USERNAME}:${CPANEL_API_TOKEN}" \
             --get "https://${CPANEL_HOST}:2083/execute/VersionControl/update" \
             --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}" \
             --data-urlencode "branch=staging")"
-          printf '%s\n' "$update_response" | jq -e \
-            '.result.status == 1 and (.result.errors == null or (.result.errors | length == 0))' >/dev/null
+          validate_response "VersionControl/update" "$update_response"
 
-          deploy_response="$(curl --fail --silent --show-error \
+          deploy_response="$(cpanel_request \
             -H "Authorization: cpanel ${CPANEL_USERNAME}:${CPANEL_API_TOKEN}" \
             --get "https://${CPANEL_HOST}:2083/execute/VersionControlDeployment/create" \
             --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}")"
-          printf '%s\n' "$deploy_response" | jq -e \
-            '.result.status == 1 and (.result.errors == null or (.result.errors | length == 0))' >/dev/null
+          validate_response "VersionControlDeployment/create" "$deploy_response"

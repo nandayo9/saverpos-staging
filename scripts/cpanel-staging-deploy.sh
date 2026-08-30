@@ -5,7 +5,16 @@
 set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-DEPLOY_PATH="${SAVERPOS_DEPLOY_PATH:-"$ROOT_DIR/../saverpos-staging"}"
+if [[ -n "${SAVERPOS_DEPLOY_PATH:-}" ]]; then
+    DEPLOY_PATH="$SAVERPOS_DEPLOY_PATH"
+elif [[ -f "$ROOT_DIR/.env" ]]; then
+    # cPanel may point the domain directly at the managed repository's public/
+    # directory. In that shape, deploy in place and keep the server-only .env
+    # beside the checkout rather than assuming a sibling live directory.
+    DEPLOY_PATH="$ROOT_DIR"
+else
+    DEPLOY_PATH="$ROOT_DIR/../saverpos-staging"
+fi
 cd "$ROOT_DIR"
 
 if [[ ! -f "$DEPLOY_PATH/.env" ]]; then
@@ -93,18 +102,23 @@ fi
 "$PHP_BIN" artisan config:clear --no-interaction
 "$PHP_BIN" artisan view:clear --no-interaction
 
-# Publish the built application into the stable live directory. Preserve
-# cPanel-managed files such as public/.well-known, while linking the runtime
-# directories back to the checkout so one deployment has one source of truth.
-mkdir -p "$DEPLOY_PATH/public"
-cp -a "$ROOT_DIR/public/." "$DEPLOY_PATH/public/"
-for link in vendor bootstrap storage; do
-    destination="$DEPLOY_PATH/$link"
-    if [[ -e "$destination" && ! -L "$destination" ]]; then
-        echo "Refusing to replace non-symlink live path: $destination"
-        exit 1
-    fi
-    ln -sfn "$ROOT_DIR/$link" "$destination"
-done
+if [[ "$DEPLOY_PATH" != "$ROOT_DIR" ]]; then
+    # Publish the built application into the stable live directory. Preserve
+    # cPanel-managed files such as public/.well-known, while linking the
+    # runtime directories back to the checkout so one deployment has one
+    # source of truth.
+    mkdir -p "$DEPLOY_PATH/public"
+    cp -a "$ROOT_DIR/public/." "$DEPLOY_PATH/public/"
+    for link in vendor bootstrap storage; do
+        destination="$DEPLOY_PATH/$link"
+        if [[ -e "$destination" && ! -L "$destination" ]]; then
+            echo "Refusing to replace non-symlink live path: $destination"
+            exit 1
+        fi
+        ln -sfn "$ROOT_DIR/$link" "$destination"
+    done
+else
+    echo "Using the managed checkout as the live document-root parent."
+fi
 
 echo "SAVERPOS cPanel staging deployment completed."

@@ -75,13 +75,19 @@ repository's deployment/pull action. If Git Version Control is not available,
 download the repository ZIP from GitHub and upload/extract it in cPanel File
 Manager; repeat that upload when the staging branch changes.
 
-This repository includes a `.cpanel.yml` deployment task so the **Git Version
-Control** interface can perform this step without cPanel Terminal/SSH. Create
-the server `.env` first, then use **Update from Remote** followed by **Deploy
-HEAD Commit**. The task finds PHP 8.2, runs Composer, prepares writable
-directories, generates an app key only when one is missing, migrates the
-isolated database, and creates the demo fixture only when the database has no
-businesses.
+This repository includes a `.cpanel.yml` deployment task so the GitHub Actions
+workflow can perform this step through cPanel's UAPI without cPanel Terminal,
+SSH, or a manual action on each push. The workflow first calls
+`VersionControl/update` for the `staging` branch, then calls
+`VersionControlDeployment/create`. The task finds PHP 8.2, runs Composer,
+prepares writable directories, generates an app key only when one is missing,
+migrates the isolated database, and creates the demo fixture only when the
+database has no businesses.
+
+The initial cPanel setup still requires the server `.env`, repository path, and
+API token to be configured once. Use **Update from Remote** followed by
+**Deploy HEAD Commit** only as a manual recovery path if the GitHub workflow
+reports a cPanel API failure.
 
 ### cPanel will refuse to deploy while the checked-out branch is dirty
 

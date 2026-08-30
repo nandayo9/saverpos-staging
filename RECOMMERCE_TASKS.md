@@ -697,6 +697,15 @@ the domain root as `saverpos-staging-repo/public`, while the deployment script
 defaults to the sibling `saverpos-staging/public`. No path change is being
 invented until the operator confirms which directory serves the domain.
 
+**GitHub-to-cPanel automation repair (2026-08-30).**
+The workflow now pulls the `staging` branch through `VersionControl/update`
+before `VersionControlDeployment/create`, retries transient HTTP/network
+failures, and reports sanitized UAPI errors. The deployment script now uses
+the managed checkout in place when its server-only `.env` is there, while
+retaining the sibling-live-directory mode as an explicit override/fallback.
+This is source evidence only until a successful run and served CSS fingerprint
+confirm the live result.
+
 **Payment-account repair now reaches the already-seeded estate (2026-08-30).**
 The earlier record said the deployed estate only had to rerun the expansion
 seeder before the Cash smoke. That was wrong: the complete POS
