@@ -290,6 +290,25 @@ class RecommerceBoundaryTest extends TestCase
         $this->assertSame('Resolve repair part consumption', $permissions[2]['label']);
     }
 
+    public function test_native_role_editor_has_a_human_label_for_every_catalogued_permission(): void
+    {
+        $catalogued = array_values(config('recommerce.permissions', []));
+        $metadata = (new DataController())->user_permissions();
+        $labels = [];
+
+        foreach ($metadata as $permission) {
+            $labels[$permission['name']] = $permission['label'];
+        }
+
+        $this->assertSame($catalogued, array_column($metadata, 'name'));
+        foreach ($catalogued as $permission) {
+            $this->assertArrayHasKey($permission, $labels);
+            $this->assertIsString($labels[$permission]);
+            $this->assertNotSame('', trim($labels[$permission]));
+            $this->assertNotSame($permission, $labels[$permission], $permission.' is missing a human-readable role-editor label.');
+        }
+    }
+
     public function test_disabled_route_provider_registers_no_recommerce_routes()
     {
         config(['recommerce.enabled' => false]);

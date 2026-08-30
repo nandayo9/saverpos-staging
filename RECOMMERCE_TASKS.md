@@ -67,7 +67,7 @@ Risk levels: **Low**, **Medium**, **High**, **Critical**.
 
 ### RC-006 — Implement permission catalog and tenant/location policies
 
-**Status:** Re-verified 2026-08-29 by authorization sweep of all 51 Recommerce endpoints — acceptance criteria hold for committed code: every authenticated endpoint enforces permission + tenant/location scope through `AuthorizationGate`, and the two public token endpoints are opaque-token scoped, throttled, and minimal-disclosure. One role-editor label gap (`recommerce.warranty.manage`) was found and fixed in `DataController`. The only authorization outlier is the uncommitted, blocked RC-041 `LegacyRepairArchiveService`. A config/label parity test is still owed — see AI_HANDOFF.md.
+**Status:** Re-verified 2026-08-29 by authorization sweep of all 51 Recommerce endpoints — acceptance criteria hold for committed code: every authenticated endpoint enforces permission + tenant/location scope through `AuthorizationGate`, and the two public token endpoints are opaque-token scoped, throttled, and minimal-disclosure. The native role-editor labels now cover every catalogued Recommerce permission, including the RC-041 archive permission, and a parity test fails if a future permission falls back to its raw key. RC-041 archive authorization is now committed and uses the same gate.
 
 - **Objective:** Ensure all later features inherit deny-by-default business and location isolation.
 - **Scope:** Register granular permissions; role templates; policy/scope helpers; assignment and segregation-of-duty conventions.
