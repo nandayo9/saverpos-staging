@@ -723,10 +723,19 @@ were refreshed through the browser. Despite that, GitHub run `33300932113`
 HTTP 200 HTML page headed "One moment, please…" with JavaScript anti-bot code,
 instead of the documented UAPI JSON response. GitHub Actions cannot complete a
 browser challenge. Do not bypass or broadly weaken this protection. The hosting
-provider must approve either a dedicated unchallenged cPanel API hostname or a
-narrow, authenticated `/execute` exception on port 2083 before automatic
-deployment can continue. This is still not a reason to reopen cPanel for every
-future GitHub push once that one-time security decision is implemented.
+provider-hosted UAPI access would require either a dedicated unchallenged API
+hostname or a narrow, authenticated `/execute` exception on port 2083. That is
+an optional future path, not the selected staging deployment mechanism.
+
+**Selected no-support alternative: server-local Cron polling (2026-08-30).**
+Rather than weaken or bypass the anti-bot boundary, `scripts/cpanel-staging-poll.sh`
+fetches `origin/staging` from inside the cPanel account, refuses non-fast-forward
+history, prevents overlapping deployments with a runtime lock directory, and
+calls the existing cPanel deploy script only when the branch has advanced. It
+needs one cPanel **Update from Remote** so the helper reaches the managed
+checkout, one Cron Job pointing to that helper, and one initial cPanel deploy.
+The final schedule and a Cron-driven live deployment remain unverified until
+they are configured through the cPanel UI.
 
 **Payment-account repair now reaches the already-seeded estate (2026-08-30).**
 The earlier record said the deployed estate only had to rerun the expansion

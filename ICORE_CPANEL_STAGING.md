@@ -75,19 +75,29 @@ repository's deployment/pull action. If Git Version Control is not available,
 download the repository ZIP from GitHub and upload/extract it in cPanel File
 Manager; repeat that upload when the staging branch changes.
 
-This repository includes a `.cpanel.yml` deployment task so the GitHub Actions
-workflow can perform this step through cPanel's UAPI without cPanel Terminal,
-SSH, or a manual action on each push. The workflow first calls
-`VersionControl/update` for the `staging` branch, then calls
-`VersionControlDeployment/create`. The task finds PHP 8.2, runs Composer,
-prepares writable directories, generates an app key only when one is missing,
-migrates the isolated database, and creates the demo fixture only when the
-database has no businesses.
+This repository includes a `.cpanel.yml` deployment task for a manual initial
+publish/recovery. The normal staging path is the server-local
+`scripts/cpanel-staging-poll.sh` Cron Job: it fetches `origin/staging`, accepts
+only a fast-forward update, and invokes the same deployment task only when the
+branch advances. This avoids calling the externally protected cPanel API from
+GitHub Actions. The task finds PHP 8.2, runs Composer, prepares writable
+directories, generates an app key only when one is missing, migrates the
+isolated database, and creates the demo fixture only when the database has no
+businesses.
 
-The initial cPanel setup still requires the server `.env`, repository path, and
-API token to be configured once. Use **Update from Remote** followed by
-**Deploy HEAD Commit** only as a manual recovery path if the GitHub workflow
-reports a cPanel API failure.
+After the initial server `.env` and repository setup, use **Update from
+Remote** followed by **Deploy HEAD Commit** once to install the Cron helper and
+publish the current checkout. Then add this cPanel **Cron Job** every five
+minutes (replace `CPANEL_USER` with the account user):
+
+```text
+*/5 * * * * /bin/bash /home/CPANEL_USER/repositories/saverpos-staging-repo/scripts/cpanel-staging-poll.sh >> /home/CPANEL_USER/repositories/saverpos-staging-repo/storage/logs/cpanel-staging-cron.log 2>&1
+```
+
+The helper uses a lock to prevent overlapping Composer/database work and exits
+without deploying when `staging` has not changed. GitHub's former direct cPanel
+API workflow is manual-dispatch diagnostic only; it must not be re-enabled on
+push while the anti-bot challenge protects cPanel UAPI.
 
 ### cPanel will refuse to deploy while the checked-out branch is dirty
 

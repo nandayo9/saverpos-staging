@@ -1,9 +1,7 @@
-name: Deploy staging
+name: Diagnose cPanel API deployment
 
 on:
-  push:
-    branches:
-      - staging
+  workflow_dispatch:
 
 permissions:
   contents: read
