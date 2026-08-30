@@ -21,6 +21,8 @@ use Spatie\Permission\Models\Role;
  */
 class SaverposDemoRuntimeSeeder extends Seeder
 {
+    private const DEMO_CURRENCY_CODE = 'MYR';
+
     public function run(): void
     {
         DB::transaction(function (): void {
@@ -32,7 +34,7 @@ class SaverposDemoRuntimeSeeder extends Seeder
                 'created_at' => $now, 'updated_at' => $now,
             ]);
 
-            $currencyId = (int) DB::table('currencies')->orderBy('id')->value('id');
+            $currencyId = $this->demoCurrencyId();
             $businessId = $this->insert('business', [
                 'name' => 'SAVERPOS Demo', 'currency_id' => $currencyId, 'start_date' => now()->toDateString(),
                 'tax_number_1' => 'DEMO-ONLY', 'tax_label_1' => 'Tax', 'owner_id' => $userId,
@@ -247,6 +249,19 @@ class SaverposDemoRuntimeSeeder extends Seeder
 
             $this->command?->info("SAVERPOS demo fixture: business={$businessId}; branch_a={$branchA}; branch_b={$branchB}; products=5; devices=17; variation={$variationId}; device=SB-DV-00000001-9");
         });
+    }
+
+    private function demoCurrencyId(): int
+    {
+        $currencyId = DB::table('currencies')
+            ->where('code', self::DEMO_CURRENCY_CODE)
+            ->value('id');
+
+        if ($currencyId === null) {
+            throw new \RuntimeException('The disposable SAVERPOS demo requires the MYR currency seed.');
+        }
+
+        return (int) $currencyId;
     }
 
     private function location(int $businessId, string $name, int $schemeId, int $layoutId, $now): array

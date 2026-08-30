@@ -550,7 +550,9 @@ Branch B POS sale → exact-device return → Branch B reconciliation. The Cash
 payment path remains unverified on the deployed estate because that estate
 was not rerun after the local fixture repair. The disposable runtime seeder
 now supplies both branches with the complete POS `default_payment_accounts`
-shape, including `cash`; Credit Sale completed the original isolated sale.
+shape, including `cash`, and explicitly assigns the Malaysia `MYR` currency;
+Credit Sale completed the original isolated sale. The existing disposable
+database must be rebuilt/reseeded to reflect this currency correction.
 This does not advance RC-045 or RC-046 and is not production, hardware, or
 release evidence. The Cash-specific smoke must be rerun after an explicitly
 approved deployment.

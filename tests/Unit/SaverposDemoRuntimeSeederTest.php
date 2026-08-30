@@ -4,11 +4,41 @@ namespace Tests\Unit;
 
 use Carbon\Carbon;
 use Database\Seeders\SaverposDemoRuntimeSeeder;
-use PHPUnit\Framework\TestCase;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use ReflectionMethod;
+use Tests\TestCase;
 
 class SaverposDemoRuntimeSeederTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config([
+            'database.default' => 'sqlite',
+            'database.connections.sqlite.database' => ':memory:',
+        ]);
+        DB::purge('sqlite');
+        Schema::create('currencies', function (Blueprint $table): void {
+            $table->increments('id');
+            $table->string('code');
+        });
+        DB::table('currencies')->insert([
+            ['id' => 1, 'code' => 'ALL'],
+            ['id' => 75, 'code' => 'MYR'],
+        ]);
+    }
+
+    public function test_demo_currency_is_explicitly_myr_instead_of_seed_order_dependent(): void
+    {
+        $currencyMethod = new ReflectionMethod(SaverposDemoRuntimeSeeder::class, 'demoCurrencyId');
+        $currencyMethod->setAccessible(true);
+
+        $this->assertSame(75, $currencyMethod->invoke(new SaverposDemoRuntimeSeeder()));
+    }
+
     public function test_demo_locations_include_the_complete_pos_payment_account_shape(): void
     {
         $locationMethod = new ReflectionMethod(SaverposDemoRuntimeSeeder::class, 'location');
