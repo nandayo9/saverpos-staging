@@ -45,6 +45,12 @@ class DataController extends Controller
             'recommerce.repair.billing' => 'Bill customer repair through POS',
             'recommerce.repair.archive' => 'Archive legacy repair transaction evidence',
             'recommerce.warranty.manage' => 'Manage repair warranty claims',
+            'recommerce.tradein.view' => 'View trade-in valuations',
+            'recommerce.tradein.manage' => 'Create trade-in valuations and pricing rules',
+            'recommerce.tradein.approve' => 'Approve trade-in offers above negotiation limit',
+            'recommerce.tradein.override_economic_ceiling' => 'Override trade-in economic ceiling',
+            'recommerce.tradein.accept' => 'Accept trade-ins and post native purchases',
+            'recommerce.tradein.reverse' => 'Record native trade-in reversals',
         ];
 
         return collect(config('recommerce.permissions', []))

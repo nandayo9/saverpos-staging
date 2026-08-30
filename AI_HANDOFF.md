@@ -1,24 +1,66 @@
 # AI Handoff
 
 Current milestone: Recommerce — staging Cash flow and Dashboard dark UI are verified; server-local cPanel Cron deployment is verified and avoids the protected external API; the demo estate can now walk the repair flow; RC-041 is authorized and implemented as an evidence-limited, scoped archive adapter
-Current status update (2026-08-31): RC-041 archive writes and read-only inspection are committed and covered by focused/full tests. The checkout still has no licensed provider Repair source or legacy Repair tables, so full historical completeness remains unverified. RC-038 has a source-reviewed architecture record but no implementation until management approves its acquisition-accounting seam.
-Last completed task: **Drive diagnostics, QC and collection** — diagnostics was unreachable (no template, and no route creates one) and is now seeded; the submitted-session review showed raw check keys out of order and now reads its immutable snapshot; collection closed a job with exact custody handover. **RC-033's quote endpoints have no UI caller at all** — raised, not built.
+Current status update (2026-08-31): RC-041 archive writes and read-only inspection are committed and covered by focused/full tests. The checkout still has no licensed provider Repair source or legacy Repair tables, so full historical completeness remains unverified. RC-038 trade-in acquisition is implemented locally (uncommitted/undeployed): deterministic versioned pricing, structured evidence, approval gates, one-unit native purchase seam, append-only acquisition/reversal history, and a server-rendered UI. Full suite is green at 354 tests / 1,728 assertions. An isolated MySQL clone migrated and browser-proved valuation, approval, a one-unit `due` native purchase, and exact Device acquisition state; browser payment and reversal remain unverified.
+Last completed task: **Close RC-038's required-test list and commit the slice** — five mutation-checked tests for accept/reject exclusion, stale-offer retry, device reuse with preserved history, and full artifact reconciliation; the RC-038 working tree is now committed. Found while reviewing it: **trade-in reversal has no route, controller action, or UI**, so it cannot be performed or browser-proven at all.
+Previous task: **Drive diagnostics, QC and collection** — diagnostics was unreachable (no template, and no route creates one) and is now seeded; the submitted-session review showed raw check keys out of order and now reads its immutable snapshot; collection closed a job with exact custody handover. **RC-033's quote endpoints have no UI caller at all** — raised, not built.
 Previous task: **Exercise the repair write paths** — transition (reject + succeed), intake through the real service and gate, public tracking token, and part reservation all verified signed in against the disposable demo estate, which was restored afterwards. No application defect found; **one decision is owed** on whether authenticated 422s surface domain guidance (see below).
 Previous task: **Walk the repair flow signed in** — the seeded queue was driven in an authenticated browser for the first time and found two defects that no source assertion or earlier render pass could reach: every assigned technician displayed as "Assign later", and six in-app screens rendered an empty browser tab title. Both fixed and guarded.
 Previous task: **Seed the demo repair queue** — `SaverposDemoRepairFixture` opens four fictional customer repair jobs across four states in both demo seeders, closing the "0 repair jobs" gap that made the repair screens unwalkable. Not deployed: the commit has not been pushed, so staging still has no repair jobs until it is.
 Previous task: **Fix Dashboard chart dark surfaces** — commit `4dfc4b5` adds semantic chart surfaces, dark Highcharts canvas/controls/tooltips, and a stylesheet file-mtime cache-buster. The pushed commit was deployed by the server-local Cron and verified live on 2026-08-30.
-Latest implementation commits: the newest functional slice is **Authorize and scope legacy repair archive** plus **Preserve legacy repair archive snapshots**; the follow-up **Document RC-038 trade-in acquisition seam** records the next critical decision without mutating data. These commits are local until explicitly pushed/deployed. The earlier diagnostics, repair-queue, and deployment commits remain historical evidence. The working tree is clean.
-Tests passing: **340 tests / 1636 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` and Blade view caching pass.
+Latest implementation commits: the newest committed functional slice is **Authorize and scope legacy repair archive** plus **Preserve legacy repair archive snapshots**. RC-038 is a new uncommitted local working-tree slice; do not push/deploy without an explicit release instruction. The earlier diagnostics, repair-queue, and deployment commits remain historical evidence.
+Tests passing: **359 tests / 1783 assertions, all green** on PHP 8.2.33. `recommerce-static-check`, Blade view caching, and the RC-038 focused suite pass.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: all 13 in-app screens rendered from real Blade against the real CSS cascade and audited at 375/768/1280 — 0 below AA, 0 unlabelled controls, 0 light surfaces, 0 horizontal overflow. The live Dashboard now loads the cache-busted dark stylesheet; both Highcharts canvases compute to `rgb(13, 23, 38)`, controls to `rgb(21, 34, 56)`, axis text to `rgb(151, 169, 193)`, and no chart background/control retains white. Staging interaction also passed: currency displayed RM; receipt transaction 8 created `SB-DV-00000019-1`; transfer `CASH-SMOKE-TRANSFER-20260830` completed; Cash sale `INV-0002` posted for RM 1,200.00; the exact device was returned; Branch B reconciliation reported `PASS · core 2 · tracked 2 · legacy 0`.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
-Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data; transition-error disclosure convention (see the write-path section)
+Blocked tasks: RC-038 browser payment proof and release approval (**reversal proof is blocked on there being no reversal UI at all**, not on scheduling); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data; transition-error disclosure convention (see the write-path section)
 Authorization note (2026-08-31): the native role-editor metadata now has a human-readable label for every catalogued Recommerce permission, including `recommerce.repair.archive`; `RecommerceBoundaryTest` guards config/label parity. RC-041 archive authorization is committed and routed through `AuthorizationGate`.
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: resolve the RC-038 accounting decisions recorded in `RCR_010_RC038_TRADE_IN_ACQUISITION_DECISION.md`, or obtain product decisions for the uncalled RC-033 quote UI and authenticated-422 disclosure convention. Do not push/deploy the local commits without an explicit release instruction. Do not bypass, disable globally, or automate the JavaScript anti-bot challenge. Do not advance RC-045/RC-046 from this flow evidence alone.
+Next safe task: decide whether RC-038 V1 ships without a reversal UI, or gets one (needs a decision on how the native purchase-return reference is supplied and confirmed). Then perform the explicitly approved disposable-browser native payment proof. Alternatively obtain product decisions for the uncalled RC-033 quote UI and authenticated-422 disclosure convention. Do not push/deploy the local commits without an explicit release instruction. Do not bypass, disable globally, or automate the JavaScript anti-bot challenge. Do not advance RC-045/RC-046 from this flow evidence alone.
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` and `database/seeders/SaverposDemo*` (disposable demo DB only — never production)
-Architecture decisions required: acquisition accounting (RC-038; source-reviewed seam and open questions are recorded in `RCR_010_RC038_TRADE_IN_ACQUISITION_DECISION.md`), camera-scan dependency sourcing (RC-022), notification channel (RC-043), whether authenticated 422 responses surface domain guidance or stay generic (the module currently does both), and whether RC-033 gets a quote UI (its three endpoints have no caller)
+Architecture decisions required: camera-scan dependency sourcing (RC-022), notification channel (RC-043), whether authenticated 422 responses surface domain guidance or stay generic (the module currently does both), and whether RC-033 gets a quote UI (its three endpoints have no caller). RC-038 V1 decisions and deferred work are recorded in `RCR_010_RC038_TRADE_IN_ACQUISITION_DECISION.md`.
 Hosting prep: iCore cPanel has PHP 8.2, MySQL, and Let's Encrypt SSL. Browser inspection confirmed the managed repository path `/home/kkcctv93/repositories/saverpos-staging-repo`; one **Update from Remote** moved it to the helper-containing checkout. cPanel now confirms the server-local Cron entry `*/5 * * * * /bin/bash /home/kkcctv93/repositories/saverpos-staging-repo/scripts/cpanel-staging-poll.sh >> /home/kkcctv93/repositories/saverpos-staging-repo/storage/logs/cpanel-staging-cron.log 2>&1`. The Cron log records the fast-forward, Composer/install output, database/config/view steps, and `SAVERPOS cPanel staging deployment completed.` GitHub API-triggered deployment remains unusable: workflow run `33300932113` (four attempts) and a read-only local request receive an HTTP 200 JavaScript "One moment, please…" anti-bot page rather than UAPI JSON. The verified Cron helper polls the public `staging` branch internally with a lock and fast-forward-only guard. No cPanel credentials or database password are present in this checkout.
+
+## RC-038's required-test list, closed — and a reversal nobody can reach (2026-08-31)
+
+The RC-038 slice arrived implemented and browser-proven but uncommitted, with `RCR_010` carrying its own
+"Required tests before RC-038 can be marked implemented" list. Four of those requirements had no test. They do now, and
+the slice is committed.
+
+### What was missing, and what proves it
+
+| Requirement | Added test | Mutation that turns it red |
+| --- | --- | --- |
+| Concurrent accept/reject leaves one outcome | reject-after-accept refused | `ACCEPTED` added to `reject()`'s allowed statuses |
+| " | accept-after-reject refused | `REJECTED`/`ACCEPTED` added to `accept()`'s allowed statuses |
+| Stale-offer retries leave one outcome | retry under a **new** command UUID refused | same status gate — UUID idempotency cannot catch a fresh key |
+| Device reuse, no duplicate identity | prior history preserved | `closeOpenPeriods()` deleting instead of closing |
+| Full artifact reconciliation | one test asserting all nine artifacts together | acquisition pointed at `purchase_line_id + 1` |
+
+**My own first attempt was one of the weak tests this project keeps warning about.** The reuse test originally asserted
+only that *no open* prior period remained — which passes just as happily if the rows were deleted outright. The
+mutation caught it. It now asserts the prior ownership and custody rows still exist *and* carry `ends_at`. Do not skip
+the mutation step, and check the mutation actually applied: an earlier run of it silently failed to patch the file and
+reported a false pass.
+
+### Two limits on what that closure means
+
+- **Concurrency is proven through the status gate, not two live connections.** In-memory SQLite has no second
+  connection to race. Both paths `lockForUpdate()` the valuation and re-check status inside the transaction; the tests
+  prove the status gate, which is what makes the lock decisive. A genuine concurrent-writer test needs the MySQL fixture.
+- **Duplicate strong identifiers are prevented structurally.** `TradeInService` never creates a `Device` and never
+  writes a `DeviceIdentifier` — verified by reading it, then asserted by the reuse test.
+
+### The finding: reversal is unreachable
+
+`TradeInService::recordReversal` is implemented, permission-gated, requires a matching native `purchase_return`, and is
+tested. It has **no route, no controller action, and no view**. An operator cannot reverse an accepted trade-in through
+the application, which is why the outstanding "browser reversal proof" is not a scheduling problem — it is impossible
+as built.
+
+Every route that *does* exist has a view caller; that was checked rather than assumed, so this is not the RC-033
+situation repeated across the board, just at the one seam. Building the reversal UI needs a decision on how the native
+purchase-return reference is supplied and confirmed, so it is recorded rather than invented.
 
 ## START HERE — handover (2026-08-30)
 

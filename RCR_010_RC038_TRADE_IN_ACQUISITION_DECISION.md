@@ -1,8 +1,11 @@
 # RC-038 Trade-in acquisition decision record
 
-**Status:** Architecture drafted; implementation not started. The accounting
-decision remains open with management. This record is source-reviewed design
-evidence, not a runtime or release claim.
+**Status:** Implemented and committed locally on 2026-08-31; not pushed or
+deployed. Browser-proven through accepted native purchase on an isolated MySQL
+fixture. The required-test list below is now closed. Browser payment proof
+remains outstanding, and **reversal cannot be browser-proven at all: it has no
+route, controller action, or UI** — `TradeInService::recordReversal` is
+reachable only from code (see "Known V1 limitations").
 
 **Date:** 2026-08-31
 
@@ -17,6 +20,47 @@ source acquired the device.
 Trade-in must not create a Recommerce-only purchase, payment, balance, or stock
 ledger. An offer is an estimate until an authorised acceptance posts an
 authoritative POS transaction.
+
+## Implemented V1 contract
+
+- A versioned, deterministic `TradeInPricingService` records all rule inputs,
+  reserves, calculation version, recommendation levels, inspection, and manual
+  market evidence in an immutable valuation snapshot. It deliberately does not
+  encode a historic fixed 30/20/10 formula.
+- A valuation references an existing customer-owned Device, an explicitly
+  selected supplier-capable or `both` UltimatePOS contact, and an existing
+  authorised UltimatePOS product/variation. It never creates catalogue items
+  or changes a contact type.
+- `TradeInService::accept()` invokes `UltimatePosPurchaseWriter` once with one
+  unit and the accepted acquisition price. It creates no payment, so native
+  UltimatePOS settlement can remain due and later use ordinary payment flows.
+- The service appends `recommerce_device_acquisitions`, closes customer
+  periods, opens business/location periods, records a physical movement and
+  lifecycle evidence, and sets the Device to `AVAILABLE` / `ON_HAND` only
+  after the native receipt returns in the same transaction.
+- Rejection returns customer custody without a purchase. Reversal first
+  requires a matching native `purchase_return`, preserves the acquisition row,
+  and refuses once the device leaves its acquired on-hand state.
+- New permissions are deny-by-default: `view`, `manage`, `approve`,
+  `override_economic_ceiling`, `accept`, and `reverse`. Registration does not
+  silently grant them to existing roles.
+
+## Evidence as of 2026-08-31
+
+- `RecommerceTradeInAcquisitionTest`: **14 tests / 118 assertions**, covering rule
+  versioning, immutable valuation/evidence snapshots, approval/override,
+  contact-role rejection, rollback, repeat acquisition after reversal,
+  idempotent one-unit acceptance, reject custody, and native-return-gated reversal.
+- Full suite: **359 tests / 1,783 assertions**; Recommerce static check and Blade
+  view cache passed.
+- An isolated `saverpos_demo_rc038` clone migrated both RC-038 migrations on
+  MySQL. In the authenticated browser, the fictional `SB-DV-TRADEIN-001`
+  Device was valued from two manual market-evidence points, correctly required
+  approval for a MYR 950 offer above its MYR 931 negotiation ceiling, then was
+  approved and accepted. The browser-created native purchase is `received` /
+  `due`, has one mapped purchase line at quantity one, has no payment row, and
+  links the exact Device as `BUSINESS` / `LOCATION` / `AVAILABLE` / `ON_HAND`.
+  No page console errors occurred. Browser payment and reversal were not run.
 
 ## Source evidence
 
@@ -127,15 +171,62 @@ acceptance.
 - Native purchase failure rolls back every Recommerce write; later native
   reversal leaves the complete prior history intact.
 
-## Management decisions still required
+## Required-test closure (2026-08-31)
 
-1. Is the accepted trade-in booked as a native purchase payable to the seller,
-   and which payment/account methods are allowed in V1?
-2. Must settlement be immediate/atomic, or may the native purchase remain due?
-3. May a customer contact be promoted to `both`, or must operators select/create
-   a separate supplier-capable contact?
-4. Which product/variation catalog mapping is approved when a customer device
-   has no existing POS variation?
+The list above is now satisfied. Five tests were added to close it, each
+mutation-checked against a deliberately broken service:
 
-Until these decisions are approved, RC-038 remains **blocked for implementation**
-but its source-reviewed acquisition seam is documented.
+| Requirement | Test | Mutation that proves it |
+| --- | --- | --- |
+| Concurrent accept/reject leaves one outcome | `test_a_reject_after_acceptance_is_refused_and_leaves_the_device_acquired` | Adding `ACCEPTED` to `reject()`'s allowed statuses turns it red |
+| Concurrent accept/reject leaves one outcome | `test_an_acceptance_after_rejection_is_refused_and_posts_no_purchase` | Adding `REJECTED`/`ACCEPTED` to `accept()`'s allowed statuses turns it red |
+| Stale-offer retries leave one outcome | `test_a_stale_retry_under_a_new_command_uuid_cannot_post_a_second_purchase` | Same status-gate mutation; command-UUID idempotency alone cannot catch a retry under a fresh key |
+| Device reuse from a previous sale/repair; no duplicate identity | `test_a_device_with_prior_history_is_reused_and_its_record_is_preserved` | Deleting rather than closing prior periods in `closeOpenPeriods()` turns it red |
+| Native purchase/line/payment/acquisition/ownership/custody/movement/event reconcile exactly | `test_acceptance_reconciles_every_native_and_recommerce_artifact` | Pointing the acquisition at `purchase_line_id + 1` turns it red |
+
+Two notes on how that closure is scoped, so nobody over-reads it:
+
+- **Concurrency is asserted through the status gate, not through two live
+  connections.** The suite runs on in-memory SQLite, which offers no second
+  connection to race. Both `accept()` and `reject()` take
+  `lockForUpdate()` on the valuation and then re-check its status inside the
+  transaction; the tests prove the status gate, which is what makes the lock
+  decisive. A true concurrent-writer test needs the MySQL fixture.
+- **Duplicate strong identifiers are prevented structurally, not by a rejection
+  path.** `TradeInService` never creates a `Device` and never writes a
+  `DeviceIdentifier` — it resolves an existing customer-owned device and locks
+  it. The reuse test asserts identifier rows are untouched by acceptance.
+
+The first version of the reuse test asserted only that *no open* prior period
+remained, which passed just as happily when the rows were deleted. The mutation
+exposed it; it now asserts the prior ownership and custody rows still exist and
+carry `ends_at`.
+
+## Known V1 limitations
+
+- **Reversal has no user interface.** `TradeInService::recordReversal` is
+  implemented, gated on `recommerce.tradein.reverse`, requires a matching native
+  `purchase_return`, and is covered by tests — but there is no route, no
+  controller action, and no view that calls it. An operator cannot reverse an
+  accepted trade-in through the application. This is why the browser reversal
+  proof is not merely outstanding but currently impossible. Building it needs a
+  decision on how the native purchase-return reference is supplied and confirmed;
+  it is not assumed here.
+- Settlement remains a separate native purchase payment, unexercised in a
+  browser.
+- Every route that does exist has a view caller, which was checked rather than
+  assumed.
+
+## Resolved V1 decisions and deferred work
+
+1. An accepted trade-in is a native UltimatePOS purchase; ownership transfers
+   when that purchase posts, even if it is still due.
+2. Settlement is deferred to native UltimatePOS payment flows. Store credit is
+   out of scope.
+3. Operators must explicitly select an existing supplier-capable or `both`
+   contact; promotion/creation is outside this command.
+4. A mapped product/variation is mandatory. Catalog creation and automatic
+   mapping are out of scope.
+5. Machine learning, opaque AI prices, marketplace scraping, auto-catalogue,
+   and live price feeds are deferred. The V1 rule engine is intentionally
+   deterministic and explainable.

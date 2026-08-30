@@ -71,6 +71,28 @@ Route::middleware(['auth', 'SetSessionData'])->prefix('recommerce')->group(funct
         ->middleware('throttle:20,1')
         ->name('recommerce.receiving.attach_purchase');
 
+    Route::get('/trade-ins', 'TradeInController@index')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.tradeins.index');
+    Route::post('/trade-ins', 'TradeInController@store')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.tradeins.store');
+    Route::post('/trade-ins/rules', 'TradeInController@createRule')
+        ->middleware('throttle:10,1')
+        ->name('recommerce.tradeins.rules.store');
+    Route::post('/trade-ins/{valuationId}/approve', 'TradeInController@approve')
+        ->whereNumber('valuationId')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.tradeins.approve');
+    Route::post('/trade-ins/{valuationId}/accept', 'TradeInController@accept')
+        ->whereNumber('valuationId')
+        ->middleware('throttle:10,1')
+        ->name('recommerce.tradeins.accept');
+    Route::post('/trade-ins/{valuationId}/reject', 'TradeInController@reject')
+        ->whereNumber('valuationId')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.tradeins.reject');
+
     Route::get('/transfers/{transferId}/exceptions', 'TransferExceptionController@show')
         ->whereNumber('transferId')
         ->middleware('throttle:30,1')

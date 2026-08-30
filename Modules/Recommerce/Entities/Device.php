@@ -41,6 +41,11 @@ class Device extends Model
         return $this->hasOne(DevicePurchaseAssignment::class, 'device_id');
     }
 
+    public function acquisitions(): HasMany
+    {
+        return $this->hasMany(DeviceAcquisition::class, 'device_id');
+    }
+
     public function ownershipPeriods(): HasMany
     {
         return $this->hasMany(OwnershipPeriod::class, 'device_id');

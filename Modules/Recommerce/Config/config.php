@@ -60,6 +60,12 @@ return [
         'recommerce.repair.collection.override',
         'recommerce.repair.archive',
         'recommerce.warranty.manage',
+        'recommerce.tradein.view',
+        'recommerce.tradein.manage',
+        'recommerce.tradein.approve',
+        'recommerce.tradein.override_economic_ceiling',
+        'recommerce.tradein.accept',
+        'recommerce.tradein.reverse',
     ],
     'cohort' => [
         'business_id' => env('RECOMMERCE_COHORT_BUSINESS_ID'),
