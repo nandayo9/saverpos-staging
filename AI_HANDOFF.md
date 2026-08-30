@@ -1,20 +1,22 @@
 # AI Handoff
 
-Current milestone: Recommerce — UI/UX verification complete; interaction and deployment still blocked
-Last completed task: **Full UI/UX audit of all 13 in-app screens at three viewports** — 39 page-renders, all clean after fixing two defect classes: stock Bootstrap components the dark pass never covered (measuring 1.86-2.04:1, including `.alert-success`, `.btn-warning` and `.help-block`), and 17 form controls using a placeholder as their accessible name.
-Latest implementation commit: `66655d0` on `staging`. **12 commits ahead of `origin/staging`, and pushing them would still not reach the live site** — see "START HERE" below. The working tree is dirty by design: the untracked files and the two modified shared files are the blocked RC-041 archive and must not be committed.
+Current milestone: Recommerce — staging Cash flow verified; current local implementation still needs the approved publish/deployment path
+Last completed task: **Staging Cash smoke and complete receive → transfer → sale → return → reconciliation flow** — the fictional Branch B flow passed on 2026-08-30 after the existing demo mapping was corrected in Business Settings.
+Latest implementation commit: `a42846b` on `staging`. The branch is **13 commits ahead of `origin/staging` (`ba7b90f`)**; the working tree is dirty by design: the untracked files and the two modified shared files are the blocked RC-041 archive and must not be committed.
 Tests passing: **305 tests / 1311 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
-Browser evidence: all 13 in-app screens rendered from real Blade against the real CSS cascade and audited at 375/768/1280 — 0 below AA, 0 unlabelled controls, 0 light surfaces, 0 horizontal overflow. Earlier sessions' flow evidence unchanged. POS chrome and any interaction (click, submit, modal) remain unverified — they need a session.
+Browser evidence: all 13 in-app screens rendered from real Blade against the real CSS cascade and audited at 375/768/1280 — 0 below AA, 0 unlabelled controls, 0 light surfaces, 0 horizontal overflow. Staging interaction also passed: currency displayed RM; receipt transaction 8 created `SB-DV-00000019-1`; transfer `CASH-SMOKE-TRANSFER-20260830` completed; Cash sale `INV-0002` posted for RM 1,200.00; the exact device was returned; Branch B reconciliation reported `PASS · core 2 · tracked 2 · legacy 0`. The currency correction was performed through the visible Business Settings UI, so this is live-flow evidence, not proof that the current local commits are deployed.
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: seed a repair job into the local demo fixture so the repair flow can be walked (there are currently 0), then an interaction pass on a signed-in session; the staging CD gap still means none of these commits reach `pos.kkcctv.com.my`
+Next safe task: publish the reviewed local commits through the approved path, verify the deployed commit, and repeat the focused staging smoke against the deployed fixture. Do not advance RC-045/RC-046 from this flow evidence alone.
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel has `pos.kkcctv.com.my` on `/home/kkcctv93/repositories/saverpos-staging/public` (separate from the Git checkout), PHP 8.2, MySQL, and Let's Encrypt SSL. Git pull is verified at `a6f784c`. The cPanel task builds the checkout, uses the live sibling `.env`, installs Composer with checksum verification when needed, runs migrations/fictional seeders, and publishes the live folder. Deployment is now successful and the browser verifies `https://pos.kkcctv.com.my/login` as `Login - SAVERPOS`; fixture IDs are business=1, locations=1,2, variation=1, device=SB-DV-00000001-9. No cPanel credentials or database password are present in this checkout.
 
 ## START HERE — handover (2026-08-30)
+
+The current status block above supersedes older deployment and interaction notes below. Those entries remain as historical evidence of how the blockers were diagnosed.
 
 Read this section before touching anything. The rest of the file is a reverse-chronological session log; the traps below
 are the ones that will cost you time or make you ship something wrong.

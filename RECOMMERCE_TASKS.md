@@ -666,6 +666,16 @@ Branch B POS sale → exact-device return → Branch B reconciliation. Credit Sa
 completed the original isolated sale. This does not advance RC-045 or RC-046
 and is not production, hardware, or release evidence.
 
+**Staging Cash smoke and complete flow — PASSED (2026-08-30).**
+After correcting the existing demo business currency through the visible Business
+Settings UI, the authenticated staging flow passed: tracked receipt transaction
+8 created `SB-DV-00000019-1`; transfer `CASH-SMOKE-TRANSFER-20260830` completed
+from Branch A to Branch B; Cash sale `INV-0002` posted for RM 1,200.00; the
+exact device was returned; and Branch B reconciliation reported
+`PASS · core 2 · tracked 2 · legacy 0`. This is live fictional-flow evidence,
+not proof that the current local branch has been deployed, and it does not
+advance RC-045 or RC-046.
+
 **Payment-account repair now reaches the already-seeded estate (2026-08-30).**
 The earlier record said the deployed estate only had to rerun the expansion
 seeder before the Cash smoke. That was wrong: the complete POS
