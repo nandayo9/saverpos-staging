@@ -25,6 +25,11 @@ jobs:
           test -n "$CPANEL_USERNAME"
           test -n "$CPANEL_API_TOKEN"
           test -n "$CPANEL_REPOSITORY_ROOT"
+          cpanel_host="${CPANEL_HOST#https://}"
+          cpanel_host="${cpanel_host#http://}"
+          cpanel_host="${cpanel_host%%/*}"
+          cpanel_host="${cpanel_host%:2083}"
+          test -n "$cpanel_host"
           cpanel_request() {
             curl --fail --silent --show-error --location \
               --noproxy '*' --retry 3 --retry-all-errors --retry-delay 2 \
@@ -34,23 +39,27 @@ jobs:
           validate_response() {
             operation="$1"
             response="$2"
+            if ! printf '%s\n' "$response" | jq -e . >/dev/null 2>&1; then
+              printf 'cPanel %s returned a non-JSON response; check the host, username, token, and endpoint.\n' "$operation" >&2
+              return 1
+            fi
             if ! printf '%s\n' "$response" | jq -e \
               '.result.status == 1 and (.result.errors == null or (.result.errors | length == 0))' >/dev/null; then
               printf '%s\n' "$response" | jq -c --arg operation "$operation" \
-                '{operation:$operation,status:.result.status,errors:.result.errors,messages:.result.messages,warnings:.result.warnings}' >&2 || true
+                '{operation:$operation,status:.result.status,errors:.result.errors,messages:.result.messages,warnings:.result.warnings}' >&2
               return 1
             fi
           }
 
           update_response="$(cpanel_request \
             -H "Authorization: cpanel ${CPANEL_USERNAME}:${CPANEL_API_TOKEN}" \
-            --get "https://${CPANEL_HOST}:2083/execute/VersionControl/update" \
+            --get "https://${cpanel_host}:2083/execute/VersionControl/update" \
             --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}" \
             --data-urlencode "branch=staging")"
           validate_response "VersionControl/update" "$update_response"
 
           deploy_response="$(cpanel_request \
             -H "Authorization: cpanel ${CPANEL_USERNAME}:${CPANEL_API_TOKEN}" \
-            --get "https://${CPANEL_HOST}:2083/execute/VersionControlDeployment/create" \
+            --get "https://${cpanel_host}:2083/execute/VersionControlDeployment/create" \
             --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}")"
           validate_response "VersionControlDeployment/create" "$deploy_response"
