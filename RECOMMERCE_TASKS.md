@@ -536,6 +536,14 @@ Risk levels: **Low**, **Medium**, **High**, **Critical**.
 
 ## Operational verification status
 
+**Presentation UI follow-up — PASSED locally (2026-08-30).**
+The shared dark stylesheet now covers the remaining light utility surfaces,
+Highcharts chart backgrounds, DataTables loading state, date widgets,
+breadcrumbs, and legacy alerts. In-app browser checks rendered the Dashboard,
+Recommerce device registry, and POS register screens without changing any
+workflow state. This is local source/runtime evidence only and is not deployed
+or release evidence.
+
 **Live staging smoke — core flow passed; demo-fixture repair implemented locally (2026-08-30).**
 The fictional authenticated estate passed receive → tracked A→B transfer →
 Branch B POS sale → exact-device return → Branch B reconciliation. The Cash

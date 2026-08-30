@@ -4,6 +4,7 @@
  * It deliberately retains existing DOM hooks so POS flows and modules stay unchanged.
  */
 :root {
+  color-scheme: dark;
   --sb-bg: #080d17;
   --sb-surface: #101827;
   --sb-surface-raised: #162235;
@@ -310,6 +311,168 @@ body .theme-header-bg {
 .nav-tabs-custom,
 .small-box {
   border-radius: 14px !important;
+}
+
+/* Legacy utility classes are still used by Dashboard widgets and plugins.
+   Keep those internal surfaces on the same visual system as the newer cards. */
+.content .tw-bg-gray-50,
+.content .tw-bg-gray-100,
+.content .tw-bg-gray-200,
+.content .tw-bg-slate-50,
+.content .tw-bg-slate-100,
+.saverbro-dashboard ~ .tw-bg-gray-50,
+.saverbro-dashboard ~ .tw-bg-gray-100,
+.saverbro-dashboard ~ .tw-bg-slate-50,
+.saverbro-dashboard ~ .tw-bg-slate-100,
+.saverbro-dashboard ~ * .tw-bg-gray-50,
+.saverbro-dashboard ~ * .tw-bg-gray-100,
+.saverbro-dashboard ~ * .tw-bg-slate-50,
+.saverbro-dashboard ~ * .tw-bg-slate-100,
+.saverbro-dashboard ~ * .tw-bg-white,
+#scrollable-container .tw-bg-gray-50,
+#scrollable-container .tw-bg-gray-100,
+#scrollable-container .tw-bg-gray-200,
+#scrollable-container .tw-bg-slate-50,
+#scrollable-container .tw-bg-slate-100,
+#scrollable-container .tw-bg-white,
+.bg-gray-light,
+.well,
+.panel-default,
+.panel-default > .panel-heading,
+.list-group-item {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+.content .tw-bg-gray-50,
+.saverbro-dashboard ~ .tw-bg-gray-50,
+.saverbro-dashboard ~ * .tw-bg-gray-50,
+#scrollable-container .tw-bg-gray-50 {
+  background: #0d1726 !important;
+}
+
+.content .tw-bg-gray-200,
+.content .tw-bg-slate-100,
+.saverbro-dashboard ~ .tw-bg-gray-100,
+.saverbro-dashboard ~ .tw-bg-slate-100,
+.saverbro-dashboard ~ * .tw-bg-gray-100,
+.saverbro-dashboard ~ * .tw-bg-slate-100,
+#scrollable-container .tw-bg-gray-100,
+#scrollable-container .tw-bg-gray-200,
+#scrollable-container .tw-bg-slate-100 {
+  background: #111d2e !important;
+}
+
+.breadcrumb {
+  background: rgba(16, 24, 39, .72) !important;
+  color: var(--sb-muted) !important;
+  border: 1px solid var(--sb-border);
+}
+
+.breadcrumb > li + li::before {
+  color: var(--sb-faint) !important;
+}
+
+.alert-info,
+.callout.callout-info {
+  background: rgba(14, 116, 144, .2) !important;
+  border: 1px solid rgba(56, 189, 248, .38) !important;
+  color: #d8f3ff !important;
+}
+
+.alert-warning,
+.callout.callout-warning {
+  background: rgba(146, 94, 8, .2) !important;
+  border: 1px solid rgba(251, 191, 36, .38) !important;
+  color: #fef3c7 !important;
+}
+
+.alert-danger,
+.callout.callout-danger {
+  background: rgba(159, 18, 57, .2) !important;
+  border: 1px solid rgba(251, 113, 133, .4) !important;
+  color: #ffe4e6 !important;
+}
+
+/* Dashboard charts inherit a white plugin canvas unless their wrapper is
+   explicitly themed. Keep the graph readable without changing its data. */
+.saverbro-dashboard .chart,
+.saverbro-dashboard .chart > div,
+.saverbro-dashboard .chart canvas,
+.saverbro-dashboard .chart svg {
+  background: transparent !important;
+}
+
+.saverbro-dashboard .chart {
+  color: var(--sb-muted) !important;
+}
+
+.saverbro-dashboard .chart text,
+.saverbro-dashboard .chart .chart-legend {
+  fill: var(--sb-muted) !important;
+  color: var(--sb-muted) !important;
+}
+
+#scrollable-container .highcharts-background,
+#scrollable-container .highcharts-button-box {
+  fill: #0d1726 !important;
+}
+
+#scrollable-container .highcharts-grid-line,
+#scrollable-container .highcharts-axis-line,
+#scrollable-container .highcharts-tick {
+  stroke: var(--sb-border) !important;
+}
+
+#scrollable-container .highcharts-axis-labels text,
+#scrollable-container .highcharts-axis-title,
+#scrollable-container .highcharts-legend-item text,
+#scrollable-container .highcharts-title,
+#scrollable-container .highcharts-subtitle {
+  fill: var(--sb-muted) !important;
+}
+
+#scrollable-container .highcharts-button-symbol {
+  stroke: var(--sb-muted) !important;
+}
+
+/* DataTables and date widgets are injected after page load and otherwise
+   fall back to the legacy white Bootstrap skin. */
+.dataTables_wrapper .dataTables_processing,
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_filter input,
+.datepicker,
+.datepicker-dropdown,
+.daterangepicker,
+.bootstrap-datetimepicker-widget {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, .3) !important;
+}
+
+.dataTables_wrapper .dataTables_processing {
+  border: 1px solid var(--sb-border-strong) !important;
+  border-radius: 10px;
+}
+
+.datepicker table tr td,
+.datepicker table tr th,
+.daterangepicker td,
+.daterangepicker th,
+.bootstrap-datetimepicker-widget table td,
+.bootstrap-datetimepicker-widget table th {
+  color: var(--sb-muted) !important;
+}
+
+.datepicker table tr td.active,
+.datepicker table tr td.active:hover,
+.daterangepicker td.active,
+.daterangepicker td.active:hover,
+.bootstrap-datetimepicker-widget table td.active {
+  background: var(--sb-accent-strong) !important;
+  color: white !important;
 }
 
 .box-header,
