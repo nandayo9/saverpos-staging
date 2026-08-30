@@ -1,15 +1,15 @@
 # AI Handoff
 
 Current milestone: Recommerce — tracked transfer exception workflow
-Last completed task: Landed RC-039 (warranty coverage and claim jobs) as commit `7d5adbc`, holding the blocked RC-041 lines out of the shared config and route files
-Last commit: `2a4d24e` on `staging`. Ten commits are committed locally and **still unpushed** — the push cannot authenticate from an agent session; see "Push status" below to `https://github.com/nandayo9/saverpos-staging.git`. NOTE: the working tree is still dirty by design — the RC-039 warranty work and the blocked, undocumented RC-041 legacy repair archive remain uncommitted and were deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **167 tests / 1056 assertions, all green** — verified 2026-08-30 (154/1013 inherited; +3 gate-invariant, +4 deny-by-default, +2 warranty-route, +2 warranty-boundary and +1 warranty-determinism test added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
+Last completed task: RC-002 baseline **certified on the deployment-matching platform** (PHP 8.2.33 + MySQL 8 on the Mac) — the first time the suite and migrations have been run on the staging target's PHP version rather than a 8.4 container. One pre-existing stock-POS blocker found: `route:cache`/`optimize` fail on a duplicate `logout` route name.
+Last commit: `5136a3f` on `staging` (this session adds one more). Twelve commits are committed locally and **still unpushed** to `https://github.com/nandayo9/saverpos-staging.git` — no longer for credential reasons (the Mac has `osxkeychain`), but because publishing them is the operator's call; see "Push status" below. NOTE: the working tree is still dirty by design — RC-039 landed in `7d5adbc`, so what remains uncommitted is **only** the blocked RC-041 legacy repair archive (two modified lines in the shared config/route files plus six untracked files), deliberately left untouched (see "Incoming-agent verification" below).
+Tests passing: **167 tests / 1056 assertions, all green** — re-verified 2026-08-30 **on PHP 8.2.33**, with zero deprecations, notices, warnings, skipped, incomplete or risky tests. The prior 8.4-container caveat ("strong regression signal, not platform certification for 8.2") is now closed. `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: fresh disposable MySQL fixture; rendered browser flow passed for receive, pending/completed A→B transfer, Branch B POS sale, exact-device customer return, Branch B reconciliation (`PASS · core 1 · tracked 1 · legacy 0`), complete Device timeline, and RC-037 receiving exceptions (`MISSING` + `EXTRA` recorded, one manager resolution)
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: confirm the target printer and scanner/browser matrix, then run physical label print and keyboard-wedge scan checks; camera scanning remains blocked on the dependency decision
+Next safe task: confirm the target printer and scanner/browser matrix, then run physical label print and keyboard-wedge scan checks (needs a human at the hardware); camera scanning remains blocked on the dependency decision. Two smaller unblocked items now exist: the duplicate-`logout` route-cache blocker (see the RC-002 section below) and pushing the 12 local commits (see "Push status")
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
 Hosting prep: iCore cPanel now has `pos.kkcctv.com.my` mapped to the cloned `staging` repository's `public/` directory, PHP 8.2 enabled account-wide, staging MySQL database/user created, and Let's Encrypt SSL installed. cPanel Git pull is verified at commit `bd8f49f`. The repository now contains a cPanel Git deployment task (`.cpanel.yml` plus `scripts/cpanel-staging-deploy.sh`) so shell/Terminal support is not required: after the untracked server `.env` is created, **Update from Remote** then **Deploy HEAD Commit** installs dependencies, creates a one-time key, migrates, and conditionally seeds the fictional fixture. No cPanel credentials or database password are present in this checkout.
@@ -245,6 +245,64 @@ Verified as a pure extraction rather than assumed: both views were rendered befo
 
 Suite green at 167 tests / 1056 assertions; static check passes.
 
+## RC-002 certified on the deployment platform (2026-08-30) — PHP 8.2 + MySQL
+
+Every previous baseline run in this handoff was either the Mac run nobody could reproduce, or the cloud container on **PHP 8.4**, which was recorded honestly as "a strong regression signal, not platform certification for 8.2". This session ran on the Mac itself, where `/opt/homebrew/bin/php` is **8.2.33** — the same major/minor as the cPanel staging target — with MySQL 8 already running locally.
+
+### Run against a clean HEAD export, not the dirty tree
+
+The working tree still carries the blocked RC-041 code, including two migrations. Certifying the *committed* baseline while that sits on disk needed isolation, so the run used `git archive HEAD | tar -x` into the scratchpad, with `vendor/` symlinked in (Packagist reachability is irrelevant then) and a fresh `storage/` + `.env` from `.env.example` with a generated key. The export contains **0** files matching `*repair_archive*`, confirmed before migrating. The real working tree was never touched and is still exactly RC-041 and nothing else.
+
+### Results — all PASS except one pre-existing blocker
+
+| Check | Result |
+| --- | --- |
+| `composer check-platform-reqs` | php 8.2.33 + all 19 extensions **success** |
+| Migrations on fresh disposable MySQL | **327/327 applied, 0 pending**; 108 tables, 37 `recommerce_*` |
+| PHPUnit (full suite) | **OK (167 tests, 1056 assertions)** in ~8s |
+| PHP diagnostics during the suite | **zero** deprecations/notices/warnings (captured to a log via `-d error_reporting=E_ALL -d log_errors=1`; file came back empty) |
+| Skipped / incomplete / risky tests | **zero** — progress output is 167 dots, no `S`/`I`/`R`/`W` |
+| `php -l` over `Modules/Recommerce` | clean across all **134** files |
+| `route:list` | resolves **666** routes, **51** of them Recommerce — matches the RC-006 sweep's count exactly |
+| `config:cache` | succeeds |
+| Frontend assets | present and prebuilt — `public/css/app.css`, `css/vendor.css`, `js/app.js`, `js/vendor.js`, `mix-manifest.json`. **No asset build is needed to deploy.** |
+| `route:cache` / `optimize` | **FAIL** — see below |
+
+The disposable database (`saverpos_baseline_20260830`) was dropped afterwards; the other demo databases were not touched. The scratchpad export was removed, unlinking the symlink first so `rm -rf` could not reach the real `vendor/`.
+
+### The one blocker: `route:cache` fails on a duplicate route name
+
+```
+LogicException: Unable to prepare route [logout] for serialization.
+Another route has already been assigned name [logout].
+```
+
+`routes/web.php` line 87 calls `Auth::routes(['register' => false])`, which registers `POST /logout` named `logout`; line 538 then registers `GET /logout` **also** named `logout`. Laravel refuses to serialise the collection, so `route:cache` and `php artisan optimize` (which runs config then routes) both abort.
+
+**This is stock Ultimate POS, not SAVERPOS work.** `git diff <root-commit> HEAD -- routes/web.php` is empty — the file is byte-identical to the vendor import.
+
+**It does not break the current deployment.** `scripts/cpanel-staging-deploy.sh` runs `config:clear` and `view:clear` and never caches routes, so `pos.kkcctv.com.my` is unaffected. What it does block is standard Laravel production route-cache optimisation, which belongs to RC-045's performance gate.
+
+**Deliberately not patched here.** RC-002 puts stock POS code out of scope, and the fix is not obvious enough to make silently: someone has to decide which route keeps the name. Useful facts for whoever takes it — nothing in `resources/views` or `Modules/` calls `route('logout')` (grep count: 0), and the header links via `action([\App\Http\Controllers\Auth\LoginController::class, 'logout'])` at `resources/views/layouts/partials/header.blade.php:255`, which is itself ambiguous while two routes point at the same action. Dropping `->name('logout')` from line 538 looks safe on that evidence, but it is a change to vendor auth routing and deserves its own task and a rendered logout check.
+
+### What this does and does not certify
+
+It certifies that the committed baseline installs, migrates, boots, routes and tests cleanly on the staging platform's PHP and database engine. It is not a load test, not a security gate, and not a browser smoke test — RC-045 still owns those. It also says nothing about the cPanel host itself, only about the PHP/MySQL versions it targets.
+
+### Reproducing it
+
+Everything above runs from the Mac in a couple of minutes:
+
+```
+cd ~/Downloads/UltimatePOS-V7.3/UltimatePOS-CodeBase-V7.3 && php vendor/bin/phpunit --no-coverage
+```
+
+For the migration half, export HEAD to a scratch directory as described above and point artisan at a throwaway database with environment variables — Laravel's dotenv is immutable, so `DB_CONNECTION=mysql DB_DATABASE=<throwaway> ... php artisan migrate --force` overrides `.env` without editing it. Verified before use: `config('database.default')` reads back `mysql`. **Never point this at a database you care about.**
+
+### RC-041 was re-verified, and is still blocked
+
+Read before doing anything else, per the incoming-agent instructions. `LegacyRepairArchiveService::assertArchiveAccess()` still injects `AuthorizationGate` and still never calls it — it checks `in_array('recommerce.repair.archive', config('recommerce.permissions'))` and `$this->cohortPolicy->allowsBusiness()`, with no `$user->can()` anywhere. The nullable-but-dereferenced `$cohortPolicy` is also still there. Every other detail in the handoff matched the source. **No RC-041 code was touched.**
+
 ## Push status (2026-08-30) — blocked on credentials, not on the work
 
 `git push origin staging` fails from the desktop Linux workspace:
@@ -262,6 +320,14 @@ cd ~/Downloads/UltimatePOS-V7.3/UltimatePOS-CodeBase-V7.3 && git push origin sta
 ```
 
 **Note for whoever does:** the cPanel staging deployment pulls from this remote, so pushing changes what **Update from Remote** would bring to `pos.kkcctv.com.my`. Deployment still requires the manual cPanel steps; pushing alone deploys nothing.
+
+### Update 2026-08-30 — the credential blocker is gone, the push is not done
+
+This session runs on the Mac, where `credential.helper=osxkeychain` is configured globally, so the environment limit described above no longer applies. **The push was still not performed**, because it publishes twelve commits to a public GitHub repository and changes what cPanel's **Update from Remote** would bring to `pos.kkcctv.com.my` — an outward-facing action that belongs to the operator, not to an agent acting on its own. It is queued for explicit approval.
+
+State re-checked here: local `staging` is **12 commits ahead, 0 behind** `origin/staging` (still `4e68994`) — a clean fast-forward. `.env` remains untracked; the only tracked env files are `.env.example` and `.env.cpanel-staging.example`.
+
+The repository-visibility question from the previous session is still **open and unanswered**: `nandayo9/saverpos-staging` is public. No live secret is exposed, but a public repo carrying deployment runbooks and the staging hostname for a POS product is a decision the operator should confirm rather than an agent assume.
 
 ### Repository visibility
 
