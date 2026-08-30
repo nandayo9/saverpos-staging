@@ -534,6 +534,16 @@ Risk levels: **Low**, **Medium**, **High**, **Critical**.
 
 ## Immediate implementation order
 
+## Operational verification status
+
+**Live staging smoke — PASSED LOCALLY with a demo-fixture blocker (2026-08-30).**
+The fictional authenticated estate passed receive → tracked A→B transfer →
+Branch B POS sale → exact-device return → Branch B reconciliation. The Cash
+payment path remains unverified because Branch B lacks a `cash` default
+payment-account mapping; Credit Sale completed the isolated sale. This does
+not advance RC-045 or RC-046 and is not production, hardware, or release
+evidence.
+
 The first ten implementation tasks are `RC-001` through `RC-010`. They deliberately resolve source/runtime/data uncertainty and establish security, transactions, audit, canonical device identity, and safe code allocation before any UI or stock mutation is built.
 
 No task in this ledger is authorized for implementation by this architecture package alone. Each task should be taken through normal review and approval, and the first production task must not begin until SaverBro chooses to proceed.

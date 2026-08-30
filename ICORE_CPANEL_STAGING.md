@@ -187,6 +187,15 @@ Open `https://pos.kkcctv.com.my/login` and verify:
   reconciliation journeys work;
 - the browser shows a valid HTTPS certificate and no mixed-content warnings.
 
+Live smoke result (2026-08-30): the fictional authenticated demo session
+passed serialized receiving, Branch A → Branch B transfer dispatch/receiving/
+completion, a Branch B POS sale, the exact-device customer return, and Branch B
+reconciliation (`PASS · core 1 · tracked 1 · legacy 0`). The Cash button could
+not open its payment path because the Branch B demo location has no `cash`
+entry in `default_payment_accounts`; the sale was completed through the
+supported Credit Sale path. This is runtime evidence for the isolated demo
+estate, not production or physical hardware certification.
+
 The fictional test login is `saverpos.demo` / `demo-pass`. Treat this account as
 public demo access only; do not use real customer, supplier, payment, or
 production data on this site.
