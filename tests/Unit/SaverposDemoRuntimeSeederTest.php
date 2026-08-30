@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use Carbon\Carbon;
+use Database\Seeders\SaverposDemoExpansionSeeder;
 use Database\Seeders\SaverposDemoRuntimeSeeder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -25,9 +26,20 @@ class SaverposDemoRuntimeSeederTest extends TestCase
             $table->increments('id');
             $table->string('code');
         });
+        Schema::create('business', function (Blueprint $table): void {
+            $table->increments('id');
+            $table->unsignedInteger('currency_id');
+            $table->timestamps();
+        });
         DB::table('currencies')->insert([
             ['id' => 1, 'code' => 'ALL'],
             ['id' => 75, 'code' => 'MYR'],
+        ]);
+        DB::table('business')->insert([
+            'id' => 1,
+            'currency_id' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 
@@ -37,6 +49,19 @@ class SaverposDemoRuntimeSeederTest extends TestCase
         $currencyMethod->setAccessible(true);
 
         $this->assertSame(75, $currencyMethod->invoke(new SaverposDemoRuntimeSeeder()));
+    }
+
+    public function test_existing_demo_business_currency_is_repaired_to_myr(): void
+    {
+        $currencyMethod = new ReflectionMethod(SaverposDemoExpansionSeeder::class, 'syncDemoCurrency');
+        $currencyMethod->setAccessible(true);
+
+        $currencyMethod->invoke(new SaverposDemoExpansionSeeder(), (object) [
+            'id' => 1,
+            'currency_id' => 1,
+        ]);
+
+        $this->assertSame(75, (int) DB::table('business')->where('id', 1)->value('currency_id'));
     }
 
     public function test_demo_locations_include_the_complete_pos_payment_account_shape(): void

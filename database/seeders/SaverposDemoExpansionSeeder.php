@@ -26,6 +26,7 @@ class SaverposDemoExpansionSeeder extends Seeder
                 return;
             }
 
+            $business = $this->syncDemoCurrency($business);
             $now = now();
             $userId = (int) (DB::table('users')->where('business_id', $business->id)->orderBy('id')->value('id') ?: $business->owner_id);
             $locationIds = DB::table('business_locations')->where('business_id', $business->id)->orderBy('id')->pluck('id')->values();
@@ -154,6 +155,24 @@ class SaverposDemoExpansionSeeder extends Seeder
             }
             $this->command?->info('SAVERPOS demo expansion ready: products=5; devices=17; purchase=PO-DEMO-002.');
         });
+    }
+
+    private function syncDemoCurrency(object $business): object
+    {
+        $currencyId = DB::table('currencies')->where('code', 'MYR')->value('id');
+        if ($currencyId === null) {
+            throw new \RuntimeException('The SAVERPOS demo requires the MYR currency seed.');
+        }
+
+        if ((int) $business->currency_id !== (int) $currencyId) {
+            DB::table('business')->where('id', $business->id)->update([
+                'currency_id' => $currencyId,
+                'updated_at' => now(),
+            ]);
+            $business->currency_id = $currencyId;
+        }
+
+        return $business;
     }
 
     private function contact(int $businessId, string $type, string $contactId, string $name, int $userId, $now): int
