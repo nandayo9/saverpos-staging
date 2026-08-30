@@ -1,9 +1,9 @@
 # AI Handoff
 
 Current milestone: Recommerce — tracked transfer exception workflow
-Last completed task: Added warranty sale-line coverage evidence and claim lines behind a dedicated Recommerce permission
+Last completed task: Reviewed the uncommitted RC-039 warranty work and fixed a confirmed 500-on-denial defect in its controller
 Last commit: `869bf36` + the cohort deny-by-default commit on `staging`, committed locally and **not yet pushed** to `https://github.com/nandayo9/saverpos-staging.git`. NOTE: the working tree is still dirty by design — the RC-039 warranty work and the blocked, undocumented RC-041 legacy repair archive remain uncommitted and were deliberately left untouched (see "Incoming-agent verification" below).
-Tests passing: **161 tests / 1038 assertions, all green** — verified 2026-08-29 (154/1013 inherited; +3 gate-invariant and +4 deny-by-default tests added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
+Tests passing: **163 tests / 1046 assertions, all green** — verified 2026-08-30 (154/1013 inherited; +3 gate-invariant, +4 deny-by-default and +2 warranty-route tests added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: fresh disposable MySQL fixture; rendered browser flow passed for receive, pending/completed A→B transfer, Branch B POS sale, exact-device customer return, Branch B reconciliation (`PASS · core 1 · tracked 1 · legacy 0`), complete Device timeline, and RC-037 receiving exceptions (`MISSING` + `EXTRA` recorded, one manager resolution)
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
@@ -150,4 +150,25 @@ The two repair Blade views carried uncommitted, unreviewed UI edits. They were r
 **Left alone:** `parts/show.blade.php` still hardcodes `label-default`/`label-info` for reservation and usage status (lines 45, 47). The same tone system would suit it, but that view was outside this review's scope and has not been rendered or screenshotted.
 
 Verification: full suite green (161 tests / 1038 assertions), `recommerce-static-check` passes, no page-level horizontal overflow and no JS console errors at either width.
+
+## RC-039 warranty claim review (2026-08-30) — one confirmed defect, fixed
+
+RC-039 is uncommitted but unblocked (its disposition is not in question, unlike RC-041), so it was reviewed before it lands. Its authorization is correct — `WarrantyClaimService::assertClaimAccess` goes through `AuthorizationGate::allowsWriteLocation` and the controller re-checks scope with `User::can_access_this_location`. One real defect was found, reproduced, and fixed.
+
+**`WarrantyClaimController` referenced two exception classes it never imported.** `AuthorizationException` and `ValidationException` were both used — thrown and caught — but absent from the `use` block, so each resolved to `Modules\Recommerce\Http\Controllers\<Name>`, which does not exist. `LegacyRepairArchiveController` imports both correctly; this file did not. Reproduced through the real route:
+
+- **A denied caller received HTTP 500**, not the intended 404: `Error: Class "Modules\Recommerce\Http\Controllers\AuthorizationException" not found` at `WarrantyClaimController.php:67`, because `scopedJob()` throws that unqualified name.
+- **Invalid input leaked Laravel's field-level validation payload** (`{"errors":{"command_uuid":[...]}}`) instead of the masked `A warranty claim could not be created from this job.`, because the `catch (ValidationException|LogicException ...)` clause could never match.
+
+Fixed by adding the two imports (and using the already-imported `RepairJob` instead of an inline fully-qualified name). After the fix the same probe returns 404 and the masked 422.
+
+**Why it shipped:** the only HTTP test for this route asserted the happy path. Two regression tests now cover the failure paths — `test_route_denies_an_unpermitted_user_with_not_found` and `test_route_masks_invalid_input` (which also asserts no `errors` key is exposed). Both were mutation-checked: removing the two imports again fails exactly those two tests and nothing else.
+
+**Reviewed and found sound:** command-uuid idempotency (guarded by a `lockForUpdate` on the business row plus a business-scoped `command_uuid` lookup), tenant scoping on the sale and warranty lookups, and the not-covered decision branches.
+
+**Noted, not changed** — worth a decision rather than a silent edit:
+
+1. **Same-day claims may be rejected.** `decision()` compares `Carbon::parse($evidence['claimed_on'])` against `$sale->transaction_date`. A date-only `claimed_on` parses to midnight, so a claim made on the day of sale is `lessThan` a sale timestamped later that day and falls to `The claimed_on date is outside the recorded warranty term.` The end boundary has the mirror issue. Comparing at day granularity (`startOfDay`/`endOfDay`) would fix it, but which end is inclusive is a policy question.
+2. **Money is handled in floats.** `final_total`, covered and chargeable amounts are `(float)` with `round(..., 4)` against `decimal(22,4)` columns. Covered + chargeable is intended to equal the total exactly; float arithmetic does not guarantee that at the last place.
+3. **`saleWarranty()` takes the first matching sell line** for the variation with no ordering, so a sale with several lines for the same variation picks an arbitrary policy.
 
