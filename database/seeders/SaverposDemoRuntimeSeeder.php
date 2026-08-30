@@ -251,11 +251,21 @@ class SaverposDemoRuntimeSeeder extends Seeder
 
     private function location(int $businessId, string $name, int $schemeId, int $layoutId, $now): array
     {
+        $defaultPaymentAccounts = [];
+        foreach (['cash', 'card', 'cheque', 'bank_transfer', 'other', 'custom_pay_1', 'custom_pay_2', 'custom_pay_3', 'custom_pay_4', 'custom_pay_5', 'custom_pay_6', 'custom_pay_7'] as $paymentType) {
+            $defaultPaymentAccounts[$paymentType] = [
+                'is_enabled' => 1,
+                'account' => null,
+            ];
+        }
+
         return [
             'business_id' => $businessId, 'name' => $name, 'landmark' => 'Demo only', 'country' => 'Malaysia',
             'state' => 'Sabah', 'city' => 'Kota Kinabalu', 'zip_code' => '88000',
             'invoice_scheme_id' => $schemeId, 'invoice_layout_id' => $layoutId, 'sale_invoice_layout_id' => $layoutId,
-            'is_active' => 1, 'receipt_printer_type' => 'browser', 'created_at' => $now, 'updated_at' => $now,
+            'is_active' => 1, 'receipt_printer_type' => 'browser',
+            'default_payment_accounts' => json_encode($defaultPaymentAccounts),
+            'created_at' => $now, 'updated_at' => $now,
         ];
     }
 
