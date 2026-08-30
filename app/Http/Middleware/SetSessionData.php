@@ -18,10 +18,22 @@ class SetSessionData
      */
     public function handle($request, Closure $next)
     {
-        if (! $request->session()->has('user')) {
+        // JSON endpoints do not render the shared POS layout and therefore do
+        // not need browser-only business/currency session state.
+        if ($request->expectsJson()) {
+            return $next($request);
+        }
+
+        if (! $request->session()->has('user')
+            || ! $request->session()->has('business')
+            || ! $request->session()->has('currency')) {
             $business_util = new BusinessUtil;
 
             $user = Auth::user();
+            if (! $user || empty($user->business_id)) {
+                return $next($request);
+            }
+
             $session_data = ['id' => $user->id,
                 'surname' => $user->surname,
                 'first_name' => $user->first_name,
@@ -30,7 +42,10 @@ class SetSessionData
                 'business_id' => $user->business_id,
                 'language' => $user->language,
             ];
-            $business = Business::findOrFail($user->business_id);
+            $business = Business::find($user->business_id);
+            if (! $business || ! $business->currency) {
+                return $next($request);
+            }
 
             $currency = $business->currency;
             $currency_data = ['id' => $currency->id,

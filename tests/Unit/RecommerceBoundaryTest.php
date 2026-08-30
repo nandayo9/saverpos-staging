@@ -327,6 +327,7 @@ class RecommerceBoundaryTest extends TestCase
         $this->assertContains('POST', $postRoute->methods());
         $this->assertContains('web', $postRoute->middleware());
         $this->assertContains('auth', $postRoute->middleware());
+        $this->assertContains('SetSessionData', $postRoute->middleware());
         $this->assertNotNull($labelPrintRoute);
         $this->assertSame('recommerce/devices/{deviceId}/label/print', $labelPrintRoute->uri());
         $this->assertContains('POST', $labelPrintRoute->methods());
@@ -338,6 +339,7 @@ class RecommerceBoundaryTest extends TestCase
         $this->assertContains('GET', $receivingIndexRoute->methods());
         $this->assertContains('web', $receivingIndexRoute->middleware());
         $this->assertContains('auth', $receivingIndexRoute->middleware());
+        $this->assertContains('SetSessionData', $receivingIndexRoute->middleware());
         $this->assertContains('throttle:30,1', $receivingIndexRoute->middleware());
         $this->assertNotNull($reconciliationRoute);
         $this->assertNotNull($reconciliationIndexRoute);
