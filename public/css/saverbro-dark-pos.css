@@ -395,46 +395,68 @@ body .theme-header-bg {
   color: #ffe4e6 !important;
 }
 
-/* Dashboard charts inherit a white plugin canvas unless their wrapper is
-   explicitly themed. Keep the graph readable without changing its data. */
-.saverbro-dashboard .chart,
-.saverbro-dashboard .chart > div,
-.saverbro-dashboard .chart canvas,
-.saverbro-dashboard .chart svg {
+/* Dashboard charts inherit white utility surfaces and a white Highcharts
+   canvas. Keep the graph readable without changing its data. */
+.sb-dashboard-chart-card {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border) !important;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .2) !important;
+}
+
+.sb-dashboard-chart-frame,
+.sb-dashboard-chart-frame > div,
+.sb-dashboard-chart-frame canvas,
+.sb-dashboard-chart-frame svg,
+.sb-dashboard-chart-frame .highcharts-container {
   background: transparent !important;
 }
 
-.saverbro-dashboard .chart {
+.sb-dashboard-chart-frame {
+  background: #0d1726 !important;
+  border-color: var(--sb-border) !important;
   color: var(--sb-muted) !important;
 }
 
-.saverbro-dashboard .chart text,
-.saverbro-dashboard .chart .chart-legend {
+.sb-dashboard-chart-frame text,
+.sb-dashboard-chart-frame .chart-legend {
   fill: var(--sb-muted) !important;
   color: var(--sb-muted) !important;
 }
 
-#scrollable-container .highcharts-background,
-#scrollable-container .highcharts-button-box {
+#scrollable-container .sb-dashboard-chart-frame .highcharts-background {
   fill: #0d1726 !important;
 }
 
-#scrollable-container .highcharts-grid-line,
-#scrollable-container .highcharts-axis-line,
-#scrollable-container .highcharts-tick {
+#scrollable-container .sb-dashboard-chart-frame .highcharts-button-box {
+  fill: #152238 !important;
   stroke: var(--sb-border) !important;
 }
 
-#scrollable-container .highcharts-axis-labels text,
-#scrollable-container .highcharts-axis-title,
-#scrollable-container .highcharts-legend-item text,
-#scrollable-container .highcharts-title,
-#scrollable-container .highcharts-subtitle {
+#scrollable-container .sb-dashboard-chart-frame .highcharts-grid-line,
+#scrollable-container .sb-dashboard-chart-frame .highcharts-axis-line,
+#scrollable-container .sb-dashboard-chart-frame .highcharts-tick {
+  stroke: var(--sb-border) !important;
+}
+
+#scrollable-container .sb-dashboard-chart-frame .highcharts-axis-labels text,
+#scrollable-container .sb-dashboard-chart-frame .highcharts-axis-title,
+#scrollable-container .sb-dashboard-chart-frame .highcharts-legend-item text,
+#scrollable-container .sb-dashboard-chart-frame .highcharts-title,
+#scrollable-container .sb-dashboard-chart-frame .highcharts-subtitle {
   fill: var(--sb-muted) !important;
 }
 
-#scrollable-container .highcharts-button-symbol {
+#scrollable-container .sb-dashboard-chart-frame .highcharts-button-symbol {
   stroke: var(--sb-muted) !important;
+}
+
+#scrollable-container .sb-dashboard-chart-frame .highcharts-tooltip-box {
+  fill: #152238 !important;
+  stroke: var(--sb-border-strong) !important;
+}
+
+#scrollable-container .sb-dashboard-chart-frame .highcharts-tooltip text {
+  fill: var(--sb-text) !important;
 }
 
 /* DataTables and date widgets are injected after page load and otherwise

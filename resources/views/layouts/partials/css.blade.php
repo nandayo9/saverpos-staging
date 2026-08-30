@@ -86,7 +86,7 @@
 
 <!-- app css -->
 <link rel="stylesheet" href="{{ asset('css/app.css?v='.$asset_v) }}">
-<link rel="stylesheet" href="{{ asset('css/saverbro-dark-pos.css?v='.$asset_v) }}">
+<link rel="stylesheet" href="{{ asset('css/saverbro-dark-pos.css?v='.$asset_v.'&mtime='.filemtime(public_path('css/saverbro-dark-pos.css'))) }}">
 
 @if(isset($pos_layout) && $pos_layout)
 	<style type="text/css">

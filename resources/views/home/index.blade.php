@@ -423,7 +423,7 @@
                 @if (auth()->user()->can('sell.view') || auth()->user()->can('direct_sell.view'))
                     @if (!empty($all_locations))
                         <div
-                            class="tw-transition-all lg:tw-col-span-1 xl:tw-col-span-1 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
+                            class="sb-dashboard-chart-card tw-transition-all lg:tw-col-span-1 xl:tw-col-span-1 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                             <div class="tw-p-4 sm:tw-p-5">
                                 <div class="tw-flex tw-items-center tw-gap-2.5">
                                     <div
@@ -446,7 +446,7 @@
                                 </div>
                                 <div class="tw-mt-5">
                                     <div
-                                        class="tw-grid tw-w-full tw-h-100 tw-border tw-border-gray-200 tw-border-dashed tw-rounded-xl tw-bg-gray-50 ">
+                                        class="sb-dashboard-chart-frame tw-grid tw-w-full tw-h-100 tw-border tw-border-gray-200 tw-border-dashed tw-rounded-xl tw-bg-gray-50 ">
                                         <p class="tw-text-sm tw-italic tw-font-normal tw-text-gray-400">
                                             {!! $sells_chart_1->container() !!}
                                         </p>
@@ -463,7 +463,7 @@
                     @endif --}}
                     @if (!empty($all_locations))
                         <div
-                            class="tw-transition-all lg:tw-col-span-1 xl:tw-col-span-1 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
+                            class="sb-dashboard-chart-card tw-transition-all lg:tw-col-span-1 xl:tw-col-span-1 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                             <div class="tw-p-4 sm:tw-p-5">
                                 <div class="tw-flex tw-items-center tw-gap-2.5">
                                     <div
@@ -485,7 +485,7 @@
                                 </div>
                                 <div class="tw-mt-5">
                                     <div
-                                        class="tw-grid tw-w-full tw-h-100 tw-border tw-border-gray-200 tw-border-dashed tw-rounded-xl tw-bg-gray-50 ">
+                                        class="sb-dashboard-chart-frame tw-grid tw-w-full tw-h-100 tw-border tw-border-gray-200 tw-border-dashed tw-rounded-xl tw-bg-gray-50 ">
                                         <p class="tw-text-sm tw-italic tw-font-normal tw-text-gray-400">
                                             {!! $sells_chart_2->container() !!}
                                         </p>
