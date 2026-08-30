@@ -136,6 +136,102 @@ class SaverposDemoRuntimeSeeder extends Seeder
                 'source_movement_id' => $movement->id, 'reason' => 'DEMO_RECEIVE', 'recorded_by' => $userId,
             ]);
 
+            // Broader fictional catalog for ordinary POS, stock-transfer, and
+            // reconciliation testing. All rows remain inside this disposable
+            // business and are created through the same source purchase.
+            $extraProducts = [
+                ['name' => 'SaverBro Demo Smartphone', 'sku' => 'SAVERPOS-DEMO-PHONE', 'cost' => 650, 'sell' => 799, 'qty' => 3],
+                ['name' => 'SaverBro Demo Laptop', 'sku' => 'SAVERPOS-DEMO-LAPTOP', 'cost' => 1800, 'sell' => 2199, 'qty' => 2],
+                ['name' => 'SaverBro Demo CCTV Camera', 'sku' => 'SAVERPOS-DEMO-CAMERA', 'cost' => 220, 'sell' => 299, 'qty' => 6],
+                ['name' => 'SaverBro Demo Network Router', 'sku' => 'SAVERPOS-DEMO-ROUTER', 'cost' => 140, 'sell' => 199, 'qty' => 5],
+            ];
+            $extraPurchaseTotal = 0;
+            $extraPurchaseLines = [];
+            foreach ($extraProducts as $index => $extraProduct) {
+                $extraProductId = $this->insert('products', [
+                    'name' => $extraProduct['name'], 'business_id' => $businessId, 'type' => 'single', 'unit_id' => $unitId,
+                    'tax_type' => 'inclusive', 'enable_stock' => 1, 'alert_quantity' => 1,
+                    'sku' => $extraProduct['sku'], 'barcode_type' => 'C128', 'created_by' => $userId,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+                $extraVariationTemplateId = $this->insert('product_variations', [
+                    'name' => 'Default', 'product_id' => $extraProductId, 'is_dummy' => 1,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+                $extraVariationId = $this->insert('variations', [
+                    'name' => 'Default', 'product_id' => $extraProductId, 'product_variation_id' => $extraVariationTemplateId,
+                    'sub_sku' => $extraProduct['sku'], 'default_purchase_price' => $extraProduct['cost'],
+                    'dpp_inc_tax' => $extraProduct['cost'], 'profit_percent' => 0,
+                    'default_sell_price' => $extraProduct['sell'], 'sell_price_inc_tax' => $extraProduct['sell'],
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+                DB::table('product_locations')->insert([
+                    ['product_id' => $extraProductId, 'location_id' => $branchA],
+                    ['product_id' => $extraProductId, 'location_id' => $branchB],
+                ]);
+                DB::table('variation_location_details')->insert([
+                    ['product_id' => $extraProductId, 'product_variation_id' => $extraVariationTemplateId, 'variation_id' => $extraVariationId,
+                        'location_id' => $branchA, 'qty_available' => $extraProduct['qty'], 'created_at' => $now, 'updated_at' => $now],
+                ]);
+                $this->insert('recommerce_serialization_profiles', [
+                    'business_id' => $businessId, 'product_id' => $extraProductId, 'variation_id' => $extraVariationId,
+                    'mode' => 'TRACKED_REQUIRED', 'configured_by' => $userId,
+                    'approval_reference' => 'SAVERPOS-DEMO-CATALOG', 'effective_at' => $now,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+                $extraPurchaseTotal += $extraProduct['cost'] * $extraProduct['qty'];
+                $extraPurchaseLines[] = [$extraProductId, $extraVariationId, $extraProduct['cost'], $extraProduct['qty']];
+
+                for ($unit = 1; $unit <= $extraProduct['qty']; $unit++) {
+                    $extraDevice = Device::create([
+                        'business_id' => $businessId, 'device_uuid' => (string) \Illuminate\Support\Str::uuid(),
+                        'device_code' => sprintf('SB-DV-%08d-%d', $index + 2, $unit),
+                        'ownership_kind' => 'BUSINESS', 'custody_kind' => 'LOCATION', 'current_location_id' => $branchA,
+                        'product_id' => $extraProductId, 'variation_id' => $extraVariationId,
+                        'lifecycle_state' => 'AVAILABLE', 'stock_participation' => 'ON_HAND', 'lock_version' => 1,
+                        'created_by' => $userId, 'updated_by' => $userId,
+                    ]);
+                    $extraMovement = DeviceMovement::create([
+                        'device_id' => $extraDevice->id, 'business_id' => $businessId, 'movement_type' => 'RECEIVE',
+                        'from_custody_kind' => 'SUPPLIER', 'to_custody_kind' => 'LOCATION', 'to_location_id' => $branchA,
+                        'source_transaction_id' => $purchaseId, 'source_line_type' => 'purchase_line', 'occurred_at' => $now, 'recorded_by' => $userId,
+                    ]);
+                    OwnershipPeriod::create([
+                        'device_id' => $extraDevice->id, 'business_id' => $businessId, 'owner_kind' => 'BUSINESS',
+                        'starts_at' => $now, 'open_period_key' => $extraDevice->id, 'reason' => 'DEMO_RECEIVE', 'recorded_by' => $userId,
+                    ]);
+                    CustodyPeriod::create([
+                        'device_id' => $extraDevice->id, 'business_id' => $businessId, 'custody_kind' => 'LOCATION',
+                        'location_id' => $branchA, 'starts_at' => $now, 'open_period_key' => $extraDevice->id,
+                        'source_movement_id' => $extraMovement->id, 'reason' => 'DEMO_RECEIVE', 'recorded_by' => $userId,
+                    ]);
+                }
+            }
+            $extraSupplierId = $this->insert('contacts', [
+                'business_id' => $businessId, 'type' => 'supplier', 'supplier_business_name' => 'Demo Technology Supplier',
+                'name' => 'Demo Technology Supplier', 'contact_id' => 'SUP-DEMO-002', 'created_by' => $userId,
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+            foreach ([['Aisha Rahman', 'CUS-DEMO-002'], ['Daniel Lim', 'CUS-DEMO-003'], ['Mei Tan', 'CUS-DEMO-004']] as $customer) {
+                $this->insert('contacts', [
+                    'business_id' => $businessId, 'type' => 'customer', 'name' => $customer[0], 'contact_id' => $customer[1],
+                    'created_by' => $userId, 'created_at' => $now, 'updated_at' => $now,
+                ]);
+            }
+            $extraPurchaseId = $this->insert('transactions', [
+                'business_id' => $businessId, 'location_id' => $branchA, 'type' => 'purchase', 'status' => 'received',
+                'payment_status' => 'due', 'contact_id' => $extraSupplierId, 'ref_no' => 'PO-DEMO-002',
+                'transaction_date' => $now, 'total_before_tax' => $extraPurchaseTotal, 'final_total' => $extraPurchaseTotal,
+                'exchange_rate' => 1, 'created_by' => $userId, 'created_at' => $now, 'updated_at' => $now,
+            ]);
+            foreach ($extraPurchaseLines as $line) {
+                $this->insert('purchase_lines', [
+                    'transaction_id' => $extraPurchaseId, 'product_id' => $line[0], 'variation_id' => $line[1],
+                    'quantity' => $line[3], 'quantity_sold' => 0, 'purchase_price' => $line[2], 'purchase_price_inc_tax' => $line[2],
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+            }
+
             app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
             foreach ([
                 'purchase.create', 'stock_transfer.view', 'stock_transfer.create', 'stock_transfer.update', 'stock_transfer.delete',
@@ -149,7 +245,7 @@ class SaverposDemoRuntimeSeeder extends Seeder
             $role->syncPermissions(Permission::query()->where('guard_name', 'web')->get());
             User::query()->findOrFail($userId)->assignRole($role);
 
-            $this->command?->info("SAVERPOS demo fixture: business={$businessId}; branch_a={$branchA}; branch_b={$branchB}; variation={$variationId}; device=SB-DV-00000001-9");
+            $this->command?->info("SAVERPOS demo fixture: business={$businessId}; branch_a={$branchA}; branch_b={$branchB}; products=5; devices=17; variation={$variationId}; device=SB-DV-00000001-9");
         });
     }
 
