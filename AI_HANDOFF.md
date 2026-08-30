@@ -2,7 +2,7 @@
 
 Current milestone: Recommerce — tracked transfer exception workflow
 Last completed task: Landed RC-039 (warranty coverage and claim jobs) as commit `7d5adbc`, holding the blocked RC-041 lines out of the shared config and route files
-Last commit: `869bf36` + the cohort deny-by-default commit on `staging`, committed locally and **not yet pushed** to `https://github.com/nandayo9/saverpos-staging.git`. NOTE: the working tree is still dirty by design — the RC-039 warranty work and the blocked, undocumented RC-041 legacy repair archive remain uncommitted and were deliberately left untouched (see "Incoming-agent verification" below).
+Last commit: `2a4d24e` on `staging`. Ten commits are committed locally and **still unpushed** — the push cannot authenticate from an agent session; see "Push status" below to `https://github.com/nandayo9/saverpos-staging.git`. NOTE: the working tree is still dirty by design — the RC-039 warranty work and the blocked, undocumented RC-041 legacy repair archive remain uncommitted and were deliberately left untouched (see "Incoming-agent verification" below).
 Tests passing: **167 tests / 1056 assertions, all green** — verified 2026-08-30 (154/1013 inherited; +3 gate-invariant, +4 deny-by-default, +2 warranty-route, +2 warranty-boundary and +1 warranty-determinism test added this session; the previously recorded "150 / 981" was stale). `recommerce-static-check` passes.
 Known failures: none in the focused/full PHPUnit or static checks
 Browser evidence: fresh disposable MySQL fixture; rendered browser flow passed for receive, pending/completed A→B transfer, Branch B POS sale, exact-device customer return, Branch B reconciliation (`PASS · core 1 · tracked 1 · legacy 0`), complete Device timeline, and RC-037 receiving exceptions (`MISSING` + `EXTRA` recorded, one manager resolution)
@@ -244,4 +244,26 @@ Verified as a pure extraction rather than assumed: both views were rendered befo
 **One deliberate visual change, not a no-op:** `parts/show` previously used `padding:3px 9px` on its pills against `repair/index`'s `4px 10px`. The shared rule is `4px 10px`, so the parts pills are 1px larger each way — the point of the extraction being that the two screens now agree. Re-screenshotted to confirm the view still reads correctly.
 
 Suite green at 167 tests / 1056 assertions; static check passes.
+
+## Push status (2026-08-30) — blocked on credentials, not on the work
+
+`git push origin staging` fails from the desktop Linux workspace:
+
+```
+fatal: could not read Username for 'https://github.com': No such device or address
+```
+
+No credential helper is configured in the repo or globally there, and no token is present in the environment. The previous session's push came from macOS, where the credential lives in the keychain — which `device_bash` cannot reach, since it runs in an isolated Linux VM rather than on macOS itself. **This is an environment limit, not a repository problem, and no attempt was made to extract or solicit a credential.**
+
+State is a clean fast-forward and ready to go: local `2a4d24e`, `origin/staging` still at `4e68994`, ten commits ahead, zero behind. To push, run on the Mac:
+
+```
+cd ~/Downloads/UltimatePOS-V7.3/UltimatePOS-CodeBase-V7.3 && git push origin staging
+```
+
+**Note for whoever does:** the cPanel staging deployment pulls from this remote, so pushing changes what **Update from Remote** would bring to `pos.kkcctv.com.my`. Deployment still requires the manual cPanel steps; pushing alone deploys nothing.
+
+### Repository visibility
+
+While checking the remote, `git ls-remote` succeeded **anonymously** — the GitHub repository `nandayo9/saverpos-staging` is **public**, not private. It was audited on that basis and no live secret is exposed: `.env` is untracked and matched by `.gitignore` line 12, only `.env.example` and `.env.cpanel-staging.example` are tracked, and a scan of tracked files for app keys, database passwords, GitHub tokens and AWS keys returned only validation rules and translation strings. Still worth confirming the public setting is intentional for a POS codebase carrying deployment runbooks and the staging hostname.
 
