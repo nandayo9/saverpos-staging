@@ -58,6 +58,7 @@ return [
         'recommerce.repair.billing',
         'recommerce.repair.collection',
         'recommerce.repair.collection.override',
+        'recommerce.repair.archive',
         'recommerce.warranty.manage',
     ],
     'cohort' => [

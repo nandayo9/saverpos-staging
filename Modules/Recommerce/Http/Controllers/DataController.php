@@ -37,6 +37,7 @@ class DataController extends Controller
             'recommerce.repair.collection' => 'Collect customer repair devices',
             'recommerce.repair.collection.override' => 'Override unpaid repair collection',
             'recommerce.repair.billing' => 'Bill customer repair through POS',
+            'recommerce.repair.archive' => 'Archive legacy repair transaction evidence',
             'recommerce.warranty.manage' => 'Manage repair warranty claims',
         ];
 

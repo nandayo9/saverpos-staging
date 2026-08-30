@@ -114,6 +114,15 @@ Route::middleware(['auth', 'SetSessionData'])->prefix('recommerce')->group(funct
         ->middleware('throttle:20,1')
         ->name('recommerce.repair.intake');
 
+    Route::get('/repair/legacy-archive', 'LegacyRepairArchiveController@index')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.repair.legacy_archive.index');
+
+    Route::get('/repair/legacy-archive/{archiveId}', 'LegacyRepairArchiveController@show')
+        ->whereNumber('archiveId')
+        ->middleware('throttle:60,1')
+        ->name('recommerce.repair.legacy_archive.show');
+
     Route::get('/repair/{jobCode}', 'RepairJobController@show')
         ->where('jobCode', '[A-Za-z0-9-]+')
         ->middleware('throttle:60,1')
@@ -262,6 +271,10 @@ Route::middleware(['auth', 'SetSessionData'])->prefix('recommerce')->group(funct
         ->where('jobCode', '[A-Za-z0-9-]+')
         ->middleware('throttle:20,1')
         ->name('recommerce.repair.collection.repeat');
+
+    Route::post('/repair/legacy-archive', 'LegacyRepairArchiveController@store')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.repair.legacy_archive.store');
 
     Route::post('/repair/{jobCode}/warranty/claim', 'WarrantyClaimController@store')
         ->where('jobCode', '[A-Za-z0-9-]+')
