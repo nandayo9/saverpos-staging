@@ -706,6 +706,11 @@ retaining the sibling-live-directory mode as an explicit override/fallback.
 This is source evidence only until a successful run and served CSS fingerprint
 confirm the live result.
 
+The first automated run for this repair reached the cPanel job but failed during
+`VersionControl/update` with exit code 1, before deployment. This requires a
+one-time cPanel correction of the repository path/token/clean-tree setup; it is
+not a reason to reopen cPanel for every future GitHub push.
+
 **Payment-account repair now reaches the already-seeded estate (2026-08-30).**
 The earlier record said the deployed estate only had to rerun the expansion
 seeder before the Cash smoke. That was wrong: the complete POS

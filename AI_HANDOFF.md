@@ -1,6 +1,6 @@
 # AI Handoff
 
-Current milestone: Recommerce — staging Cash flow verified; GitHub-to-cPanel auto-deployment is being repaired
+Current milestone: Recommerce — staging Cash flow verified; GitHub-to-cPanel auto-deployment is blocked by one-time cPanel setup
 Last completed task: **Staging Cash smoke and complete receive → transfer → sale → return → reconciliation flow** — the fictional Branch B flow passed on 2026-08-30 after the existing demo mapping was corrected in Business Settings.
 Latest implementation commit: `a42846b` on `staging`; the branch is synchronized with `origin/staging` at workflow-fix commit `61fbc7f`. The working tree is dirty by design: the untracked files and the two modified shared files are the blocked RC-041 archive and must not be committed.
 Tests passing: **305 tests / 1311 assertions, all green** on PHP 8.2.33, zero deprecations, notices, warnings, skipped, incomplete or risky tests. `recommerce-static-check` passes.
@@ -9,10 +9,10 @@ Browser evidence: all 13 in-app screens rendered from real Blade against the rea
 P0/P1 issues: P0 closure passed; partial-return exact-device semantics and RC-037 receiving exceptions are defined and covered
 Blocked tasks: RC-038 trade-in (needs acquisition-accounting decision); RC-022 camera scan (asset/dependency decision + real hardware matrix); RC-040+ ops/data tasks need approved environments/data
 Hardware preflight: macOS exposes enabled printers `HP_Deskjet_2520_series` and `HP_DeskJet_2600_series` (default); no scanner/USB device was visible. This is inventory only, not physical validation.
-Next safe task: push the auto-deployment repair, verify the GitHub Actions pull-and-deploy run, and confirm a served asset matches the published checkout. The workflow now retries and validates both cPanel UAPI calls; the deploy script auto-detects whether cPanel serves the managed repository directly or a sibling live directory. Do not advance RC-045/RC-046 from this flow evidence alone.
+Next safe task: make the one-time cPanel repository/token setup correction, then verify one successful GitHub Actions pull-and-deploy run and a served asset matching the published checkout. The workflow now retries and validates both cPanel UAPI calls; normal pushes should not require reopening cPanel. Do not advance RC-045/RC-046 from this flow evidence alone.
 Files/areas currently sensitive: `app/Http/Controllers/SellPosController.php` (single delete hook), `app/Http/Controllers/StockTransferController.php` (transfer seam), `Modules/Recommerce/**`, `.env`, `scripts/*demo-runtime*` (disposable demo DB only — never production)
 Architecture decisions required: acquisition accounting (RC-038), camera-scan dependency sourcing (RC-022), notification channel (RC-043)
-Hosting prep: iCore cPanel has PHP 8.2, MySQL, and Let's Encrypt SSL. The served `public/css/saverbro-dark-pos.css` hash remains `3c2ab4f7…` while the local published checkout is `798306ec…`; the GitHub-to-cPanel automation repair is not live-verified yet. No cPanel credentials or database password are present in this checkout.
+Hosting prep: iCore cPanel has PHP 8.2, MySQL, and Let's Encrypt SSL. Workflow run `33300510311` for the automation repair reached cPanel but failed with exit code 1 during repository update, before deployment. The served `public/css/saverbro-dark-pos.css` hash remains `3c2ab4f7…` while the local published checkout is `798306ec…`; the dark UI is not live. No cPanel credentials or database password are present in this checkout.
 
 ## START HERE — handover (2026-08-30)
 
