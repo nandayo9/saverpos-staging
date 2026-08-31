@@ -1,7 +1,7 @@
 # RC-038 Trade-in acquisition decision record
 
-**Status:** Implemented and committed locally on 2026-08-31; not pushed or
-deployed. Browser-proven on an isolated MySQL fixture through accepted native
+**Status:** Implemented and deployed to the fictional staging estate at
+commit `1459d68` on 2026-08-31. Browser-proven on an isolated MySQL fixture through accepted native
 purchase **and native settlement**. The required-test list below is closed and
 the deferred-settlement boundary is now evidenced (see "Native settlement
 proof"). The one remaining gap is reversal, which **cannot be browser-proven at
