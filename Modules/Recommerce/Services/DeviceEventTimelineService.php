@@ -27,6 +27,7 @@ class DeviceEventTimelineService
             'event_uuid' => $event->event_uuid,
             'event_version' => $event->event_version === null ? null : (int) $event->event_version,
             'event_type' => $event->event_type,
+            'label' => $this->label($event->event_type),
             'source_command_uuid' => $event->source_command_uuid,
             'source_transaction_id' => $event->source_transaction_id === null
                 ? null
@@ -52,5 +53,15 @@ class DeviceEventTimelineService
             'replaced_token_id',
             'device_code',
         ]));
+    }
+
+    protected function label(string $eventType): string
+    {
+        return [
+            'TRANSFER_PREPARED' => 'Selected for transfer',
+            'TRANSFER_DISPATCHED' => 'Dispatched — in transit',
+            'TRANSFER_RECEIVED_SCAN' => 'Received at destination',
+            'TRANSFER_COMPLETED' => 'Transfer completed — available in destination inventory',
+        ][$eventType] ?? ucwords(strtolower(str_replace('_', ' ', $eventType)));
     }
 }

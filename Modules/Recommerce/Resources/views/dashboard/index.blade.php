@@ -18,12 +18,12 @@
     <div class="row">
         <div class="col-sm-8">
             <div class="text-muted" style="letter-spacing:.08em;text-transform:uppercase;font-size:11px;font-weight:700">SAVERPOS · Recommerce</div>
-            <h1 id="recommerce-operations-title" style="margin-top:6px">Device Pipeline</h1>
+            <h1 id="recommerce-operations-title" style="margin-top:6px">Device Overview</h1>
             <p class="text-muted">Follow business-owned Devices from receiving through inspection, refurbishment, QC, and ready-for-sale status at this branch.</p>
         </div>
         <div class="col-sm-4 text-right" style="margin: 5px 0 18px">
             @can('purchase.create')<a class="btn btn-primary" href="{{ action([\App\Http\Controllers\PurchaseController::class, 'create']) }}"><i class="fa fa-plus"></i> New stock purchase</a>@endcan
-            @if ($canReceive)<a class="btn btn-default" href="{{ action([\App\Http\Controllers\PurchaseController::class, 'index']) }}">Receive Devices</a>@endif
+            @if ($canReceive)<a class="btn btn-default" href="{{ action([\App\Http\Controllers\PurchaseController::class, 'index']) }}">Receive stock from Purchases</a>@endif
         </div>
     </div>
 
@@ -35,7 +35,7 @@
         <div class="col-sm-4"><div class="box box-warning sb-ops-card"><div class="box-body"><strong>Repair required</strong><span class="metric">{{ (int) optional($deviceCounts)->repair_required }}</span><p class="text-muted">{{ $repairJobs->where('job_type', 'INTERNAL_REFURBISHMENT')->count() }} active refurbishment job(s)</p><a href="{{ route('recommerce.repair.index') }}">Open refurbishment <i class="fa fa-arrow-right"></i></a></div></div></div>
         @endif
         @if ($canReconcile)
-        <div class="col-sm-4"><div class="box box-success sb-ops-card"><div class="box-body"><strong>Ready for sale</strong><span class="metric">{{ (int) optional($deviceCounts)->ready_for_sale }}</span><p class="text-muted">{{ (int) optional($deviceCounts)->reserved }} reserved · {{ $repairJobs->where('state', 'QC')->count() }} awaiting QC</p><a href="{{ route('recommerce.devices.index') }}">Open Devices <i class="fa fa-arrow-right"></i></a></div></div></div>
+        <div class="col-sm-4"><div class="box box-success sb-ops-card"><div class="box-body"><strong>Ready for sale</strong><span class="metric">{{ (int) optional($deviceCounts)->ready_for_sale }}</span><p class="text-muted">{{ (int) optional($deviceCounts)->reserved }} reserved · {{ $repairJobs->where('state', 'QC')->count() }} awaiting QC</p><a href="{{ route('recommerce.devices.index') }}">Open Device Registry <i class="fa fa-arrow-right"></i></a></div></div></div>
         @endif
     </div>
 
@@ -50,8 +50,8 @@
         <div class="col-md-5">
             <div class="box box-default"><div class="box-header with-border"><h3 class="box-title">Operator workflow</h3></div><div class="box-body">
                 @can('purchase.create')<a class="btn btn-default btn-block" href="{{ action([\App\Http\Controllers\PurchaseController::class, 'create']) }}">1. Purchase stock</a>@endcan
-                @if ($canReceive)<a class="btn btn-default btn-block" href="{{ action([\App\Http\Controllers\PurchaseController::class, 'index']) }}">2. Receive Devices</a>@endif
-                @if ($canViewDevices)<a class="btn btn-default btn-block" href="{{ route('recommerce.devices.index') }}">3. Inspect Devices and print labels</a>@endif
+                @if ($canReceive)<a class="btn btn-default btn-block" href="{{ action([\App\Http\Controllers\PurchaseController::class, 'index']) }}">2. Receive stock and identify devices</a>@endif
+                @if ($canViewDevices)<a class="btn btn-default btn-block" href="{{ route('recommerce.inspection.index') }}">3. Inspect identified devices</a>@endif
                 @if ($canRepairIntake)<a class="btn btn-default btn-block" href="{{ route('recommerce.repair.internal.create') }}">4. Refurbishment</a>@endif
                 @if ($canReconcile)<a class="btn btn-default btn-block" href="{{ route('recommerce.reconciliation.index') }}">5. Stock Check</a>@endif
             </div></div>

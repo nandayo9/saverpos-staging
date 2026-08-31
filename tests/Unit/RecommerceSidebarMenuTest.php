@@ -18,4 +18,16 @@ class RecommerceSidebarMenuTest extends TestCase
             $source
         );
     }
+
+    public function test_staff_navigation_prioritizes_existing_devices_and_inspection_without_a_generic_receiving_dead_end(): void
+    {
+        $source = file_get_contents(base_path('app/Http/Middleware/AdminSidebarMenu.php'));
+
+        $this->assertStringContainsString("route('recommerce.devices.index')", $source);
+        $this->assertStringContainsString("'Find Device'", $source);
+        $this->assertStringContainsString("route('recommerce.inspection.index')", $source);
+        $this->assertStringContainsString("'Inspection Queue'", $source);
+        $this->assertStringContainsString("auth()->user()->can('recommerce.inspection.view')", $source);
+        $this->assertStringNotContainsString("route('recommerce.receiving.index'),\n                                'Purchase receiving'", $source);
+    }
 }

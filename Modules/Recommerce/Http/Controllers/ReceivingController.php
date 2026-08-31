@@ -54,6 +54,12 @@ class ReceivingController extends Controller
             (int) $locationId,
             (int) $selectedLine->variation_id
         );
+        $canViewInspection = $authorizationGate->allowsRead(
+            $user,
+            'recommerce.inspection.view',
+            $businessId,
+            (int) $locationId
+        );
         $registeredDevices = $selectedLine === null ? collect() : DB::table('recommerce_device_purchase_assignments as dpa')
             ->join('recommerce_devices as d', 'd.id', '=', 'dpa.device_id')
             ->where('dpa.business_id', $businessId)
@@ -67,6 +73,7 @@ class ReceivingController extends Controller
             'purchaseContext' => $purchaseContext,
             'postEnabled' => $postEnabled,
             'canOverrideCost' => $canOverrideCost,
+            'canViewInspection' => $canViewInspection,
             // Retained for integrations that render this workspace through an
             // existing response decorator. Reconciliation is linked from the
             // purchase-led screen; it is not a receiving prerequisite.
@@ -107,8 +114,14 @@ class ReceivingController extends Controller
                 || $authorizationGate->allowsRead($user, 'recommerce.receiving.prepare', $businessId, $locationId, (int) $line->variation_id);
         })->values();
 
+        $visibleSerializedLines = $context['lines']->where('tracking_mode', DeviceReceivingProgressService::TRACKING_SERIALIZED_DEVICE);
+        foreach (['expected_count', 'registered_count', 'remaining_count', 'inspection_cleared_count', 'inspection_open_count', 'inspection_failed_count', 'label_view_opened_count', 'label_confirmed_count', 'label_remaining_count'] as $field) {
+            $context[$field] = (int) $visibleSerializedLines->sum($field);
+        }
+        $context['serialized_line_count'] = $visibleSerializedLines->count();
+
         $selectedLineId = (int) $request->query('purchase_line_id', 0);
-        $serializedLines = $context['lines']->where('tracking_mode', DeviceReceivingProgressService::TRACKING_SERIALIZED_DEVICE);
+        $serializedLines = $visibleSerializedLines;
         $selectedLine = $selectedLineId > 0
             ? $serializedLines->firstWhere('id', $selectedLineId)
             : ($serializedLines->count() === 1 ? $serializedLines->first() : $serializedLines->firstWhere('remaining_count', '>', 0));
@@ -390,16 +403,27 @@ class ReceivingController extends Controller
     protected function safeAttachmentMessage(\Throwable $exception): string
     {
         $message = $exception->getMessage();
-        $allowed = [
-            'The supplied Device count exceeds the unassigned units on the selected POS purchase line.',
-            'Receiving command contains an identifier already registered to a Device.',
-            'Purchase attachment contains an identifier already registered to a Device.',
-            'An acquisition-cost override requires a reason.',
-            'Other acquisition-cost overrides require notes.',
+        $messages = [
+            'The supplied Device count exceeds the unassigned units on the selected POS purchase line.'
+                => 'This batch is larger than the number of devices still needing identification. Refresh to see the latest progress.',
+            'Receiving command contains an identifier already registered to a Device.'
+                => 'This identifier is already registered to a Device.',
+            'Purchase attachment contains an identifier already registered to a Device.'
+                => 'This identifier is already registered to a Device.',
+            'Purchase attachment contains a duplicate identifier.'
+                => 'This identifier appears more than once in the current batch.',
+            'The selected POS purchase line is not an eligible received stock line.'
+                => 'This purchase line is not ready for device identification. Refresh the purchase and check its receiving status.',
+            'The selected purchase line does not require Device registration.'
+                => 'This product does not require individual device identification.',
+            'Idempotency key was reused for a different request.'
+                => 'This receiving request changed while it was being retried. Refresh and try again.',
+            'An acquisition-cost override requires a reason.'
+                => 'Choose a reason for the acquisition-cost change.',
+            'Other acquisition-cost overrides require notes.'
+                => 'Add a note explaining the acquisition-cost change.',
         ];
 
-        return in_array($message, $allowed, true)
-            ? $message
-            : 'Purchase attachment was rejected.';
+        return $messages[$message] ?? 'This batch could not be registered. Refresh the purchase and try again.';
     }
 }

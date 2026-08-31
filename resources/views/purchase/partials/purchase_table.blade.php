@@ -11,7 +11,7 @@
             <th>@lang('purchase.location')</th>
             <th>@lang('purchase.supplier')</th>
             <th>@lang('purchase.purchase_status')</th>
-            @if (!empty($deviceReceivingEnabled))<th>Device receiving</th>@endif
+            @if (!empty($deviceReceivingEnabled))<th>Receiving progress</th>@endif
             <th class="add_without_price_hide">@lang('purchase.payment_status')</th>
             <th class="add_without_price_hide">@lang('purchase.grand_total')</th>
             @php

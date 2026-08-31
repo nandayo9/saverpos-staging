@@ -24,7 +24,7 @@ class DashboardDarkThemeTest extends TestCase
         $this->assertStringContainsString('sb-dashboard-kpi-grid', $view);
         $this->assertStringContainsString('Total Sale', $view);
         $this->assertStringContainsString('Total Purchase', $view);
-        $this->assertStringContainsString('Total Visits today', $view);
+        $this->assertStringContainsString('Total Walk-In', $view);
         $this->assertStringContainsString('walk_in_total', $view);
         $this->assertStringContainsString('Total Sell Transaction', $view);
         $this->assertStringContainsString('Total Expenses', $view);
@@ -39,7 +39,7 @@ class DashboardDarkThemeTest extends TestCase
         $this->assertStringContainsString('Most Available Model', $view);
         $this->assertStringContainsString('most_available_models_table', $view);
         $this->assertStringContainsString('most_available_models_location', $view);
-        $this->assertStringContainsString('Branch Performance This Month', $view);
+        $this->assertStringContainsString('Branch Performance', $view);
         $this->assertStringContainsString('branch_performance_table', $view);
         $this->assertStringContainsString('branch_performance_period', $view);
         $this->assertStringContainsString('sb-account-menu', $header);

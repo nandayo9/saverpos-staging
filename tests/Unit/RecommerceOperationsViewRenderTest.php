@@ -55,7 +55,12 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $this->assertStringContainsString('SB-DV-00000001-9', $html);
         $this->assertStringContainsString('SaverBro Demo Device', $html);
         $this->assertStringContainsString('Product unavailable', $html);
-        $this->assertStringContainsString('Tracked receiving', $html);
+        $this->assertStringContainsString('Receive stock from Purchases', $html);
+        $this->assertStringContainsString('Device Registry', $html);
+        $this->assertStringContainsString('Find and investigate an existing physical device', $html);
+        $this->assertStringContainsString('Ready for sale', $html);
+        $this->assertStringContainsString('SaverBro location', $html);
+        $this->assertStringNotContainsString('Add Device', $html);
     }
 
     public function test_the_device_registry_hides_receiving_and_shows_its_empty_state(): void
@@ -65,8 +70,28 @@ class RecommerceOperationsViewRenderTest extends TestCase
         ]);
 
         $this->assertStringContainsString('No authorized devices matched this search.', $html);
-        $this->assertStringNotContainsString('Tracked receiving', $html);
+        $this->assertStringNotContainsString('Receive stock from Purchases', $html);
         $this->assertStringContainsString('Clear', $html);
+    }
+
+    public function test_find_device_exposes_the_safe_phone_camera_qr_path(): void
+    {
+        $html = $this->renderRecommerceView('recommerce::scans.index', [
+            'canReceive' => true,
+            'canRepair' => false,
+        ]);
+
+        $this->assertStringContainsString('Find Device', $html);
+        $this->assertStringContainsString('id="recommerce-open-camera"', $html);
+        $this->assertStringContainsString('id="recommerce-scan-camera"', $html);
+        $this->assertStringContainsString('navigator.mediaDevices.getUserMedia', $html);
+        $this->assertStringContainsString("facingMode: { ideal: 'environment' }", $html);
+        $this->assertStringContainsString("new BarcodeDetector({ formats: ['qr_code'] })", $html);
+        $this->assertStringContainsString('stream.getTracks().forEach(track => track.stop())', $html);
+        $this->assertStringContainsString("stopCamera('Device scan captured. Resolving…')", $html);
+        $this->assertStringContainsString('resolveButton.click()', $html);
+        $this->assertStringContainsString('Camera scanning requires HTTPS (or localhost) and browser camera permission.', $html);
+        $this->assertStringContainsString('This browser does not provide QR detection.', $html);
     }
 
     public function test_the_operations_dashboard_shows_only_the_cards_a_role_may_see(): void
@@ -75,7 +100,11 @@ class RecommerceOperationsViewRenderTest extends TestCase
             'locationId' => 1,
             'canViewDevices' => true, 'canViewRepairs' => true, 'canReconcile' => true,
             'canReceive' => true, 'canRepairIntake' => true,
-            'deviceCounts' => (object) ['total' => 17, 'on_hand' => 15, 'reserved' => 2],
+            'deviceCounts' => (object) [
+                'total' => 17, 'on_hand' => 15, 'reserved' => 2,
+                'received_today' => 4, 'awaiting_inspection' => 3,
+                'repair_required' => 1, 'ready_for_sale' => 10,
+            ],
             'repairJobs' => collect([(object) [
                 'job_type' => 'INTERNAL_REFURBISHMENT', 'job_code' => 'SB-RP-00000009',
                 'state' => 'IN_REPAIR', 'priority' => 'NORMAL', 'device' => null,
@@ -84,10 +113,11 @@ class RecommerceOperationsViewRenderTest extends TestCase
         ];
 
         $full = $this->renderRecommerceView('recommerce::dashboard.index', $data);
-        $this->assertStringContainsString('17', $full);
-        $this->assertStringContainsString('15 on hand · 2 reserved', $full);
-        $this->assertStringContainsString('Open device registry', $full);
-        $this->assertStringContainsString('Open reconciliation', $full);
+        $this->assertStringContainsString('Received today', $full);
+        $this->assertStringContainsString('4', $full);
+        $this->assertStringContainsString('3 awaiting inspection', $full);
+        $this->assertStringContainsString('Open Device Registry', $full);
+        $this->assertStringContainsString('Stock Check', $full);
         $this->assertStringContainsString('SB-RP-00000009', $full);
         // A refurbishment row whose device row is missing must still render.
         $this->assertStringContainsString('Unavailable', $full);
@@ -95,9 +125,165 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $reader = $this->renderRecommerceView('recommerce::dashboard.index', array_merge($data, [
             'canViewDevices' => false, 'canReconcile' => false, 'canReceive' => false,
         ]));
-        $this->assertStringNotContainsString('Open device registry', $reader);
-        $this->assertStringNotContainsString('Open reconciliation', $reader);
-        $this->assertStringContainsString('Open internal workbench', $reader);
+        $this->assertStringNotContainsString('Open Device Registry', $reader);
+        $this->assertStringNotContainsString('Stock Check', $reader);
+        $this->assertStringContainsString('Open refurbishment', $reader);
+    }
+
+    public function test_purchase_receiving_renders_partial_progress_without_operator_serialization_language(): void
+    {
+        $line = (object) [
+            'id' => 707, 'product_id' => 202, 'variation_id' => 303,
+            'product_name' => 'ThinkPad T14', 'variation_name' => 'Default',
+            'tracking_mode' => 'SERIALIZED_DEVICE', 'inspection_required' => true,
+            'expected_count' => 10, 'registered_count' => 7, 'remaining_count' => 3,
+            'inspection_cleared_count' => 2, 'inspection_open_count' => 5,
+            'inspection_failed_count' => 0, 'is_whole_unit' => true,
+            'default_unit_acquisition_cost' => 1850,
+        ];
+        $html = $this->renderRecommerceView('recommerce::receiving.index', [
+            'purchaseContext' => [
+                'purchase' => (object) [
+                    'id' => 606, 'ref_no' => 'PO-1048', 'invoice_no' => null,
+                    'supplier_business_name' => 'ABC Computers', 'supplier_name' => null,
+                    'location_name' => 'Karamunsing Branch', 'transaction_date' => '2026-08-31',
+                ],
+                'lines' => collect([$line]), 'selected_line' => $line,
+                'expected_count' => 10, 'registered_count' => 7, 'remaining_count' => 3,
+                'inspection_cleared_count' => 2,
+            ],
+            'locationId' => 101, 'postEnabled' => true, 'canOverrideCost' => false,
+            'canViewInspection' => true, 'registeredDevices' => collect(), 'reconciliationRecordEnabled' => false,
+        ]);
+
+        $this->assertStringContainsString('Receive Stock', $html);
+        $this->assertStringContainsString('7 / 10 registered · 3 remaining', $html);
+        $this->assertStringContainsString('id="ready-count">2', $html);
+        $this->assertStringContainsString('id="line-inspection-707"', $html);
+        $this->assertStringContainsString('2 ready · 5 awaiting inspection', $html);
+        $this->assertStringContainsString("lineAwaitingInspection += awaitingAdded", $html);
+        $this->assertStringContainsString("lineProgressBar.style.width", $html);
+        $this->assertStringContainsString("lineAction.textContent = 'View devices'", $html);
+        $this->assertStringContainsString('Manufacturer Serial / Service Tag', $html);
+        $this->assertStringContainsString('Register &amp; Print Label', $html);
+        $this->assertStringNotContainsString('Serialization', $html);
+        $this->assertStringNotContainsString('serialized product line', $html);
+    }
+
+    public function test_purchase_receiving_renders_a_clear_completion_state_and_next_actions(): void
+    {
+        $line = (object) [
+            'id' => 707, 'product_id' => 202, 'variation_id' => 303,
+            'product_name' => 'ThinkPad T14', 'variation_name' => 'Default',
+            'tracking_mode' => 'SERIALIZED_DEVICE', 'inspection_required' => true,
+            'expected_count' => 10, 'registered_count' => 10, 'remaining_count' => 0,
+            'inspection_cleared_count' => 0, 'inspection_open_count' => 10,
+            'inspection_failed_count' => 0, 'is_whole_unit' => true,
+            'default_unit_acquisition_cost' => 1850,
+        ];
+        $html = $this->renderRecommerceView('recommerce::receiving.index', [
+            'purchaseContext' => [
+                'purchase' => (object) [
+                    'id' => 606, 'ref_no' => 'PO-1048', 'invoice_no' => null,
+                    'supplier_business_name' => 'ABC Computers', 'supplier_name' => null,
+                    'location_name' => 'Karamunsing Branch', 'transaction_date' => '2026-08-31',
+                ],
+                'lines' => collect([$line]), 'selected_line' => $line,
+                'expected_count' => 10, 'registered_count' => 10, 'remaining_count' => 0,
+                'inspection_cleared_count' => 0, 'inspection_open_count' => 10,
+            ],
+            'locationId' => 101, 'postEnabled' => true, 'canOverrideCost' => false,
+            'canViewInspection' => true, 'registeredDevices' => collect(), 'reconciliationRecordEnabled' => false,
+        ]);
+
+        $this->assertStringContainsString('Receiving Complete', $html);
+        $this->assertStringContainsString('10 / 10', $html);
+        $this->assertStringContainsString('Open Inspection Queue', $html);
+        $this->assertStringContainsString('id="inspection-waiting-count">10', $html);
+        $this->assertStringContainsString('id="inspection-waiting-grammar">devices are', $html);
+        $this->assertStringContainsString('Return to purchases', $html);
+        $this->assertStringContainsString('View devices', $html);
+    }
+
+    public function test_purchase_receiving_does_not_offer_the_inspection_queue_without_permission(): void
+    {
+        $line = (object) [
+            'id' => 707, 'product_id' => 202, 'variation_id' => 303,
+            'product_name' => 'ThinkPad T14', 'variation_name' => 'Default',
+            'tracking_mode' => 'SERIALIZED_DEVICE', 'inspection_required' => true,
+            'expected_count' => 1, 'registered_count' => 1, 'remaining_count' => 0,
+            'inspection_cleared_count' => 0, 'inspection_open_count' => 1,
+            'inspection_failed_count' => 0, 'is_whole_unit' => true,
+            'default_unit_acquisition_cost' => 1850,
+        ];
+        $html = $this->renderRecommerceView('recommerce::receiving.index', [
+            'purchaseContext' => [
+                'purchase' => (object) [
+                    'id' => 606, 'ref_no' => 'PO-1048', 'invoice_no' => null,
+                    'supplier_business_name' => 'ABC Computers', 'supplier_name' => null,
+                    'location_name' => 'Karamunsing Branch', 'transaction_date' => '2026-08-31',
+                ],
+                'lines' => collect([$line]), 'selected_line' => $line,
+                'expected_count' => 1, 'registered_count' => 1, 'remaining_count' => 0,
+                'inspection_cleared_count' => 0, 'inspection_open_count' => 1,
+            ],
+            'locationId' => 101, 'postEnabled' => true, 'canOverrideCost' => false,
+            'canViewInspection' => false, 'registeredDevices' => collect(), 'reconciliationRecordEnabled' => false,
+        ]);
+
+        $this->assertStringNotContainsString('Open Inspection Queue', $html);
+        $this->assertStringContainsString('Ask a supervisor with inspection access to continue', $html);
+    }
+
+    public function test_purchase_receiving_explains_mixed_tracked_and_ordinary_lines(): void
+    {
+        $thinkpad = (object) [
+            'id' => 701, 'product_id' => 201, 'variation_id' => 301,
+            'product_name' => 'ThinkPad T14', 'variation_name' => 'Default',
+            'tracking_mode' => 'SERIALIZED_DEVICE', 'inspection_required' => true,
+            'expected_count' => 10, 'registered_count' => 10, 'remaining_count' => 0,
+            'inspection_cleared_count' => 0, 'inspection_open_count' => 10,
+            'inspection_failed_count' => 0, 'is_whole_unit' => true, 'default_unit_acquisition_cost' => 1800,
+        ];
+        $dell = (object) [
+            'id' => 702, 'product_id' => 202, 'variation_id' => 302,
+            'product_name' => 'Dell Latitude', 'variation_name' => 'Default',
+            'tracking_mode' => 'SERIALIZED_DEVICE', 'inspection_required' => true,
+            'expected_count' => 5, 'registered_count' => 3, 'remaining_count' => 2,
+            'inspection_cleared_count' => 0, 'inspection_open_count' => 3,
+            'inspection_failed_count' => 0, 'is_whole_unit' => true, 'default_unit_acquisition_cost' => 1600,
+        ];
+        $mouse = (object) [
+            'id' => 703, 'product_id' => 203, 'variation_id' => 303,
+            'product_name' => 'Wireless Mouse', 'variation_name' => 'Default',
+            'tracking_mode' => 'BULK', 'inspection_required' => false,
+            'expected_count' => 0, 'registered_count' => 0, 'remaining_count' => 0,
+            'inspection_cleared_count' => 0, 'inspection_open_count' => 0,
+            'inspection_failed_count' => 0, 'is_whole_unit' => true, 'default_unit_acquisition_cost' => 25,
+        ];
+
+        $html = $this->renderRecommerceView('recommerce::receiving.index', [
+            'purchaseContext' => [
+                'purchase' => (object) [
+                    'id' => 600, 'ref_no' => 'PO-MIXED', 'invoice_no' => null,
+                    'supplier_business_name' => 'Mixed Supplier', 'supplier_name' => null,
+                    'location_name' => 'Branch A', 'transaction_date' => '2026-08-31',
+                ],
+                'lines' => collect([$thinkpad, $dell, $mouse]), 'selected_line' => $dell,
+                'expected_count' => 15, 'registered_count' => 13, 'remaining_count' => 2,
+                'inspection_cleared_count' => 0, 'inspection_open_count' => 13,
+            ],
+            'locationId' => 101, 'postEnabled' => true, 'canOverrideCost' => false,
+            'canViewInspection' => true, 'registeredDevices' => collect(), 'reconciliationRecordEnabled' => false,
+        ]);
+
+        $this->assertStringContainsString('ThinkPad T14', $html);
+        $this->assertStringContainsString('10 / 10', $html);
+        $this->assertStringContainsString('Dell Latitude', $html);
+        $this->assertStringContainsString('3 / 5', $html);
+        $this->assertStringContainsString('2 remaining', $html);
+        $this->assertStringContainsString('Wireless Mouse', $html);
+        $this->assertStringContainsString('Received · ordinary stock · no device identification required', $html);
     }
 
     public function test_reconciliation_offers_a_location_switch_only_when_there_is_more_than_one(): void

@@ -19,7 +19,7 @@
         @if (!empty($deviceReceivingEnabled))
             <div class="alert alert-info" role="status">
                 <strong><i class="fa fa-cubes" aria-hidden="true"></i> Device receiving.</strong>
-                Add stock here as normal. Purchases containing tracked Devices show their registration progress and a <em>Receive Devices</em> action.
+                Add stock here as normal. Purchases containing tracked devices show identification progress and the next receiving action.
             </div>
             <input id="purchase_device_receiving_enabled" type="hidden" value="1">
         @endif
@@ -29,8 +29,8 @@
             @endphp
             <div class="alert alert-success" role="status">
                 <strong>Purchase {{ $notice['reference'] }} received successfully.</strong>
-                {{ $notice['expected'] }} Devices require registration. {{ $notice['registered'] }} / {{ $notice['expected'] }} registered.
-                <a class="btn btn-success btn-sm pull-right" href="{{ $notice['url'] }}">Receive {{ $notice['remaining'] }} Devices</a>
+                {{ $notice['expected'] }} tracked {{ (int) $notice['expected'] === 1 ? 'device requires' : 'devices require' }} identification. {{ $notice['registered'] }} / {{ $notice['expected'] }} identified.
+                <a class="btn btn-success btn-sm pull-right" href="{{ $notice['url'] }}">Scan {{ $notice['remaining'] }} device{{ (int) $notice['remaining'] === 1 ? '' : 's' }}</a>
             </div>
         @endif
         @component('components.filters', ['title' => __('report.filters')])

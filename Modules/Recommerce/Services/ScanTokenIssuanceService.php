@@ -22,8 +22,9 @@ class ScanTokenIssuanceService
     }
 
     /**
-     * Issue a token once. The raw token is returned only to the caller and is
-     * never stored in the database or written to application logs.
+     * Issue a token once. The raw token is returned only to the authorized
+     * caller and is never written to application logs. Labels issued under
+     * V2.2 retain it only in the encrypted model attribute for exact reprints.
      */
     public function issue(User $user, Device $device, bool $rotate = false): array
     {
@@ -55,6 +56,61 @@ class ScanTokenIssuanceService
         callable $renderer
     ): array {
         return $this->issueAndPrepare($user, $device, $rotate, $renderer);
+    }
+
+    /**
+     * Reuse the permanent QR identity for an ordinary physical reprint. New
+     * labels are issued only once; token rotation remains an exceptional,
+     * explicitly authorised recovery action.
+     */
+    public function issueOrReuseForLabel(User $user, Device $device, callable $renderer): array
+    {
+        if (! is_string(config('recommerce.resolver_host')) || config('recommerce.resolver_host') === '') {
+            throw new InvalidArgumentException('Resolver host is required before token issuance.');
+        }
+
+        $this->assertIssuanceScope($user, $device, false);
+
+        return DB::transaction(function () use ($user, $device, $renderer) {
+            $lockedDevice = Device::query()
+                ->where('id', $device->id)
+                ->where('business_id', $user->business_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $this->assertIssuanceScope($user, $lockedDevice, false);
+
+            $activeToken = ScanToken::query()
+                ->where('business_id', $user->business_id)
+                ->where('device_id', $lockedDevice->id)
+                ->where('subject_type', 'DEVICE')
+                ->where('status', 'ACTIVE')
+                ->lockForUpdate()
+                ->first();
+
+            if ($activeToken) {
+                $rawToken = $activeToken->raw_token_encrypted;
+                if (! is_string($rawToken) || preg_match('/^[A-Fa-f0-9]{64}$/D', $rawToken) !== 1) {
+                    throw new \LogicException('This legacy QR identity cannot be safely reprinted because its opaque token predates encrypted label material. Its existing label remains valid; use the documented token-rotation recovery only if a replacement label is approved.');
+                }
+
+                $rendered = $renderer([
+                    'token_id' => $activeToken->id,
+                    'device_id' => $lockedDevice->id,
+                    'device_code' => $lockedDevice->device_code,
+                    'raw_token' => $rawToken,
+                    'qr_path' => '/s/d/'.$rawToken,
+                    'reprint' => true,
+                ], $lockedDevice);
+
+                if (! is_array($rendered)) {
+                    throw new \LogicException('Label renderer returned an invalid result.');
+                }
+
+                return $rendered;
+            }
+
+            return $this->issueInternal($user, $lockedDevice, false, $renderer);
+        });
     }
 
     protected function issueInternal(
@@ -100,6 +156,7 @@ class ScanTokenIssuanceService
                 'subject_type' => 'DEVICE',
                 'device_id' => $lockedDevice->id,
                 'token_hash' => $this->tokenService->hash($rawToken),
+                'raw_token_encrypted' => $rawToken,
                 'token_hint' => substr($rawToken, -8),
                 'status' => 'ACTIVE',
                 'issued_at' => now(),
@@ -144,7 +201,7 @@ class ScanTokenIssuanceService
         });
     }
 
-    protected function assertIssuanceScope(User $user, Device $device, bool $rotate): void
+    public function assertIssuanceScope(User $user, Device $device, bool $rotate): void
     {
         $businessId = $user->business_id;
 

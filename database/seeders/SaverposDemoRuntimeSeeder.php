@@ -54,8 +54,8 @@ class SaverposDemoRuntimeSeeder extends Seeder
                 'business_id' => $businessId, 'name' => 'Demo invoice layout', 'is_default' => 1,
                 'created_at' => $now, 'updated_at' => $now,
             ]);
-            $branchA = $this->insert('business_locations', $this->location($businessId, 'Branch A', $invoiceSchemeId, $invoiceLayoutId, $now));
-            $branchB = $this->insert('business_locations', $this->location($businessId, 'Branch B', $invoiceSchemeId, $invoiceLayoutId, $now));
+            $branchA = $this->insert('business_locations', $this->location($businessId, 'Kota Kinabalu', $invoiceSchemeId, $invoiceLayoutId, $now));
+            $branchB = $this->insert('business_locations', $this->location($businessId, 'Sandakan', $invoiceSchemeId, $invoiceLayoutId, $now));
 
             $unitId = $this->insert('units', [
                 'business_id' => $businessId, 'actual_name' => 'Pieces', 'short_name' => 'pcs',
@@ -143,9 +143,14 @@ class SaverposDemoRuntimeSeeder extends Seeder
             // business and are created through the same source purchase.
             $extraProducts = [
                 ['name' => 'SaverBro Demo Smartphone', 'sku' => 'SAVERPOS-DEMO-PHONE', 'cost' => 650, 'sell' => 799, 'qty' => 3],
-                ['name' => 'SaverBro Demo Laptop', 'sku' => 'SAVERPOS-DEMO-LAPTOP', 'cost' => 1800, 'sell' => 2199, 'qty' => 2],
+                // Transfer V2.1 fixture: three exact laptops permit one
+                // normal journey while retaining a distinct wrong-device.
+                ['name' => 'SaverBro Demo Laptop', 'sku' => 'SAVERPOS-DEMO-LAPTOP', 'cost' => 1800, 'sell' => 2199, 'qty' => 3],
                 ['name' => 'SaverBro Demo CCTV Camera', 'sku' => 'SAVERPOS-DEMO-CAMERA', 'cost' => 220, 'sell' => 299, 'qty' => 6],
                 ['name' => 'SaverBro Demo Network Router', 'sku' => 'SAVERPOS-DEMO-ROUTER', 'cost' => 140, 'sell' => 199, 'qty' => 5],
+                // Ordinary stock remains native-only; it deliberately has no
+                // Recommerce profile or Device identities.
+                ['name' => 'SaverBro Demo USB-C Charger', 'sku' => 'SAVERPOS-DEMO-USBC-CHARGER', 'cost' => 18, 'sell' => 29, 'qty' => 20, 'tracked' => false],
             ];
             $extraPurchaseTotal = 0;
             $extraPurchaseLines = [];
@@ -175,15 +180,18 @@ class SaverposDemoRuntimeSeeder extends Seeder
                     ['product_id' => $extraProductId, 'product_variation_id' => $extraVariationTemplateId, 'variation_id' => $extraVariationId,
                         'location_id' => $branchA, 'qty_available' => $extraProduct['qty'], 'created_at' => $now, 'updated_at' => $now],
                 ]);
+                $extraPurchaseTotal += $extraProduct['cost'] * $extraProduct['qty'];
+                $extraPurchaseLines[] = [$extraProductId, $extraVariationId, $extraProduct['cost'], $extraProduct['qty']];
+
+                if (($extraProduct['tracked'] ?? true) !== true) {
+                    continue;
+                }
                 $this->insert('recommerce_serialization_profiles', [
                     'business_id' => $businessId, 'product_id' => $extraProductId, 'variation_id' => $extraVariationId,
                     'mode' => 'TRACKED_REQUIRED', 'configured_by' => $userId,
                     'approval_reference' => 'SAVERPOS-DEMO-CATALOG', 'effective_at' => $now,
                     'created_at' => $now, 'updated_at' => $now,
                 ]);
-                $extraPurchaseTotal += $extraProduct['cost'] * $extraProduct['qty'];
-                $extraPurchaseLines[] = [$extraProductId, $extraVariationId, $extraProduct['cost'], $extraProduct['qty']];
-
                 for ($unit = 1; $unit <= $extraProduct['qty']; $unit++) {
                     $extraDevice = Device::create([
                         'business_id' => $businessId, 'device_uuid' => (string) \Illuminate\Support\Str::uuid(),
@@ -293,13 +301,13 @@ class SaverposDemoRuntimeSeeder extends Seeder
             $role->syncPermissions(Permission::query()->where('guard_name', 'web')->get());
             User::query()->findOrFail($userId)->assignRole($role);
 
-            // Seeded at Branch A, the cohort location the repair queue reads,
+            // Seeded at Kota Kinabalu, the cohort location the repair queue reads,
             // and after the demo role exists so the account that will walk the
             // jobs can see them.
             $repairJobs = SaverposDemoRepairFixture::apply($businessId, $branchA, $userId, $this->command);
             SaverposDemoDiagnosticFixture::apply($businessId, $userId, $this->command);
 
-            $this->command?->info("SAVERPOS demo fixture: business={$businessId}; branch_a={$branchA}; branch_b={$branchB}; products=6; devices=17; repair_jobs={$repairJobs}; variation={$variationId}; unlisted_laptop_variation={$unlistedLaptopVariationId}; device=SB-DV-00000001-9");
+            $this->command?->info("SAVERPOS demo fixture: business={$businessId}; branch_a={$branchA}; branch_b={$branchB}; products=7; devices=18; repair_jobs={$repairJobs}; variation={$variationId}; laptop_variation=3; unlisted_laptop_variation={$unlistedLaptopVariationId}; device=SB-DV-00000001-9");
         });
     }
 

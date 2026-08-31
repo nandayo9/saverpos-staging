@@ -67,20 +67,23 @@ class PurchaseController extends Controller
         }
         $business_id = request()->session()->get('user.business_id');
         $recommerceGate = app(AuthorizationGate::class);
-        $cohortLocationId = (int) config('recommerce.cohort.location_id');
-        $cohortVariationId = (int) collect(config('recommerce.cohort.variation_ids', []))->first();
+        $cohortLocationIds = array_values(array_unique(array_filter(array_merge(
+            (array) config('recommerce.cohort.location_ids', []),
+            [(int) config('recommerce.cohort.location_id')]
+        ), fn ($locationId) => (int) $locationId > 0)));
+        $cohortVariationIds = array_values(array_filter(array_map('intval', (array) config('recommerce.cohort.variation_ids', []))));
         $deviceReceivingEnabled = config('recommerce.enabled', false)
             && Schema::hasTable('recommerce_serialization_profiles')
             && Schema::hasTable('recommerce_device_purchase_assignments')
-            && $cohortLocationId > 0
-            && $cohortVariationId > 0
-            && $recommerceGate->allowsRead(
-                auth()->user(),
-                'recommerce.receiving.prepare',
-                (int) $business_id,
-                $cohortLocationId,
-                $cohortVariationId
-            );
+            && collect($cohortLocationIds)->contains(function ($locationId) use ($cohortVariationIds, $recommerceGate, $business_id) {
+                return collect($cohortVariationIds)->contains(fn ($variationId) => $recommerceGate->allowsRead(
+                    auth()->user(),
+                    'recommerce.receiving.prepare',
+                    (int) $business_id,
+                    (int) $locationId,
+                    (int) $variationId
+                ));
+            });
         if (request()->ajax()) {
             $purchases = $this->transactionUtil->getListPurchases($business_id);
             if ($deviceReceivingEnabled) {
@@ -124,6 +127,7 @@ class PurchaseController extends Controller
 
             $datatable = Datatables::of($purchases)
                 ->addColumn('action', function ($row) use ($recommerceGate) {
+                    $identifiedDeviceCount = (int) ($row->device_registered ?? 0);
                     $html = '<div class="btn-group">
                             <button type="button" class="btn-modal tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline  tw-dw-btn-info tw-w-max dropdown-toggle" 
                                 data-toggle="dropdown" aria-expanded="false">'.
@@ -138,10 +142,10 @@ class PurchaseController extends Controller
                     if (auth()->user()->can('purchase.view')) {
                         $html .= '<li><a href="#" class="print-invoice" data-href="'.action([\App\Http\Controllers\PurchaseController::class, 'printInvoice'], [$row->id]).'"><i class="fas fa-print" aria-hidden="true"></i>'.__('messages.print').'</a></li>';
                     }
-                    if (auth()->user()->can('purchase.update')) {
+                    if (auth()->user()->can('purchase.update') && $identifiedDeviceCount === 0) {
                         $html .= '<li><a href="'.action([\App\Http\Controllers\PurchaseController::class, 'edit'], [$row->id]).'"><i class="fas fa-edit"></i>'.__('messages.edit').'</a></li>';
                     }
-                    if (auth()->user()->can('purchase.delete')) {
+                    if (auth()->user()->can('purchase.delete') && $identifiedDeviceCount === 0) {
                         $html .= '<li><a href="'.action([\App\Http\Controllers\PurchaseController::class, 'destroy'], [$row->id]).'" class="delete-purchase"><i class="fas fa-trash"></i>'.__('messages.delete').'</a></li>';
                     }
 
@@ -149,18 +153,21 @@ class PurchaseController extends Controller
 
                     if (config('recommerce.enabled', false)
                         && \Route::has('recommerce.receiving.index')
+                        && (int) ($row->device_receiving_variation_id ?? 0) > 0
                         && $recommerceGate->allowsRead(
                             auth()->user(),
                             'recommerce.receiving.prepare',
                             (int) $row->business_id,
                             (int) $row->location_id,
-                            (int) collect(config('recommerce.cohort.variation_ids', []))->first()
+                            (int) $row->device_receiving_variation_id
                         )) {
                         $expected = (int) ($row->device_expected ?? 0);
-                        $registered = (int) ($row->device_registered ?? 0);
-                        if ($expected > $registered) {
-                            $label = $registered > 0 ? 'Continue receiving '.($expected - $registered) : 'Receive devices';
+                        $registered = $identifiedDeviceCount;
+                        if ((string) $row->status === 'received' && $expected > $registered) {
+                            $label = $registered > 0 ? 'Continue receiving · '.($expected - $registered).' remaining' : 'Scan '.$expected.' device'.($expected === 1 ? '' : 's');
                             $html .= '<li><a href="'.route('recommerce.receiving.index', ['purchase_id' => $row->id]).'"><i class="fas fa-qrcode" aria-hidden="true"></i>'.$label.'</a></li>';
+                        } elseif ($expected > 0 && $registered >= $expected) {
+                            $html .= '<li><a href="'.route('recommerce.receiving.index', ['purchase_id' => $row->id]).'"><i class="fas fa-check-circle" aria-hidden="true"></i>View receiving</a></li>';
                         }
                     }
 
@@ -185,12 +192,12 @@ class PurchaseController extends Controller
                         '" class="view_payment_modal"><i class="fas fa-money-bill-alt" aria-hidden="true" ></i>'.__('purchase.view_payments').'</a></li>';
                     }
 
-                    if (auth()->user()->can('purchase.update')) {
+                    if (auth()->user()->can('purchase.update') && $identifiedDeviceCount === 0) {
                         $html .= '<li><a href="'.action([\App\Http\Controllers\PurchaseReturnController::class, 'add'], [$row->id]).
                         '"><i class="fas fa-undo" aria-hidden="true" ></i>'.__('lang_v1.purchase_return').'</a></li>';
                     }
 
-                    if (auth()->user()->can('purchase.update') || auth()->user()->can('purchase.update_status')) {
+                    if ((auth()->user()->can('purchase.update') || auth()->user()->can('purchase.update_status')) && $identifiedDeviceCount === 0) {
                         $html .= '<li><a href="#" data-purchase_id="'.$row->id.
                         '" data-status="'.$row->status.'" class="update_status"><i class="fas fa-edit" aria-hidden="true" ></i>'.__('lang_v1.update_status').'</a></li>';
                     }
@@ -219,7 +226,7 @@ class PurchaseController extends Controller
                 ->editColumn('name', '@if(!empty($supplier_business_name)) {{$supplier_business_name}}, <br> @endif {{$name}}')
                 ->editColumn(
                     'status',
-                    '<a href="#" @if(auth()->user()->can("purchase.update") || auth()->user()->can("purchase.update_status")) class="update_status no-print" data-purchase_id="{{$id}}" data-status="{{$status}}" @endif><span class="label @transaction_status($status) status-label" data-status-name="{{__(\'lang_v1.\' . $status)}}" data-orig-value="{{$status}}">{{__(\'lang_v1.\' . $status)}}
+                    '<a href="#" @if((auth()->user()->can("purchase.update") || auth()->user()->can("purchase.update_status")) && (int) ($device_registered ?? 0) === 0) class="update_status no-print" data-purchase_id="{{$id}}" data-status="{{$status}}" @endif><span class="label @transaction_status($status) status-label" data-status-name="{{__(\'lang_v1.\' . $status)}}" data-orig-value="{{$status}}">{{__(\'lang_v1.\' . $status)}}
                         </span></a>'
                 )
                 ->editColumn(
@@ -251,18 +258,35 @@ class PurchaseController extends Controller
                     }, ]);
 
             if ($deviceReceivingEnabled) {
-                $datatable->addColumn('device_receiving', function ($row) {
+                $datatable->addColumn('device_receiving', function ($row) use ($recommerceGate) {
                     $expected = (int) ($row->device_expected ?? 0);
                     $registered = (int) ($row->device_registered ?? 0);
-                    $ready = (int) ($row->inspection_ready_count ?? 0);
                     if ($expected < 1) {
-                        return '<span class="text-muted">Bulk stock</span>';
+                        return '<span class="text-muted">No device identification</span>';
+                    }
+                    if (! $recommerceGate->allowsRead(
+                        auth()->user(),
+                        'recommerce.receiving.prepare',
+                        (int) $row->business_id,
+                        (int) $row->location_id,
+                        (int) ($row->device_receiving_variation_id ?? 0)
+                    )) {
+                        return '<span class="text-muted">Not available</span>';
+                    }
+                    if ((string) $row->status !== 'received') {
+                        return '<span class="label label-default">Awaiting stock receipt</span><br><small>'.$expected.' tracked device'.($expected === 1 ? '' : 's').'</small>';
+                    }
+                    $url = route('recommerce.receiving.index', ['purchase_id' => (int) $row->id]);
+                    if ($registered > $expected) {
+                        return '<a class="label label-danger" href="'.$url.'">Receiving issue</a><br><small>'.$registered.' identified for '.$expected.' purchased</small>';
                     }
                     if ($registered >= $expected) {
-                        return '<span class="label label-success">Received complete</span><br><small>'.$registered.' / '.$expected.' · '.$ready.' ready</small>';
+                        return '<a class="label label-success" href="'.$url.'">Identification complete</a><br><small>'.$registered.' / '.$expected.' devices identified</small>';
                     }
 
-                    return '<span class="label label-warning">'.($expected - $registered).' remaining</span><br><small>'.$registered.' / '.$expected.' received · '.$ready.' ready</small>';
+                    $remaining = $expected - $registered;
+                    $label = $registered > 0 ? 'Continue receiving · '.$remaining.' remaining' : 'Scan '.$remaining.' device'.($remaining === 1 ? '' : 's');
+                    return '<a class="tw-dw-btn tw-dw-btn-xs tw-dw-btn-primary tw-text-white" href="'.$url.'">'.$label.'</a><br><small>'.$registered.' / '.$expected.' devices identified</small>';
                 });
             }
 
@@ -740,16 +764,18 @@ class PurchaseController extends Controller
         }
 
         try {
-            $transaction = Transaction::findOrFail($id);
+            $business_id = request()->session()->get('user.business_id');
+            $transaction = Transaction::where('business_id', $business_id)
+                ->where('type', 'purchase')
+                ->findOrFail($id);
+            app(DeviceReceivingProgressService::class)->assertPurchaseMayBeChanged((int) $business_id, (int) $transaction->id, 'edit');
 
             //Validate document size
             $request->validate([
                 'document' => 'file|max:'.(config('constants.document_size_limit') / 1000),
             ]);
 
-            $transaction = Transaction::findOrFail($id);
             $before_status = $transaction->status;
-            $business_id = request()->session()->get('user.business_id');
             $enable_product_editing = $request->session()->get('business.enable_editing_product_from_purchase');
 
             $transaction_before = $transaction->replicate();
@@ -894,6 +920,11 @@ class PurchaseController extends Controller
                                 ->where('business_id', $business_id)
                                 ->with(['purchase_lines'])
                                 ->first();
+
+                if (! $transaction) {
+                    abort(404);
+                }
+                app(DeviceReceivingProgressService::class)->assertPurchaseMayBeChanged((int) $business_id, (int) $transaction->id, 'delete');
 
                 //Check if lot numbers from the purchase is selected in sale
                 if (request()->session()->get('business.enable_lot_number') == 1 && $this->transactionUtil->isLotUsed($transaction)) {
@@ -1494,6 +1525,9 @@ class PurchaseController extends Controller
             $before_status = $transaction->status;
 
             $update_data['status'] = $request->input('status');
+            if ((string) $update_data['status'] !== (string) $before_status) {
+                app(DeviceReceivingProgressService::class)->assertPurchaseMayBeChanged((int) $business_id, (int) $transaction->id, 'status');
+            }
 
             DB::beginTransaction();
 

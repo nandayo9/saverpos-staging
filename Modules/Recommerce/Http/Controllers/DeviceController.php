@@ -34,9 +34,21 @@ class DeviceController extends Controller
         }
 
         $query = Device::query()
-            ->with(['product', 'variation'])
+            ->with(['product', 'variation', 'labelJobItems.job'])
             ->where('business_id', $businessId)
-            ->where('current_location_id', $locationId)
+            ->where(function ($builder) use ($locationId) {
+                $builder->where('current_location_id', $locationId)
+                    ->orWhere(function ($transit) use ($locationId) {
+                        $transit->where('custody_kind', 'IN_TRANSIT')
+                            ->whereHas('transferAssignments', function ($assignment) use ($locationId) {
+                                $assignment->whereIn('status', ['IN_TRANSIT', 'RECEIVED', 'RECEIVED_WITH_ISSUE'])
+                                    ->where(function ($scope) use ($locationId) {
+                                        $scope->where('from_location_id', $locationId)
+                                            ->orWhere('to_location_id', $locationId);
+                                    });
+                            });
+                    });
+            })
             ->whereIn('variation_id', array_values(array_filter(array_map('intval', (array) config('recommerce.cohort.variation_ids', [])))))
             ->orderBy('device_code');
 
@@ -105,6 +117,7 @@ class DeviceController extends Controller
                 'intakeObservations',
                 'costOverrideEvents',
                 'certification',
+                'labelJobItems.job',
                 'ownershipPeriods' => fn ($query) => $query->orderBy('starts_at')->orderBy('id'),
                 'custodyPeriods' => fn ($query) => $query->orderBy('starts_at')->orderBy('id'),
             ])
@@ -120,6 +133,20 @@ class DeviceController extends Controller
         // immutable selling branch solely for staff authorization so customer
         // history remains viewable without pretending it is still on-hand.
         $accessLocationId = $device->current_location_id;
+        if (empty($accessLocationId) && $device->custody_kind === 'IN_TRANSIT') {
+            $transferAssignment = $device->transferAssignments()
+                ->whereIn('status', ['IN_TRANSIT', 'RECEIVED', 'RECEIVED_WITH_ISSUE'])
+                ->orderByDesc('id')
+                ->first();
+            $candidateLocations = array_filter([$transferAssignment?->to_location_id, $transferAssignment?->from_location_id]);
+            foreach ($candidateLocations as $candidateLocationId) {
+                if (User::can_access_this_location($candidateLocationId, $businessId)
+                    && $authorizationGate->allowsRead($user, 'recommerce.device.view', $businessId, $candidateLocationId, $device->variation_id)) {
+                    $accessLocationId = $candidateLocationId;
+                    break;
+                }
+            }
+        }
         if (empty($accessLocationId)) {
             $saleDisposition = DeviceSaleDisposition::query()
                 ->where('device_id', $device->id)
@@ -163,6 +190,11 @@ class DeviceController extends Controller
             $accessLocationId,
             $device->variation_id
         );
+        $labelItems = $device->labelJobItems->sortByDesc('id')->values();
+        $latestLabelItem = $labelItems->first();
+        $labelStatus = $latestLabelItem
+            ? (($latestLabelItem->job?->status === 'REPRINT_CONFIRMED') ? 'Reprinted' : (($latestLabelItem->job?->status === 'PRINT_CONFIRMED') ? 'Printed' : 'Print view opened'))
+            : 'Not printed';
 
         $certificationPublishEnabled = $authorizationGate->allowsWrite(
             $user,
@@ -196,6 +228,8 @@ class DeviceController extends Controller
             'auditVisible' => $auditVisible,
             'events' => $events,
             'labelPrintEnabled' => $labelPrintEnabled,
+            'labelStatus' => $labelStatus,
+            'hasLabelPrintView' => $latestLabelItem !== null,
             'certificationPublishEnabled' => $certificationPublishEnabled,
             'acquisition' => $acquisition,
             'economicsVisible' => $economicsVisible,

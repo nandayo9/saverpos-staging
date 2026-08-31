@@ -41,11 +41,7 @@ class LabelController extends Controller
             ->header('Referrer-Policy', 'no-referrer');
     }
 
-    /**
-     * Return a standalone print-ready HTML label. The initial print consumes
-     * the one-time raw token returned by issuance inside this response; a
-     * deliberate rotate request is required to render another QR label later.
-     */
+    /** Return a standalone print-ready label using the Device's stable QR. */
     public function print(
         Request $request,
         int $deviceId,
@@ -56,12 +52,10 @@ class LabelController extends Controller
         try {
             $user = auth()->user();
             $device = $this->deviceForUser($deviceId);
-            $rotate = filter_var($request->input('rotate', false), FILTER_VALIDATE_BOOLEAN);
-            $renderedResult = $tokenIssuanceService->issueAndRender(
+            $renderedResult = $tokenIssuanceService->issueOrReuseForLabel(
                 $user,
                 $device,
-                $rotate,
-                function (array $issued, Device $lockedDevice) use ($labelPayloadBuilder, $labelRenderer, $rotate, $user): array {
+                function (array $issued, Device $lockedDevice) use ($labelPayloadBuilder, $labelRenderer, $user): array {
                     $payload = $labelPayloadBuilder->forDevice(
                         $lockedDevice->fresh(['product']),
                         $issued['raw_token']
@@ -75,13 +69,14 @@ class LabelController extends Controller
                         'format' => 'HTML',
                         'template_version' => (string) config('recommerce.label_template_version', 'alpha-1'),
                         'requested_by' => $user->id,
-                        'status' => 'READY_TO_PRINT',
+                        // A browser can prove only that a printable view was
+                        // opened, never that a physical printer completed.
+                        'status' => 'PRINT_VIEW_OPENED',
                         'item_count' => 1,
                         'request_json' => [
                             'device_id' => (int) $lockedDevice->id,
                             'device_code' => $lockedDevice->device_code,
-                            'rotate' => $rotate,
-                            'reason' => $rotate ? 'ROTATION_REPRINT' : 'INITIAL_PRINT',
+                            'reason' => ! empty($issued['reprint']) ? 'REPRINT' : 'INITIAL_PRINT',
                         ],
                     ]);
                     LabelJobItem::create([
@@ -89,7 +84,7 @@ class LabelController extends Controller
                         'device_id' => $lockedDevice->id,
                         'scan_token_id' => $issued['token_id'],
                         'ordinal' => 1,
-                        'status' => 'READY_TO_PRINT',
+                        'status' => 'PRINT_VIEW_OPENED',
                     ]);
 
                     return [
@@ -122,6 +117,46 @@ class LabelController extends Controller
             'rendered' => $rendered,
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
+    }
+
+    /**
+     * A staff attestation that the label from the most recent print view was
+     * attached. This remains operational evidence, not printer telemetry.
+     */
+    public function confirm(Request $request, int $deviceId, ScanTokenIssuanceService $tokenIssuanceService)
+    {
+        try {
+            $user = auth()->user();
+            $device = $this->deviceForUser($deviceId);
+            $tokenIssuanceService->assertIssuanceScope($user, $device, false);
+            $item = LabelJobItem::query()->where('device_id', $device->id)->with('job')->latest('id')->first();
+            if (! $item || ! $item->job) {
+                throw new LogicException('No label print view is available to confirm.');
+            }
+
+            $requestJson = $item->job->request_json ?: [];
+            $requestJson['label_attached_at'] = now()->toIso8601String();
+            $requestJson['label_attached_by'] = (int) $user->id;
+            $isReprint = (($requestJson['reason'] ?? null) === 'REPRINT');
+            $item->job->update([
+                'status' => $isReprint ? 'REPRINT_CONFIRMED' : 'PRINT_CONFIRMED',
+                'request_json' => $requestJson,
+            ]);
+            $item->update(['status' => 'PRINT_CONFIRMED']);
+        } catch (AuthorizationException $exception) {
+            abort(404);
+        } catch (InvalidArgumentException|LogicException $exception) {
+            return response()->json(['message' => 'Label attachment could not be confirmed.'], 422)
+                ->header('Cache-Control', 'no-store')->header('Referrer-Policy', 'no-referrer');
+        }
+
+        if (! $request->expectsJson()) {
+            return redirect()->route('recommerce.devices.show', $device->device_code)
+                ->with('status', 'Label attachment recorded.');
+        }
+
+        return response()->json(['status' => 'PRINT_CONFIRMED'])
+            ->header('Cache-Control', 'no-store')->header('Referrer-Policy', 'no-referrer');
     }
 
     protected function issuePayload(

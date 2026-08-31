@@ -6,7 +6,7 @@ products, stock, sales, payments, and accounting. The operational write
 boundary remains explicitly gated until the pilot evidence gates are cleared.
 
 The integrated operator flow is: create and receive normal stock in
-**Purchases**, then select **Receive Devices** on an eligible received
+**Purchases**, then select the contextual **Scan devices** or **Continue receiving** action on an eligible received
 whole-unit line. The scan workspace displays expected, registered, and
 remaining units and can be resumed in bounded batches. It creates Device
 identity/custody evidence only; it never creates a second POS purchase or
@@ -14,6 +14,14 @@ changes aggregate stock, payments, or accounting. Newly registered Devices
 start as `RECEIVED_PENDING_INSPECTION`, so they cannot be selected for POS sale
 or transfer until the lifecycle process clears them. Customer Repairs is a
 separate main POS workspace for customer-owned, non-stock Devices.
+
+After any Device is identified from a purchase, the normal UltimatePOS edit,
+delete, status-change, and ordinary purchase-return paths remain locked. The native edit screen saves
+administrative metadata and stock-affecting purchase lines in one operation,
+so allowing a seemingly harmless edit through that path could still rewrite
+Device provenance or aggregate stock. A future metadata-only correction flow
+must be explicit, permissioned, audited, and must not call the purchase-line
+rewrite path.
 
 - `modules_statuses.json` keeps `Recommerce` disabled.
 - `RECOMMERCE_ENABLED` defaults to `false`.
@@ -25,10 +33,14 @@ separate main POS workspace for customer-owned, non-stock Devices.
   module status or feature switch is off.
 - `Support/Identity/DeviceCode.php` provides a stable, checkable human code
   derived from the persisted Device ID.
-- `Support/Identity/OpaqueScanToken.php` issues 256-bit tokens and stores only
-  an application-keyed hash; it does not persist or log raw tokens.
-- `Support/Identity/ScanInput.php` accepts only exact Device codes or HTTPS QR
-  paths on the explicitly configured resolver host.
+- `Support/Identity/OpaqueScanToken.php` issues 256-bit tokens and stores an
+  application-keyed lookup hash. For labels issued under V2.2, the raw token is
+  additionally stored only as an application-encrypted model attribute so an
+  authorized reprint can reproduce the same QR identity; it is never logged or
+  returned by a resolver.
+- `Support/Identity/ScanInput.php` accepts exact Device codes, approved HTTPS
+  QR paths on the configured resolver host, and the supported manufacturer
+  identifier vocabulary for authenticated lookup.
 - `Support/Identity/StrongIdentifierHasher.php` normalizes physical identifiers
   for keyed, business-scoped lookup without retaining a plaintext normalized
   value; the database guard is scoped by business and identifier type, matching
@@ -78,16 +90,20 @@ separate main POS workspace for customer-owned, non-stock Devices.
   permissioned evidence-recording path. It stores an immutable safe snapshot,
   SHA-256 result hash, and one open issue snapshot for `MISMATCH`, `EXCEPTION`,
   or `UNAVAILABLE` results; it never edits POS or tracked stock state.
-- `Services/ScanTokenIssuanceService.php` issues or rotates one opaque token
-  under print and separate rotation permission checks; safe label preparation
-  and print rendering run inside the issuance transaction, so a failed builder
-  or renderer cannot strand an active token; raw token output is one-time and
-  not persisted.
+- `Services/ScanTokenIssuanceService.php` creates a token for an initial label
+  and reuses the existing active encrypted token material for an authorized
+  reprint. A reprint therefore preserves the Device, Device code, and QR
+  identity; deliberate token rotation remains a separate recovery operation.
+  A historical active token created before the encrypted-material migration
+  remains valid, but cannot be silently reprinted as the same QR code: staff
+  must use the separately approved rotation recovery path.
 - `Http/Controllers/LabelController.php` exposes the protected print-payload
   endpoint and a separate authenticated print-ready HTML endpoint; it creates
-  no stock movement and marks responses `no-store`. Rendered single-label
-  attempts retain a safe `LabelJob`/item record inside the issuance transaction;
-  an explicit rotation creates a new audited print attempt for the same device.
+  no stock movement and marks responses `no-store`. Each attempt retains a safe
+  `LabelJob`/item record as `PRINT_VIEW_OPENED`, while the separate staff
+  attestation records `PRINT_CONFIRMED`/`REPRINT_CONFIRMED`. Opening a browser
+  print view is intentionally not treated as proof that a physical printer
+  completed the job.
 - `Http/Controllers/DeviceController.php` and the device view provide a
   read-only, exact human-code lookup with neutral denial and location scope.
 - `Http/Controllers/DeviceEventController.php` provides a protected,
@@ -102,10 +118,16 @@ separate main POS workspace for customer-owned, non-stock Devices.
   view with a synthetic safe event timeline; it performs no API or database
   writes.
 - `Http/Controllers/ScanController.php` provides a read-only opaque-token
-  resolver. Authorized staff are redirected to protected Device Detail; public
-  scans are rendered only when an explicitly published customer-safe
-  certification exists. Unknown, revoked, and non-certified Device tokens
-  share the same no-store 404 response.
+  resolver at the permanent label URL `/s/d/{256-bit-token}`. Authorized staff
+  are redirected to protected Device Detail; public scans are rendered only
+  when an explicitly published customer-safe certification exists. Unknown,
+  revoked, and non-certified Device tokens share one neutral no-store/noindex
+  404 page that contains no Device data, so future public-passport work can
+  extend the resolver without replacing physical labels.
+- The V2.2 physical label is 50 mm × 38 mm: a 20 mm high-error-correction QR
+  is the primary identity, the stable human Device code is mandatory, and a
+  10 mm Code128 is retained only as a secondary scanner aid. Do not reduce QR
+  geometry to retain Code128 on a future smaller template.
 - `ReconciliationController.php` exposes authenticated GET
   `/recommerce/reconciliation/{variationId}` with a required `location_id`;
   approved balance evidence is read from the Alpha tables, the response is

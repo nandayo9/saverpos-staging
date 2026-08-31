@@ -25,9 +25,9 @@ putenv('RECOMMERCE_WRITES_ENABLED=(true)');
 putenv('RECOMMERCE_COHORT_BUSINESS_ID=1');
 putenv('RECOMMERCE_COHORT_LOCATION_ID=1');
 putenv('RECOMMERCE_COHORT_LOCATION_IDS=1,2');
-// The fresh demo fixture keeps the primary demo device at variation 1 and
-// creates its controlled unlisted-laptop holding variation at 6.
-putenv('RECOMMERCE_COHORT_VARIATION_IDS=1,6');
+// The fresh demo fixture includes a tracked laptop at variation 3 for
+// exact-device transfer proof, alongside its primary and holding variations.
+putenv('RECOMMERCE_COHORT_VARIATION_IDS=1,3,6');
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
 $publicPath = __DIR__.'/../public'.$path;

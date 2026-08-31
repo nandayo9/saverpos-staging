@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Device label · {{ $label['device_code'] }}</title>
+    <title>SAVERBRO label · {{ $label['device_code'] }}</title>
     <style>
-        @page { size: 62mm 38mm; margin: 0; }
+        @page { size: {{ config('recommerce.label_template.width') }} {{ config('recommerce.label_template.height') }}; margin: 0; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; background: #eef2f7; color: #111827; font-family: Arial, sans-serif; }
         body { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-        .label { width: 62mm; min-height: 38mm; background: #fff; border: 1px solid #cbd5e1; border-radius: 3mm; padding: 3mm; }
+        .label { width: {{ config('recommerce.label_template.width') }}; min-height: {{ config('recommerce.label_template.height') }}; background: #fff; border: 1px solid #cbd5e1; border-radius: 3mm; padding: 3mm; }
         .brand { font-size: 8pt; font-weight: 700; letter-spacing: .08em; }
         .sub { color: #64748b; font-size: 6.5pt; margin-top: 1mm; }
         .content { display: flex; gap: 3mm; align-items: center; margin-top: 2mm; }
@@ -27,8 +27,8 @@
 </head>
 <body>
     <main class="label" aria-label="Print-safe SAVERPOS device label">
-        <div class="brand">SAVERPOS · RECOMMERCE</div>
-        <div class="sub">{{ $label['template_version'] }} · scan-safe device identity</div>
+        <div class="brand">SAVERBRO</div>
+        <div class="sub">{{ $label['template_version'] }} · permanent device identity</div>
         <div class="content">
             <div class="qr" aria-label="Opaque QR code">{!! $rendered['qr_svg'] !!}</div>
             <div class="details">
@@ -39,6 +39,6 @@
         </div>
         <div class="footer">Permanent Device code · QR destination is opaque and not printed as text</div>
     </main>
-    <div class="screen-note">Print preview ready. Confirm the printer and label stock before printing.</div>
+    <div class="screen-note">Print view opened. Confirm the printer and label stock, then attach the label to this exact device.</div>
 </body>
 </html>

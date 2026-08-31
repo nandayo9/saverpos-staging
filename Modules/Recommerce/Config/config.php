@@ -19,7 +19,10 @@ return [
     // Configure one approved HTTPS customer-support endpoint before exposing
     // the warranty-service button.
     'public_warranty_service_url' => env('RECOMMERCE_PUBLIC_WARRANTY_SERVICE_URL'),
-    'label_template_version' => 'alpha-1',
+    'label_template_version' => 'v2.2-2',
+    // The browser-print dimensions live in one place so later thermal
+    // templates do not need to change identity or receiving behavior.
+    'label_template' => ['width' => '50mm', 'height' => '38mm'],
     // Product/legal teams own the final wording. V2 records the displayed
     // version and acknowledgement without exposing identity references in lists.
     'tradein_seller_declaration' => env('RECOMMERCE_TRADEIN_SELLER_DECLARATION', 'Seller declares that they have the right to offer this device and that the information provided is accurate.'),

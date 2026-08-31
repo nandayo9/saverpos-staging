@@ -77,9 +77,18 @@ class InspectionController extends Controller
             ))->values();
 
         $counts = DeviceInspection::query()
-            ->where('business_id', $businessId)->where('location_id', $locationId)
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')->pluck('count', 'status');
+            ->where('business_id', $businessId)
+            ->where('location_id', $locationId)
+            ->whereIn('variation_id', array_values(array_filter(array_map('intval', (array) config('recommerce.cohort.variation_ids', [])))))
+            ->get(['status', 'variation_id'])
+            ->filter(fn ($inspection) => $authorizationGate->allowsRead(
+                $user,
+                'recommerce.inspection.view',
+                $businessId,
+                $locationId,
+                (int) $inspection->variation_id
+            ))
+            ->countBy('status');
         $inspectors = DB::table('users')->where('business_id', $businessId)->orderBy('id')->limit(100)->get(['id']);
         $canAssign = $authorizationGate->allowsWriteLocation($user, 'recommerce.inspection.assign', $businessId, $locationId);
         $canComplete = $authorizationGate->allowsWriteLocation($user, 'recommerce.inspection.complete', $businessId, $locationId);
@@ -103,7 +112,7 @@ class InspectionController extends Controller
             return back()->withErrors(['inspection' => $exception->getMessage()]);
         }
 
-        return back()->with('status', $count.' Device inspection'.($count === 1 ? '' : 's').' assigned.');
+        return back()->with('status', $count.' device inspection'.($count === 1 ? '' : 's').' assigned.');
     }
 
     public function start(int $deviceId, DeviceInspectionService $service)

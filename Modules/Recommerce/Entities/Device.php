@@ -31,6 +31,12 @@ class Device extends Model
         return $this->hasMany(ScanToken::class, 'device_id');
     }
 
+    /** Print-view and label-attachment evidence; never a stock record. */
+    public function labelJobItems(): HasMany
+    {
+        return $this->hasMany(LabelJobItem::class, 'device_id');
+    }
+
     public function certification(): HasOne
     {
         return $this->hasOne(DeviceCertification::class, 'device_id');
@@ -133,5 +139,10 @@ class Device extends Model
     public function isStockParticipating(): bool
     {
         return in_array($this->stock_participation, ['ON_HAND', 'RESERVED', 'IN_TRANSFER'], true);
+    }
+
+    public function isInTransit(): bool
+    {
+        return $this->transfer_state === 'IN_TRANSIT';
     }
 }

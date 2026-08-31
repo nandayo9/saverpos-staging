@@ -6,8 +6,8 @@
 		    </h4>
 		</div>
 			<div class="modal-body">
-				@if(config('recommerce.enabled', false) && \Modules\Recommerce\Entities\DeviceTransferAssignment::query()->where('sell_transfer_transaction_id', $sell_transfer->id)->exists())
-					<div class="alert alert-info no-print"><a class="btn btn-default btn-sm" href="{{ route('recommerce.transfers.exceptions', $sell_transfer->id) }}" target="_blank">Tracked-device receiving exceptions</a> Record missing, extra, or substituted device evidence before completing this transfer.</div>
+				@if(config('recommerce.enabled', false))
+					<div class="alert alert-info no-print"><a class="btn btn-primary btn-sm" href="{{ route('recommerce.transfers.show', $sell_transfer->id) }}" target="_blank">Open Device Transfer</a> Scan exact SAVERBRO Devices to send and receive this transfer. Ordinary stock remains in this native transfer.</div>
 				@endif
 				<div class="row invoice-info">
 				  <div class="col-sm-4 invoice-col">

@@ -934,38 +934,40 @@ class AdminSidebarMenu
                 && Route::has('recommerce.dashboard')
                 && (auth()->user()->can('recommerce.device.view')
                     || auth()->user()->can('recommerce.receiving.prepare')
+                    || auth()->user()->can('recommerce.inspection.view')
                     || auth()->user()->can('recommerce.stock.reconcile')
                     || auth()->user()->can('recommerce.repair.intake'))) {
                 $menu->dropdown(
-                    'Devices',
+                    'Device operations',
                     function ($sub) {
                         if (auth()->user()->can('recommerce.device.view')
                             || auth()->user()->can('recommerce.receiving.prepare')
+                            || auth()->user()->can('recommerce.inspection.view')
                             || auth()->user()->can('recommerce.stock.reconcile')
                             || auth()->user()->can('recommerce.repair.intake')) {
                             $sub->url(
                                 route('recommerce.dashboard'),
-                                'Device pipeline',
+                                'Device Overview',
                                 ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) === null]
                             );
                         }
                         if (auth()->user()->can('recommerce.device.view')) {
                             $sub->url(
                                 route('recommerce.devices.index'),
-                                'Devices',
+                                'Device Registry',
                                 ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'devices']
                             );
                             $sub->url(
                                 route('recommerce.scans.index'),
-                                'Scan Device',
+                                'Find Device',
                                 ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'scans']
                             );
                         }
-                        if (auth()->user()->can('recommerce.receiving.prepare')) {
+                        if (auth()->user()->can('recommerce.inspection.view')) {
                             $sub->url(
-                                route('recommerce.receiving.index'),
-                                'Receive Devices',
-                                ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'receiving']
+                                route('recommerce.inspection.index'),
+                                'Inspection Queue',
+                                ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'inspection']
                             );
                         }
                         if (auth()->user()->can('recommerce.stock.reconcile')) {

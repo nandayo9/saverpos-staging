@@ -1,28 +1,36 @@
 @extends('layouts.app')
 
-@section('title', 'Recommerce scan and entry')
+@section('title', 'Find Device')
 
 @section('content')
+    <style>
+        #recommerce-scan-entry .scan-camera { width:100%; max-width:520px; background:var(--sb-surface, #0f172a); border-radius:8px; display:none; }
+        #recommerce-scan-entry .scan-camera.is-open { display:block; }
+        @media (max-width:767px) { #recommerce-scan-entry { padding-left:10px; padding-right:10px; } #recommerce-scan-entry .btn { margin-bottom:6px; } }
+    </style>
     <section class="container" id="recommerce-scan-entry" data-csrf-token="{{ csrf_token() }}">
         <div class="row">
             <div class="col-md-8">
                 <div class="box box-primary">
                     <div class="box-header with-border">
-                        <div class="pull-right"><a class="btn btn-default btn-sm" href="{{ route('recommerce.dashboard') }}">Operations overview</a></div>
-                        <h3 class="box-title">Scan &amp; Entry</h3>
-                        <p class="text-muted" style="margin:6px 0 0">Resolve a Device code or approved QR URL in the current business and authorized location scope.</p>
+                        <div class="pull-right"><a class="btn btn-default btn-sm" href="{{ route('recommerce.dashboard') }}">Device Overview</a></div>
+                        <h3 class="box-title">Find Device</h3>
+                        <p class="text-muted" style="margin:6px 0 0">Scan a SAVERBRO QR or Code128 label to open its Device. Manufacturer serial, IMEI, and asset-tag lookup remain available for recovery.</p>
                     </div>
                     <div class="box-body">
                         <div class="alert alert-info" role="status">
-                            Scan resolution is read-only. It does not receive stock, change a repair, or expose raw identifiers.
+                            This search is read-only. To receive new supplier stock, start from Purchases.
                         </div>
 
                         <div class="form-group">
-                            <label for="recommerce-scan-value">Device code or approved QR URL</label>
+                            <label for="recommerce-scan-value">SAVERBRO Device ID, QR URL, serial, IMEI, or asset tag</label>
                             <input id="recommerce-scan-value" class="form-control input-lg" autocomplete="off" autocapitalize="characters" spellcheck="false" autofocus>
                         </div>
                         <button type="button" class="btn btn-primary" id="recommerce-resolve-scan">Resolve scan</button>
+                        <button type="button" class="btn btn-default" id="recommerce-open-camera">Scan Device</button>
                         <button type="button" class="btn btn-default" id="recommerce-clear-scan">Clear</button>
+                        <div style="margin-top:14px"><video id="recommerce-scan-camera" class="scan-camera" playsinline muted aria-label="Device QR camera preview"></video></div>
+                        <p id="recommerce-camera-message" class="text-muted" aria-live="polite" style="margin-top:8px"></p>
 
                         <div id="recommerce-scan-result" class="alert" style="display:none;margin-top:18px" role="status" aria-live="polite"></div>
                     </div>
@@ -34,12 +42,12 @@
                     <div class="box-header with-border"><h3 class="box-title">Continue workflow</h3></div>
                     <div class="box-body">
                         @if ($canReceive)
-                            <a class="btn btn-default btn-block" href="{{ route('recommerce.receiving.index') }}">Tracked receiving</a>
+                            <a class="btn btn-primary btn-block" href="{{ action([\App\Http\Controllers\PurchaseController::class, 'index']) }}">Receive stock from Purchases</a>
                         @endif
                         @if ($canRepair)
                             <a class="btn btn-default btn-block" href="{{ route('recommerce.repair.index') }}">Repair intake</a>
                         @endif
-                        <a class="btn btn-default btn-block" href="{{ route('recommerce.devices.index') }}">Device registry</a>
+                        <a class="btn btn-default btn-block" href="{{ route('recommerce.devices.index') }}">Device Registry</a>
                         <a class="btn btn-default btn-block" href="{{ action([\App\Http\Controllers\SellPosController::class, 'create']) }}">Return to POS sale</a>
                     </div>
                 </div>
@@ -60,7 +68,12 @@
             const result = document.getElementById('recommerce-scan-result');
             const resolveButton = document.getElementById('recommerce-resolve-scan');
             const clearButton = document.getElementById('recommerce-clear-scan');
+            const cameraButton = document.getElementById('recommerce-open-camera');
+            const camera = document.getElementById('recommerce-scan-camera');
+            const cameraMessage = document.getElementById('recommerce-camera-message');
             const scanUrl = @json(route('recommerce.scans.resolve'));
+            let stream = null;
+            let scanning = false;
 
             function showResult(message, kind) {
                 result.textContent = message;
@@ -79,8 +92,18 @@
 
                 const details = document.createElement('div');
                 details.style.marginTop = '8px';
-                details.textContent = 'Lifecycle: ' + device.lifecycle_state + ' · Custody: ' + device.custody_kind;
+                const statusLabels = { RECEIVED_PENDING_INSPECTION: 'Waiting for inspection', INSPECTION_IN_PROGRESS: 'Inspection in progress', REFURBISHMENT_REQUIRED: 'Action required', AVAILABLE: 'Ready for sale', RESERVED: 'Reserved', SOLD: 'Sold' };
+                const holderLabels = { LOCATION: 'SaverBro location', CUSTOMER: 'Customer', IN_TRANSIT: 'In transit', EXTERNAL_PROVIDER: 'External provider' };
+                details.textContent = (device.product ? device.product + ' · ' : '') + 'Status: ' + (statusLabels[device.lifecycle_state] || device.lifecycle_state) + ' · Current holder: ' + (holderLabels[device.custody_kind] || device.custody_kind);
                 result.appendChild(details);
+
+                if (device.transfer) {
+                    const transfer = document.createElement('div');
+                    transfer.style.marginTop = '6px';
+                    const transferState = device.transfer.state === 'IN_TRANSIT' ? 'In transit' : 'Received — awaiting transfer completion';
+                    transfer.textContent = 'Transfer: ' + transferState + ' · ' + device.transfer.from_location + ' → ' + device.transfer.to_location + ' · ' + device.transfer.reference;
+                    result.appendChild(transfer);
+                }
 
                 const open = document.createElement('a');
                 open.className = 'btn btn-success btn-sm';
@@ -130,6 +153,55 @@
                 result.style.display = 'none';
                 result.textContent = '';
                 input.focus();
+            });
+
+            function stopCamera(message) {
+                scanning = false;
+                if (stream) stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                camera.srcObject = null;
+                camera.classList.remove('is-open');
+                cameraButton.textContent = 'Scan Device';
+                if (message) cameraMessage.textContent = message;
+            }
+
+            async function detectFrame(detector) {
+                if (!scanning || !stream) return;
+                try {
+                    const codes = await detector.detect(camera);
+                    if (codes.length && codes[0].rawValue) {
+                        input.value = codes[0].rawValue;
+                        stopCamera('Device scan captured. Resolving…');
+                        resolveButton.click();
+                        return;
+                    }
+                } catch (_) { /* a frame can be unavailable while starting */ }
+                if (scanning) requestAnimationFrame(() => detectFrame(detector));
+            }
+
+            cameraButton.addEventListener('click', async function () {
+                if (scanning) { stopCamera('Camera scan cancelled.'); return; }
+                if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    cameraMessage.textContent = 'Camera scanning requires HTTPS (or localhost) and browser camera permission. Use the lookup field or a barcode scanner instead.';
+                    return;
+                }
+                if (!('BarcodeDetector' in window)) {
+                    cameraMessage.textContent = 'This browser does not provide QR detection. Use a browser with BarcodeDetector support, a hardware scanner, or the lookup field.';
+                    return;
+                }
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+                    camera.srcObject = stream;
+                    await camera.play();
+                    scanning = true;
+                    camera.classList.add('is-open');
+                    cameraButton.textContent = 'Cancel Camera';
+                    cameraMessage.textContent = 'Point the rear camera at a SAVERBRO QR label.';
+                    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+                    detectFrame(detector);
+                } catch (_) {
+                    stopCamera('Camera access was unavailable or denied. Check permission and HTTPS, then try again.');
+                }
             });
 
             input.addEventListener('keydown', function (event) {

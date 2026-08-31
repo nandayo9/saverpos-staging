@@ -3,6 +3,9 @@
 @section('title', 'Inspection Queue')
 
 @section('content')
+@php
+    $inspectionStatusLabels = ['PENDING' => 'Awaiting inspection', 'ASSIGNED' => 'Assigned', 'IN_INSPECTION' => 'In inspection', 'FAILED' => 'Action required', 'PASSED' => 'Cleared'];
+@endphp
 <section class="container-fluid" aria-labelledby="inspection-queue-title">
     <div class="box box-primary">
         <div class="box-header with-border">
@@ -40,18 +43,18 @@
                             <td>{{ $inspection->product_name ?: 'Product unavailable' }}@if($inspection->variation_name)<br><small>{{ $inspection->variation_name }}</small>@endif</td>
                             <td>{{ $inspection->purchase_reference ?: 'Purchase link unavailable' }}<br><small>{{ $inspection->supplier_business_name ?: $inspection->supplier_name ?: 'Supplier unavailable' }}</small></td>
                             <td>{{ \Carbon\Carbon::parse($inspection->received_at)->format('d M Y H:i') }}</td><td>{{ $age }}</td>
-                            <td>{{ str_replace('_', ' ', $inspection->status) }}</td>
+                            <td>{{ $inspectionStatusLabels[$inspection->status] ?? ucwords(strtolower(str_replace('_', ' ', $inspection->status))) }}</td>
                             <td>{{ $inspection->open_observation_count ? 'Intake observation' : '—' }}</td>
                             <td style="min-width:180px">
                                 @if($canComplete && in_array($inspection->status, ['PENDING','ASSIGNED'], true))<button class="btn btn-default btn-xs" formaction="{{ route('recommerce.inspection.start', $inspection->device_id) }}" formmethod="post" formnovalidate>Start</button>@endif
                                 @if($canComplete && in_array($inspection->status, ['PENDING','ASSIGNED','IN_INSPECTION'], true))
-                                    <button class="btn btn-success btn-xs" formaction="{{ route('recommerce.inspection.complete', $inspection->device_id) }}" formmethod="post" formnovalidate name="outcome" value="PASS">Pass → Available</button>
-                                    <button class="btn btn-warning btn-xs" formaction="{{ route('recommerce.inspection.complete', $inspection->device_id) }}" formmethod="post" formnovalidate name="outcome" value="FAIL">Fail</button>
+                                    <button class="btn btn-success btn-xs" formaction="{{ route('recommerce.inspection.complete', $inspection->device_id) }}" formmethod="post" formnovalidate name="outcome" value="PASS">Pass inspection</button>
+                                    <button class="btn btn-warning btn-xs" formaction="{{ route('recommerce.inspection.complete', $inspection->device_id) }}" formmethod="post" formnovalidate name="outcome" value="FAIL">Mark action required</button>
                                 @endif
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="{{ $canAssign ? 9 : 8 }}" class="text-muted">No Devices match this inspection view.</td></tr>
+                        <tr><td colspan="{{ $canAssign ? 9 : 8 }}" class="text-muted">No devices match this inspection view.</td></tr>
                     @endforelse
                 </tbody></table>
             </div>

@@ -20,7 +20,7 @@
                     <button type="submit" class="btn btn-default">View location</button>
                 </form>
             @endif
-            <div class="alert alert-info" role="status">Select a configured serialization profile to run a read-only comparison for location {{ $locationId }}.</div>
+            <div class="alert alert-info" role="status">Select a tracked product configuration to run a read-only comparison for location {{ $locationId }}.</div>
             <div class="table-responsive"><table class="table table-hover"><thead><tr><th>Product</th><th>Variation</th><th>Profile</th><th>Effective</th><th></th></tr></thead><tbody>
                 @forelse ($profiles as $profile)
                     <tr><td>{{ optional($profile->product)->name ?: 'Product unavailable' }}</td><td>{{ optional($profile->variation)->name ?: $profile->variation_id }}</td><td>{{ $profile->mode }} · v{{ $profile->version }}</td><td>{{ $profile->effective_at ? $profile->effective_at->format('d M Y') : '—' }}</td><td><button class="btn btn-default btn-sm run-reconciliation" type="button" data-variation-id="{{ $profile->variation_id }}">Run check</button></td></tr>

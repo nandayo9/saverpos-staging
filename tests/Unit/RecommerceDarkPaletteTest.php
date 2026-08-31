@@ -19,6 +19,7 @@ class RecommerceDarkPaletteTest extends TestCase
 {
     private const STANDALONE = [
         'device/public-certification.blade.php',
+        'device/public-unavailable.blade.php',
         'repair/public-status.blade.php',
         'labels/device.blade.php',
     ];

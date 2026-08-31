@@ -65,6 +65,17 @@ class RecommercePublicViewRenderTest extends TestCase
         $this->assertStringNotContainsString('Request Warranty Service', $html);
     }
 
+    public function test_the_unavailable_public_passport_page_contains_no_device_data(): void
+    {
+        $html = $this->render('recommerce::device.public-unavailable', []);
+
+        $this->assertStringContainsString('A public Device Passport is not available for this label.', $html);
+        $this->assertStringContainsString('noindex,nofollow,noarchive', $html);
+        $this->assertStringNotContainsString('SB-DV-', $html);
+        $this->assertStringNotContainsString('Serial', $html);
+        $this->assertStringNotContainsString('Supplier', $html);
+    }
+
     public function test_the_public_repair_status_shows_only_the_summary_it_promises(): void
     {
         $html = $this->render('recommerce::repair.public-status', [

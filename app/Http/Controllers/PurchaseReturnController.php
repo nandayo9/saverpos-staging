@@ -11,6 +11,7 @@ use App\Utils\ProductUtil;
 use App\Utils\TransactionUtil;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Modules\Recommerce\Services\DeviceReceivingProgressService;
 use Spatie\Activitylog\Models\Activity;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -213,6 +214,18 @@ class PurchaseReturnController extends Controller
                         ->with(['purchase_lines', 'contact', 'tax', 'return_parent', 'purchase_lines.sub_unit', 'purchase_lines.product', 'purchase_lines.product.unit'])
                         ->find($id);
 
+        if (! $purchase) {
+            abort(404);
+        }
+        try {
+            app(DeviceReceivingProgressService::class)->assertPurchaseMayBeChanged((int) $business_id, (int) $purchase->id, 'return');
+        } catch (\LogicException $e) {
+            return redirect('purchases')->with('status', [
+                'success' => 0,
+                'msg' => $e->getMessage(),
+            ]);
+        }
+
         foreach ($purchase->purchase_lines as $key => $value) {
             if (! empty($value->sub_unit_id)) {
                 $formated_purchase_line = $this->productUtil->changePurchaseLineUnit($value, $business_id);
@@ -249,6 +262,7 @@ class PurchaseReturnController extends Controller
                         ->where('type', 'purchase')
                         ->with(['purchase_lines', 'purchase_lines.sub_unit'])
                         ->findOrFail($request->input('transaction_id'));
+            app(DeviceReceivingProgressService::class)->assertPurchaseMayBeChanged((int) $business_id, (int) $purchase->id, 'return');
 
             $return_quantities = $request->input('returns');
             $return_total = 0;
@@ -330,6 +344,9 @@ class PurchaseReturnController extends Controller
             ];
 
             DB::commit();
+        } catch (\LogicException $e) {
+            DB::rollBack();
+            $output = ['success' => 0, 'msg' => $e->getMessage()];
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());

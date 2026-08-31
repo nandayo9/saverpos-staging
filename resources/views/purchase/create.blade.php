@@ -18,7 +18,7 @@
 
 	<div class="alert alert-info" role="status">
 		<strong><i class="fa fa-cubes" aria-hidden="true"></i> Stock entry</strong>
-		<span>Use this form for the supplier, pricing, payment, and stock record. After a received purchase is saved, SaverPOS will guide you to register any individual Devices that require it.</span>
+			<span>Use this form for the supplier, pricing, payment, and stock record. After a received purchase is saved, SAVERPOS will guide you to identify any tracked physical devices.</span>
 	</div>
 
 	<!-- Page level currency setting -->

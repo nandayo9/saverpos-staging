@@ -252,8 +252,8 @@ class RecommerceReceivingIntegrationTest extends TestCase
             'contact_id' => 'CUS-FIXTURE-405',
             'mobile' => '0123456789',
         ]);
-        DB::table('business_locations')->insert(['id' => 101, 'business_id' => 7]);
-        DB::table('business_locations')->updateOrInsert(['id' => 102], ['business_id' => 7]);
+        DB::table('business_locations')->insert(['id' => 101, 'business_id' => 7, 'name' => 'Kota Kinabalu']);
+        DB::table('business_locations')->updateOrInsert(['id' => 102], ['business_id' => 7, 'name' => 'Sandakan']);
         DB::table('products')->insert(['id' => 202, 'business_id' => 7, 'name' => 'Refurbished laptop']);
         DB::table('variations')->insert(['id' => 303, 'product_id' => 202]);
         DB::table('variations')->insert(['id' => 304, 'product_id' => 202]);
@@ -288,6 +288,8 @@ class RecommerceReceivingIntegrationTest extends TestCase
 
         $migration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_27_000002_create_recommerce_alpha_tables.php');
         $migration->up();
+        $stableLabelMigration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000001_add_encrypted_material_to_recommerce_scan_tokens.php');
+        $stableLabelMigration->up();
         $reconciliationMigration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_28_000003_create_recommerce_reconciliation_tables.php');
         $reconciliationMigration->up();
         $eventIdentityMigration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_28_000004_harden_recommerce_event_identity.php');
@@ -318,6 +320,8 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $transferStatusMigration->up();
         $transferExceptionMigration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_29_000022_create_recommerce_transfer_exceptions.php');
         $transferExceptionMigration->up();
+        $transferV2Migration = require base_path('Modules/Recommerce/Database/Migrations/2026_09_01_000001_add_v2_transfer_state.php');
+        $transferV2Migration->up();
         $intakePolicyMigration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000034_add_device_intake_policy_to_serialization_profiles.php');
         $intakePolicyMigration->up();
         $intakeOperationsMigration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000036_create_recommerce_device_intake_operations.php');
@@ -511,9 +515,9 @@ class RecommerceReceivingIntegrationTest extends TestCase
         ]];
 
         $service->synchroniseTransferReservation($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $selection);
-        $this->assertSame('TRANSFER_PENDING', $device->fresh()->lifecycle_state);
-        $this->assertSame('IN_TRANSFER', $device->fresh()->stock_participation);
-        $this->assertSame('EXCEPTION', (new StockReconciliationService($this->gate()))->forVariation($this->authorizedUser(), 7, 101, 303)['status']);
+        $this->assertSame('AVAILABLE', $device->fresh()->lifecycle_state);
+        $this->assertSame('RESERVED', $device->fresh()->stock_participation);
+        $this->assertSame('RESERVED', $device->fresh()->transfer_state);
         $this->assertSame(1, DeviceTransferAssignment::query()->where('status', 'RESERVED')->count());
 
         $service->synchroniseTransferReservation($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $selection);
@@ -527,6 +531,10 @@ class RecommerceReceivingIntegrationTest extends TestCase
             $this->assertSame('Recommerce transfer scope denied.', $exception->getMessage());
         }
 
+        $service->dispatchTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh());
+        $this->assertSame('IN_TRANSIT', $device->fresh()->transfer_state);
+        $this->assertNull($device->fresh()->current_location_id);
+        $service->receiveTransferDevice($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $device->fresh());
         $transfer->update(['status' => 'final']);
         $receipt->update(['status' => 'received']);
         $service->recordCompletedTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $selection);
@@ -542,6 +550,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $service->synchroniseTransferReservation($this->authorizedUser(), $cancelTransfer->fresh(), $cancelReceipt->fresh(), $cancelSelection);
         $service->cancelTransfer($this->authorizedUser(), $cancelTransfer->fresh());
         $this->assertSame('AVAILABLE', $cancelDevice->fresh()->lifecycle_state);
+        $this->assertSame('NONE', $cancelDevice->fresh()->transfer_state);
         $this->assertSame(101, $cancelDevice->fresh()->current_location_id);
         $this->assertSame('CANCELLED', DeviceTransferAssignment::query()->where('sell_transfer_transaction_id', $cancelTransfer->id)->value('status'));
     }
@@ -587,28 +596,18 @@ class RecommerceReceivingIntegrationTest extends TestCase
             'product_id' => 202, 'variation_id' => 303, 'recommerce_device_codes' => $device->device_code,
         ]]);
 
-        $exceptions = (new DeviceTransferExceptionService($this->gate()))->recordReceiving(
-            $this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), '', 'Receiver reported an empty carton.'
-        );
-        $this->assertCount(1, $exceptions);
-        $this->assertSame('MISSING', $exceptions->first()->exception_type);
-        $this->assertSame('OPEN', $exceptions->first()->status);
-        $this->assertNull($exceptions->first()->observed_device_code_hash);
+        $lifecycle->dispatchTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh());
         $this->assertSame('IN_TRANSFER', $device->fresh()->stock_participation);
 
         $transfer->update(['status' => 'final']);
         $receipt->update(['status' => 'received']);
         try {
             $lifecycle->recordCompletedTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), []);
-            $this->fail('An open receiving exception must block completion.');
+            $this->fail('An unreceived Device must block completion.');
         } catch (LogicException $exception) {
-            $this->assertSame('Tracked transfer has unresolved receiving exceptions.', $exception->getMessage());
+            $this->assertSame('Every dispatched Device must be scanned at the destination before completion.', $exception->getMessage());
         }
-
-        $resolved = (new DeviceTransferExceptionService($this->gate()))->resolve($this->authorizedUser(), $exceptions->first(), 'Carrier investigation ref CARRIER-10.');
-        $this->assertSame('RESOLVED', $resolved->status);
-        $lifecycle->recordCompletedTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), []);
-        $this->assertSame(102, $device->fresh()->current_location_id);
+        $this->assertNull($device->fresh()->current_location_id);
     }
 
     public function test_transfer_receiving_pairs_known_wrong_device_as_substitution_and_is_idempotent(): void
@@ -620,18 +619,16 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $lifecycle->synchroniseTransferReservation($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), [[
             'product_id' => 202, 'variation_id' => 303, 'recommerce_device_codes' => $expected->device_code,
         ]]);
-        $service = new DeviceTransferExceptionService($this->gate());
-        $first = $service->recordReceiving($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $observed->device_code, 'Wrong unit received.');
-        $second = $service->recordReceiving($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $observed->device_code, 'Wrong unit received.');
-
-        $this->assertCount(1, $first);
-        $this->assertCount(1, $second);
-        $this->assertSame('SUBSTITUTED', $first->first()->exception_type);
-        $this->assertSame($expected->id, $first->first()->expected_device_id);
-        $this->assertSame($observed->id, $first->first()->observed_device_id);
+        $lifecycle->dispatchTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh());
+        try {
+            $lifecycle->receiveTransferDevice($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $observed->fresh());
+            $this->fail('A wrong Device cannot satisfy transfer receipt.');
+        } catch (LogicException $exception) {
+            $this->assertSame('Device is not expected on this transfer.', $exception->getMessage());
+        }
         $this->assertSame('AVAILABLE', $observed->fresh()->lifecycle_state);
         $this->assertSame('IN_TRANSFER', $expected->fresh()->stock_participation);
-        $this->assertSame(1, DeviceTransferException::query()->where('sell_transfer_transaction_id', $transfer->id)->count());
+        $this->assertSame('IN_TRANSIT', $expected->fresh()->transfer_state);
     }
 
     public function test_completed_transfer_sells_only_at_destination_and_reconciles_at_both_branches(): void
@@ -647,6 +644,8 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $service = new DeviceLifecycleService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder());
 
         $service->synchroniseTransferReservation($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $selection);
+        $service->dispatchTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh());
+        $service->receiveTransferDevice($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $device->fresh());
         $transfer->update(['status' => 'final']);
         $receipt->update(['status' => 'received']);
         $service->recordCompletedTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), []);
@@ -701,6 +700,8 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $service = new DeviceLifecycleService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder());
 
         $service->synchroniseTransferReservation($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $selection);
+        $service->dispatchTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh());
+        $service->receiveTransferDevice($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $device->fresh());
         $transfer->update(['status' => 'final']);
         $receipt->update(['status' => 'received']);
         $service->recordCompletedTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), []);
@@ -721,6 +722,92 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame(1, DB::table('recommerce_device_movements')->where('movement_type', 'TRANSFER_REVERSAL')->count());
         $this->assertSame('PASS', (new StockReconciliationService($this->gate()))->forVariation($this->authorizedUser(), 7, 101, 303)['status']);
         $this->assertSame('PASS', (new StockReconciliationService($this->gate()))->forVariation($this->authorizedUser(), 7, 102, 303)['status']);
+    }
+
+    public function test_v2_transfer_requires_destination_scan_is_idempotent_and_preserves_lifecycle(): void
+    {
+        $device = $this->availableDevice('SB-DV-00000031-0', 101);
+        $device->update(['lifecycle_state' => 'RECEIVED_PENDING_INSPECTION']);
+        [$transfer, $receipt] = $this->transferPair('pending');
+        $selection = [['product_id' => 202, 'variation_id' => 303, 'recommerce_device_codes' => $device->device_code]];
+        $service = new DeviceLifecycleService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder());
+
+        $service->synchroniseTransferReservation($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $selection);
+        $this->assertSame(101, $device->fresh()->current_location_id);
+        $this->assertSame('RECEIVED_PENDING_INSPECTION', $device->fresh()->lifecycle_state);
+        $service->dispatchTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh());
+        $this->assertSame('IN_TRANSIT', $device->fresh()->custody_kind);
+        $this->assertSame('IN_TRANSFER', $device->fresh()->stock_participation);
+
+        $first = $service->receiveTransferDevice($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $device->fresh());
+        $second = $service->receiveTransferDevice($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), $device->fresh());
+        $this->assertSame('RECEIVED', $first['status']);
+        $this->assertSame('ALREADY_RECEIVED', $second['status']);
+        $this->assertSame(102, $device->fresh()->current_location_id, 'A scanned Device is physically at the destination even before native aggregate completion.');
+        $this->assertSame('LOCATION', $device->fresh()->custody_kind);
+        $this->assertSame('IN_TRANSFER', $device->fresh()->stock_participation, 'Partial receipt is never destination on-hand stock.');
+        $this->assertSame(1, DB::table('recommerce_device_movements')->where('movement_type', 'TRANSFER_RECEIPT_SCAN')->count());
+        $transfer->update(['status' => 'final']);
+        $receipt->update(['status' => 'received']);
+        $service->recordCompletedTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), []);
+
+        $this->assertSame(102, $device->fresh()->current_location_id);
+        $this->assertSame('RECEIVED_PENDING_INSPECTION', $device->fresh()->lifecycle_state);
+        $this->assertSame('ON_HAND', $device->fresh()->stock_participation);
+        $this->assertSame('NONE', $device->fresh()->transfer_state);
+        $this->assertSame(1, DB::table('recommerce_device_movements')->where('movement_type', 'TRANSFER_RECEIPT_SCAN')->count());
+        $this->assertSame(1, DeviceTransferAssignment::query()->where('status', 'COMPLETED')->count());
+    }
+
+    public function test_v2_transfer_selection_is_incremental_without_reissuing_existing_assignment_evidence(): void
+    {
+        $first = $this->availableDevice('SB-DV-00000032-5', 101);
+        $second = $this->availableDevice('SB-DV-00000033-3', 101);
+        [$transfer, $receipt] = $this->transferPair('pending');
+        $transfer->sell_lines()->first()->update(['quantity' => 2]);
+        $service = new DeviceLifecycleService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder());
+
+        $service->synchroniseTransferReservation($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), [[
+            'product_id' => 202, 'variation_id' => 303, 'recommerce_device_codes' => $first->device_code,
+        ]], true);
+        $firstAssignmentId = DeviceTransferAssignment::query()->where('device_id', $first->id)->value('id');
+        $this->assertSame(1, DeviceTransferAssignment::query()->where('status', 'RESERVED')->count());
+
+        $service->synchroniseTransferReservation($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), [[
+            'product_id' => 202, 'variation_id' => 303, 'recommerce_device_codes' => $first->device_code.' '.$second->device_code,
+        ]], true);
+
+        $this->assertSame($firstAssignmentId, DeviceTransferAssignment::query()->where('device_id', $first->id)->value('id'));
+        $this->assertSame(2, DeviceTransferAssignment::query()->where('status', 'RESERVED')->count());
+        $this->assertSame('RESERVED', $first->fresh()->transfer_state);
+        $this->assertSame('RESERVED', $second->fresh()->transfer_state);
+    }
+
+    public function test_v2_transfer_scan_identifies_open_transit_context_for_authorized_staff(): void
+    {
+        $device = $this->availableDevice('SB-DV-00000031-0', 101);
+        [$transfer, $receipt] = $this->transferPair('pending');
+        $transfer->update(['ref_no' => 'ST-V2-TRANSIT-01']);
+        $service = new DeviceLifecycleService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder());
+        $service->synchroniseTransferReservation($this->authorizedUser(), $transfer->fresh(), $receipt->fresh(), [[
+            'product_id' => 202, 'variation_id' => 303, 'recommerce_device_codes' => $device->device_code,
+        ]]);
+        $service->dispatchTransfer($this->authorizedUser(), $transfer->fresh(), $receipt->fresh());
+        $this->assertTrue(User::can_access_this_location(101, 7));
+        $this->assertTrue(User::can_access_this_location(102, 7));
+        $this->assertTrue($this->gate()->allowsRead(auth()->user(), 'recommerce.device.view', 7, 101, 303));
+        $this->assertSame('IN_TRANSIT', DeviceTransferAssignment::query()->where('device_id', $device->id)->value('status'));
+        $response = (new ScanController())->resolve(
+            Request::create('/recommerce/scans/resolve', 'POST', ['value' => $device->device_code]),
+            $this->gate(),
+            new OpaqueScanToken()
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('IN_TRANSIT', $response->getData(true)['transfer']['state']);
+        $this->assertSame('ST-V2-TRANSIT-01', $response->getData(true)['transfer']['reference']);
+        $this->assertSame('Kota Kinabalu', $response->getData(true)['transfer']['from_location']);
+        $this->assertSame('Sandakan', $response->getData(true)['transfer']['to_location']);
     }
 
     public function test_receive_creates_exact_device_evidence_without_storing_raw_identifier(): void
@@ -870,6 +957,110 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame([1, 2], DB::table('recommerce_device_purchase_assignments')->orderBy('unit_ordinal')->pluck('unit_ordinal')->all());
         $this->assertSame(1, DB::table('transactions')->count());
         $this->assertSame(2.0, (float) DB::table('purchase_lines')->where('id', 707)->value('quantity'));
+    }
+
+    public function test_purchase_attachment_rejects_over_identification_with_operator_safe_guidance(): void
+    {
+        $base = [
+            'location_id' => 101, 'product_id' => 202, 'variation_id' => 303,
+            'purchase_transaction_id' => 606, 'purchase_line_id' => 707,
+        ];
+        $controller = new ReceivingController();
+        $first = $controller->attachPurchase(
+            Request::create('/recommerce/receiving/attach-purchase', 'POST', $base + [
+                'command_uuid' => 'abababab-abab-4bab-8bab-abababababab',
+                'units' => [['identifier_type' => 'SERIAL', 'identifier_value' => 'SN-ONLY-UNIT']],
+            ]),
+            $this->service()
+        );
+        $second = $controller->attachPurchase(
+            Request::create('/recommerce/receiving/attach-purchase', 'POST', $base + [
+                'command_uuid' => 'acacacac-acac-4cac-8cac-acacacacacac',
+                'units' => [['identifier_type' => 'SERIAL', 'identifier_value' => 'SN-EXCESS-UNIT']],
+            ]),
+            $this->service()
+        );
+
+        $this->assertSame(200, $first->getStatusCode());
+        $this->assertSame(422, $second->getStatusCode());
+        $this->assertSame(
+            'This batch is larger than the number of devices still needing identification. Refresh to see the latest progress.',
+            $second->getData(true)['message']
+        );
+        $this->assertSame(1, Device::query()->count());
+        $this->assertSame(1, DB::table('recommerce_device_purchase_assignments')->count());
+    }
+
+    public function test_purchase_attachment_rejects_unauthorized_and_cross_location_operators(): void
+    {
+        $command = [
+            'business_id' => 7, 'location_id' => 101, 'product_id' => 202, 'variation_id' => 303,
+            'purchase_transaction_id' => 606, 'purchase_line_id' => 707,
+            'command_uuid' => 'adadadad-adad-4dad-8dad-adadadadadad',
+            'units' => [['identifier_type' => 'SERIAL', 'identifier_value' => 'SN-DENIED-UNIT']],
+        ];
+        $deniedUser = new class extends User
+        {
+            public function can($ability, $arguments = []): bool
+            {
+                return false;
+            }
+
+            public function permitted_locations($business_id = null)
+            {
+                return [101];
+            }
+        };
+        $deniedUser->id = 900;
+        $deniedUser->business_id = 7;
+
+        try {
+            $this->service()->attachToExistingUltimatePosPurchase($deniedUser, $command);
+            $this->fail('An operator without receiving permission must be denied.');
+        } catch (AuthorizationException $exception) {
+            $this->assertSame('Recommerce receiving scope denied.', $exception->getMessage());
+        }
+
+        try {
+            $this->service()->attachToExistingUltimatePosPurchase($this->authorizedUser(), array_merge($command, [
+                'location_id' => 102,
+                'command_uuid' => 'aeaeaeae-aeae-4eae-8eae-aeaeaeaeaeae',
+            ]));
+            $this->fail('A purchase must not be identified from a different location.');
+        } catch (LogicException $exception) {
+            $this->assertSame('The selected POS purchase line is not an eligible received stock line.', $exception->getMessage());
+        }
+
+        $this->assertSame(0, Device::query()->count());
+        $this->assertSame(0, DB::table('recommerce_device_purchase_assignments')->count());
+    }
+
+    public function test_identified_purchase_provenance_blocks_native_purchase_mutation(): void
+    {
+        $progress = new DeviceReceivingProgressService();
+        $progress->assertPurchaseMayBeChanged(7, 606);
+
+        $this->service()->attachToExistingUltimatePosPurchase($this->authorizedUser(), [
+            'business_id' => 7, 'location_id' => 101, 'product_id' => 202, 'variation_id' => 303,
+            'purchase_transaction_id' => 606, 'purchase_line_id' => 707,
+            'command_uuid' => 'afafafaf-afaf-4faf-8faf-afafafafafaf',
+            'units' => [['identifier_type' => 'SERIAL', 'identifier_value' => 'SN-PROVENANCE-LOCK']],
+        ]);
+
+        foreach ([
+            'edit' => 'cannot be edited',
+            'delete' => 'cannot be deleted',
+            'status' => 'status cannot change',
+            'return' => 'cannot use the ordinary return screen',
+        ] as $operation => $message) {
+            try {
+                $progress->assertPurchaseMayBeChanged(7, 606, $operation);
+                $this->fail('Identified purchase mutation must remain blocked.');
+            } catch (LogicException $exception) {
+                $this->assertStringContainsString($message, $exception->getMessage());
+                $this->assertStringContainsString('receiving record', $exception->getMessage());
+            }
+        }
     }
 
     public function test_purchase_led_progress_distinguishes_bulk_and_resumes_serialised_receiving(): void
@@ -1439,7 +1630,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $responseData = $response->getData(true);
         $payload = $responseData['label'];
 
-        $this->assertSame('alpha-1', $payload['template_version']);
+        $this->assertSame('v2.2-2', $payload['template_version']);
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('READY_TO_PRINT', $responseData['status']);
         $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
@@ -1450,6 +1641,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertArrayNotHasKey('token_hash', $payload);
         $this->assertSame(1, ScanToken::query()->where('status', 'ACTIVE')->count());
         $this->assertSame(64, strlen((string) DB::table('recommerce_scan_tokens')->value('token_hash')));
+        $this->assertNotSame($payload['qr_url'], DB::table('recommerce_scan_tokens')->value('raw_token_encrypted'));
         $this->assertSame(2, DB::table('recommerce_device_events')->count());
         $this->assertSame('LABEL_TOKEN_ISSUED', DB::table('recommerce_device_events')->orderByDesc('id')->value('event_type'));
         $this->assertSame(2, DB::table('recommerce_outbox_messages')->count());
@@ -1571,7 +1763,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame(1, DB::table('recommerce_label_jobs')->count());
         $this->assertSame(1, DB::table('recommerce_label_job_items')->count());
         $labelJob = DB::table('recommerce_label_jobs')->first();
-        $this->assertSame('READY_TO_PRINT', $labelJob->status);
+        $this->assertSame('PRINT_VIEW_OPENED', $labelJob->status);
         $this->assertSame(1, (int) $labelJob->item_count);
         $this->assertSame($device->device_code, json_decode($labelJob->request_json, true)['device_code']);
         $this->assertStringNotContainsString('raw_token', $labelJob->request_json);
@@ -1622,14 +1814,17 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertStringNotContainsString('token_hash', $content);
         $this->assertStringNotContainsString('https://scan.saverbro.example/s/d/', $content);
         $this->assertStringContainsString('<svg', $content);
+        $this->assertStringContainsString('@page { size: 50mm 38mm;', $content);
+        $this->assertStringContainsString('.label { width: 50mm; min-height: 38mm;', $content);
         $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
         $this->assertSame('no-referrer', $response->headers->get('Referrer-Policy'));
         $this->assertSame(1, DB::table('recommerce_label_jobs')->count());
         $this->assertSame(1, DB::table('recommerce_label_job_items')->count());
 
         $firstItem = DB::table('recommerce_label_job_items')->first();
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', ScanToken::query()->firstOrFail()->raw_token_encrypted);
         $reprint = (new LabelController())->print(
-            Request::create('/recommerce/devices/'.$device->id.'/label/print', 'POST', ['rotate' => true]),
+            Request::create('/recommerce/devices/'.$device->id.'/label/print', 'POST'),
             $device->id,
             new ScanTokenIssuanceService($this->gate(), new OpaqueScanToken()),
             new LabelPayloadBuilder(),
@@ -1639,16 +1834,71 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame(200, $reprint->getStatusCode());
         $this->assertSame(2, DB::table('recommerce_label_jobs')->count());
         $this->assertSame(2, DB::table('recommerce_label_job_items')->count());
-        $this->assertSame(2, DB::table('recommerce_label_job_items')->distinct()->count('scan_token_id'));
+        $this->assertSame(1, DB::table('recommerce_label_job_items')->distinct()->count('scan_token_id'));
         $this->assertSame(
             1,
             DB::table('recommerce_label_job_items')->distinct()->count('device_id')
         );
         $reprintJob = DB::table('recommerce_label_jobs')->orderByDesc('id')->first();
-        $this->assertTrue(json_decode($reprintJob->request_json, true)['rotate']);
-        $this->assertSame('ROTATION_REPRINT', json_decode($reprintJob->request_json, true)['reason']);
+        $this->assertSame('REPRINT', json_decode($reprintJob->request_json, true)['reason']);
         $this->assertStringNotContainsString('raw_token', $reprintJob->request_json);
-        $this->assertNotSame($firstItem->scan_token_id, DB::table('recommerce_label_job_items')->orderByDesc('id')->value('scan_token_id'));
+        $this->assertSame($firstItem->scan_token_id, DB::table('recommerce_label_job_items')->orderByDesc('id')->value('scan_token_id'));
+    }
+
+    public function test_permanent_device_label_reprint_keeps_one_qr_identity_and_one_device(): void
+    {
+        $this->app['view']->addNamespace('recommerce', base_path('Modules/Recommerce/Resources/views'));
+        (new RouteServiceProvider(app()))->map();
+
+        $device = $this->receiveOneDevice();
+        $deviceId = $device->id;
+        $deviceCode = $device->device_code;
+        $user = $this->authorizedUser();
+
+        $this->actingAs($user)
+            ->post('/recommerce/devices/'.$deviceId.'/label/print')
+            ->assertOk();
+
+        $initialToken = ScanToken::query()->where('status', 'ACTIVE')->firstOrFail();
+        $tokenId = $initialToken->id;
+        $tokenValue = $initialToken->raw_token_encrypted;
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $tokenValue);
+        $this->assertSame($deviceId, (int) $initialToken->device_id);
+        $this->assertSame('INITIAL_PRINT', json_decode(DB::table('recommerce_label_jobs')->value('request_json'), true)['reason']);
+
+        $firstResolution = $this->actingAs($user)->postJson('/recommerce/scans/resolve', [
+            'value' => 'https://scan.saverbro.example/s/d/'.$tokenValue,
+        ]);
+        $firstResolution->assertOk()->assertJsonPath('device_code', $deviceCode);
+
+        $this->actingAs($user)
+            ->postJson('/recommerce/devices/'.$deviceId.'/label/confirm')
+            ->assertOk()->assertJsonPath('status', 'PRINT_CONFIRMED');
+
+        $this->actingAs($user)
+            ->post('/recommerce/devices/'.$deviceId.'/label/print')
+            ->assertOk();
+
+        $reprintToken = ScanToken::query()->where('status', 'ACTIVE')->firstOrFail();
+        $this->assertSame($tokenId, $reprintToken->id);
+        $this->assertSame($tokenValue, $reprintToken->raw_token_encrypted);
+        $this->assertSame(1, ScanToken::query()->count());
+        $this->assertSame(1, Device::query()->count());
+        $this->assertSame($deviceCode, Device::query()->findOrFail($deviceId)->device_code);
+
+        $secondResolution = $this->actingAs($user)->postJson('/recommerce/scans/resolve', [
+            'value' => 'https://scan.saverbro.example/s/d/'.$reprintToken->raw_token_encrypted,
+        ]);
+        $secondResolution->assertOk()->assertJsonPath('device_code', $deviceCode);
+
+        $jobs = DB::table('recommerce_label_jobs')->orderBy('id')->get();
+        $this->assertCount(2, $jobs);
+        $this->assertSame('PRINT_CONFIRMED', $jobs[0]->status);
+        $this->assertSame('INITIAL_PRINT', json_decode($jobs[0]->request_json, true)['reason']);
+        $this->assertSame('PRINT_VIEW_OPENED', $jobs[1]->status);
+        $this->assertSame('REPRINT', json_decode($jobs[1]->request_json, true)['reason']);
+        $this->assertSame(1, DB::table('recommerce_label_job_items')->distinct()->count('scan_token_id'));
+        $this->assertSame(1, DB::table('recommerce_label_job_items')->distinct()->count('device_id'));
     }
 
     public function test_enabled_label_print_route_runs_authenticated_http_path(): void
@@ -1691,6 +1941,11 @@ class RecommerceReceivingIntegrationTest extends TestCase
             $this->gate(),
             $opaqueToken
         );
+        $serialResponse = $controller->resolve(
+            Request::create('/recommerce/scans/resolve', 'POST', ['value' => 'SN-LABEL-01']),
+            $this->gate(),
+            $opaqueToken
+        );
         $invalidResponse = $controller->resolve(
             Request::create('/recommerce/scans/resolve', 'POST', ['value' => 'https://other.example/s/d/'.$issued['raw_token']]),
             $this->gate(),
@@ -1699,11 +1954,13 @@ class RecommerceReceivingIntegrationTest extends TestCase
 
         $this->assertSame(200, $humanResponse->getStatusCode());
         $this->assertSame(200, $qrResponse->getStatusCode());
+        $this->assertSame(200, $serialResponse->getStatusCode());
         $this->assertSame(404, $invalidResponse->getStatusCode());
         $this->assertSame('no-referrer', $humanResponse->headers->get('Referrer-Policy'));
         $this->assertSame('no-referrer', $qrResponse->headers->get('Referrer-Policy'));
         $this->assertSame($device->device_code, $qrResponse->getData(true)['device_code']);
-        $this->assertSame([], $qrResponse->getData(true)['actions']);
+        $this->assertSame($device->device_code, $serialResponse->getData(true)['device_code']);
+        $this->assertSame('VIEW_DEVICE', $qrResponse->getData(true)['actions'][0]['key']);
         $this->assertStringNotContainsString($issued['raw_token'], json_encode($qrResponse->getData(true)));
 
         $tokenService->issue($this->authorizedUser(), $device->fresh(), true);
@@ -1714,6 +1971,27 @@ class RecommerceReceivingIntegrationTest extends TestCase
         );
 
         $this->assertSame(404, $replacedResponse->getStatusCode());
+    }
+
+    public function test_label_attachment_confirmation_is_auditable_without_changing_device_identity(): void
+    {
+        $this->app['view']->addNamespace('recommerce', base_path('Modules/Recommerce/Resources/views'));
+        $device = $this->receiveOneDevice();
+        (new RouteServiceProvider(app()))->map();
+
+        $this->actingAs($this->authorizedUser())
+            ->post('/recommerce/devices/'.$device->id.'/label/print')
+            ->assertOk();
+
+        $this->actingAs($this->authorizedUser())
+            ->postJson('/recommerce/devices/'.$device->id.'/label/confirm')
+            ->assertOk()
+            ->assertJsonPath('status', 'PRINT_CONFIRMED');
+
+        $this->assertSame('PRINT_CONFIRMED', DB::table('recommerce_label_jobs')->value('status'));
+        $this->assertSame('PRINT_CONFIRMED', DB::table('recommerce_label_job_items')->value('status'));
+        $this->assertSame(1, Device::query()->count());
+        $this->assertSame(1, ScanToken::query()->where('status', 'ACTIVE')->count());
     }
 
     public function test_qr_opens_internal_detail_for_staff_and_a_customer_safe_certificate_for_public_scans(): void
@@ -1778,6 +2056,33 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $staff = $controller->device($issued['raw_token'], $opaqueToken, $this->gate(), $certificateService);
         $this->assertSame(302, $staff->getStatusCode());
         $this->assertStringContainsString('/recommerce/devices/'.$device->device_code, $staff->headers->get('Location'));
+    }
+
+    public function test_unpublished_or_unknown_public_qr_shows_the_same_neutral_no_data_page(): void
+    {
+        $this->app['view']->addNamespace('recommerce', base_path('Modules/Recommerce/Resources/views'));
+        (new RouteServiceProvider(app()))->map();
+
+        $device = $this->receiveOneDevice();
+        $issued = (new ScanTokenIssuanceService($this->gate(), new OpaqueScanToken()))
+            ->issue($this->authorizedUser(), $device);
+
+        Auth::logout();
+        $unpublished = $this->get('/s/d/'.$issued['raw_token']);
+        $unknown = $this->get('/s/d/'.str_repeat('f', 64));
+
+        foreach ([$unpublished, $unknown] as $response) {
+            $response->assertNotFound()
+                ->assertSee('A public Device Passport is not available for this label.')
+                ->assertHeader('Referrer-Policy', 'no-referrer')
+                ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+            $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+            $this->assertStringNotContainsString($device->device_code, $response->getContent());
+            $this->assertStringNotContainsString($issued['raw_token'], $response->getContent());
+            $this->assertStringNotContainsString('1850', $response->getContent());
+        }
+
+        $this->assertSame($unpublished->getContent(), $unknown->getContent());
     }
 
     public function test_device_event_timeline_is_scoped_and_safe_over_http(): void
@@ -2172,6 +2477,12 @@ class RecommerceReceivingIntegrationTest extends TestCase
     {
         config(['recommerce.writes_enabled' => false]);
         $authorizationGate = Mockery::mock(AuthorizationGate::class);
+        $authorizationGate->shouldReceive('allowsRead')
+            ->once()
+            ->withArgs(fn ($user, string $permission, int $businessId, int $locationId): bool => $permission === 'recommerce.inspection.view'
+                && $businessId === 7
+                && $locationId === 101)
+            ->andReturn(false);
 
         $viewName = null;
         $viewData = null;
@@ -2547,7 +2858,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $scanResponse->assertOk()
             ->assertJsonPath('type', 'DEVICE')
             ->assertJsonPath('device_code', $deviceCode)
-            ->assertJsonPath('actions', []);
+            ->assertJsonPath('actions.0.key', 'VIEW_DEVICE');
 
         DB::table('variation_location_details')->insert([
             'id' => 838,
@@ -2594,13 +2905,17 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $scanResponse->assertOk()
             ->assertJsonPath('type', 'DEVICE')
             ->assertJsonPath('device_code', $device->device_code)
-            ->assertJsonPath('actions', []);
+            ->assertJsonPath('actions.0.key', 'VIEW_DEVICE');
         $this->assertStringContainsString('no-store', (string) $scanResponse->headers->get('Cache-Control'));
         $scanResponse->assertHeader('Referrer-Policy', 'no-referrer');
     }
 
     public function test_approved_qr_scan_and_public_resolver_run_over_http(): void
     {
+        $this->app['view']->addNamespace(
+            'recommerce',
+            base_path('Modules/Recommerce/Resources/views')
+        );
         $device = $this->receiveOneDevice();
         $issued = (new ScanTokenIssuanceService($this->gate(), new OpaqueScanToken()))
             ->issue($this->authorizedUser(), $device);
@@ -2615,7 +2930,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $qrResponse->assertOk()
             ->assertJsonPath('type', 'DEVICE')
             ->assertJsonPath('device_code', $device->device_code)
-            ->assertJsonPath('actions', []);
+            ->assertJsonPath('actions.0.key', 'VIEW_DEVICE');
         $this->assertStringNotContainsString($issued['raw_token'], $qrResponse->getContent());
         $this->assertStringContainsString('no-store', (string) $qrResponse->headers->get('Cache-Control'));
         $qrResponse->assertHeader('Referrer-Policy', 'no-referrer');

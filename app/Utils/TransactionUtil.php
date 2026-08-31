@@ -5237,7 +5237,7 @@ class TransactionUtil extends Util
                 $join->on('rsp.product_id', '=', 'rdpl.product_id')
                     ->on('rsp.variation_id', '=', 'rdpl.variation_id')
                     ->where('rsp.business_id', '=', $businessId)
-                    ->where('rsp.mode', '=', 'TRACKED_REQUIRED');
+                    ->whereIn('rsp.mode', ['TRACKED_REQUIRED', 'LEGACY_MIXED']);
             })
             ->leftJoinSub($assignments, 'rdpa', fn ($join) => $join->on('rdpa.purchase_line_id', '=', 'rdpl.id'))
             ->whereRaw('rdpl.quantity > 0 AND rdpl.quantity = ROUND(rdpl.quantity)')
@@ -5246,7 +5246,7 @@ class TransactionUtil extends Util
                 Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'),
                 fn ($query) => $query->where('rsp.inventory_tracking_mode', 'SERIALIZED_DEVICE')
             )
-            ->selectRaw('rdpl.transaction_id, SUM(rdpl.quantity) as device_expected, SUM(COALESCE(rdpa.registered_count, 0)) as device_registered, SUM(COALESCE(rdpa.inspection_ready_count, 0)) as inspection_ready_count')
+            ->selectRaw('rdpl.transaction_id, MIN(rdpl.variation_id) as device_receiving_variation_id, SUM(rdpl.quantity) as device_expected, SUM(COALESCE(rdpa.registered_count, 0)) as device_registered, SUM(COALESCE(rdpa.inspection_ready_count, 0)) as inspection_ready_count')
             ->groupBy('rdpl.transaction_id');
 
         return $purchases
@@ -5254,7 +5254,8 @@ class TransactionUtil extends Util
             ->addSelect(
                 DB::raw('MAX(device_receiving.device_expected) as device_expected'),
                 DB::raw('MAX(device_receiving.device_registered) as device_registered'),
-                DB::raw('MAX(device_receiving.inspection_ready_count) as inspection_ready_count')
+                DB::raw('MAX(device_receiving.inspection_ready_count) as inspection_ready_count'),
+                DB::raw('MAX(device_receiving.device_receiving_variation_id) as device_receiving_variation_id')
             );
     }
 

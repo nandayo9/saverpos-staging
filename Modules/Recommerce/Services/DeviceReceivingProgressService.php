@@ -4,6 +4,7 @@ namespace Modules\Recommerce\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use LogicException;
 use Modules\Recommerce\Entities\SerializationProfile;
 
 /**
@@ -57,6 +58,35 @@ class DeviceReceivingProgressService
     }
 
     /**
+     * Once a physical Device points at a purchase, native purchase mutation
+     * would rewrite or cascade-delete its provenance. Corrections therefore
+     * need a deliberate, permissioned Device workflow rather than an ordinary
+     * purchase edit/status/delete action.
+     */
+    public function assertPurchaseMayBeChanged(int $businessId, int $purchaseId, string $operation = 'change'): void
+    {
+        if (! Schema::hasTable('recommerce_device_purchase_assignments')) {
+            return;
+        }
+
+        $hasIdentifiedDevices = DB::table('recommerce_device_purchase_assignments')
+            ->where('business_id', $businessId)
+            ->where('transaction_id', $purchaseId)
+            ->exists();
+
+        if ($hasIdentifiedDevices) {
+            $message = match ($operation) {
+                'delete' => 'This purchase cannot be deleted because identified devices depend on it. Open the receiving record to review those devices.',
+                'status' => 'This purchase status cannot change because devices have already been identified from it. Open the receiving record and contact an administrator if a documented correction is required.',
+                'return' => 'This purchase cannot use the ordinary return screen because identified devices depend on its received quantity. Open the receiving record to review them, then use a device-aware return process or contact an administrator for a documented correction.',
+                default => 'This purchase cannot be edited because this UltimatePOS screen saves purchase details and stock lines together. Devices have already been identified from those lines. Open the receiving record and contact an administrator if a documented correction is required.',
+            };
+
+            throw new LogicException($message);
+        }
+    }
+
+    /**
      * Returns a purchase and all of its lines. Lines without an approved
      * serialized-device policy are deliberately represented as BULK, rather
      * than requiring staff to make a tracking decision at receipt time.
@@ -91,7 +121,21 @@ class DeviceReceivingProgressService
                 ->leftJoin('recommerce_device_inspections as di', 'di.device_id', '=', 'd.id')
                 ->where('dpa.business_id', $businessId)
                 ->where('dpa.transaction_id', $purchase->id)
-                ->selectRaw("dpa.purchase_line_id, SUM(CASE WHEN di.status = 'PASSED' AND d.lifecycle_state = 'AVAILABLE' THEN 1 ELSE 0 END) as inspection_cleared_count, SUM(CASE WHEN di.status IN ('PENDING', 'ASSIGNED', 'IN_INSPECTION') THEN 1 ELSE 0 END) as inspection_open_count, SUM(CASE WHEN di.status = 'FAILED' THEN 1 ELSE 0 END) as inspection_failed_count")
+                ->selectRaw("dpa.purchase_line_id, SUM(CASE WHEN d.lifecycle_state = 'AVAILABLE' THEN 1 ELSE 0 END) as inspection_cleared_count, SUM(CASE WHEN di.status IN ('PENDING', 'ASSIGNED', 'IN_INSPECTION') THEN 1 ELSE 0 END) as inspection_open_count, SUM(CASE WHEN di.status = 'FAILED' THEN 1 ELSE 0 END) as inspection_failed_count")
+                ->groupBy('dpa.purchase_line_id')->get()->keyBy('purchase_line_id');
+        }
+
+        // Label evidence is operational only. Registration stays complete
+        // even when a printer is unavailable or an operator has not yet
+        // confirmed the physical label was attached.
+        $labelCounts = collect();
+        if (Schema::hasTable('recommerce_label_job_items') && Schema::hasTable('recommerce_label_jobs')) {
+            $labelCounts = DB::table('recommerce_device_purchase_assignments as dpa')
+                ->join('recommerce_label_job_items as lji', 'lji.device_id', '=', 'dpa.device_id')
+                ->join('recommerce_label_jobs as lj', 'lj.id', '=', 'lji.label_job_id')
+                ->where('dpa.business_id', $businessId)
+                ->where('dpa.transaction_id', $purchase->id)
+                ->selectRaw("dpa.purchase_line_id, COUNT(DISTINCT lji.device_id) as label_view_opened_count, COUNT(DISTINCT CASE WHEN lj.status IN ('PRINT_CONFIRMED', 'REPRINT_CONFIRMED') THEN lji.device_id END) as label_confirmed_count")
                 ->groupBy('dpa.purchase_line_id')->get()->keyBy('purchase_line_id');
         }
 
@@ -107,7 +151,7 @@ class DeviceReceivingProgressService
             ->groupBy('pl.id', 'pl.transaction_id', 'pl.product_id', 'pl.variation_id', 'pl.quantity', 'pl.purchase_price_inc_tax', 'p.name', 'v.name')
             ->orderBy('pl.id')
             ->get()
-            ->map(function ($line) use ($profiles, $inspectionCounts) {
+            ->map(function ($line) use ($profiles, $inspectionCounts, $labelCounts) {
                 $profile = $profiles->get($line->product_id.':'.$line->variation_id);
                 $trackingMode = $this->trackingMode($profile);
                 $quantity = (float) $line->quantity;
@@ -131,6 +175,10 @@ class DeviceReceivingProgressService
                 $line->inspection_cleared_count = (int) ($inspection->inspection_cleared_count ?? 0);
                 $line->inspection_open_count = (int) ($inspection->inspection_open_count ?? 0);
                 $line->inspection_failed_count = (int) ($inspection->inspection_failed_count ?? 0);
+                $labels = $labelCounts->get($line->id);
+                $line->label_view_opened_count = (int) ($labels->label_view_opened_count ?? 0);
+                $line->label_confirmed_count = (int) ($labels->label_confirmed_count ?? 0);
+                $line->label_remaining_count = max(0, $line->registered_count - $line->label_confirmed_count);
 
                 return $line;
             })
@@ -148,6 +196,9 @@ class DeviceReceivingProgressService
             'inspection_cleared_count' => (int) $serializedLines->sum('inspection_cleared_count'),
             'inspection_open_count' => (int) $serializedLines->sum('inspection_open_count'),
             'inspection_failed_count' => (int) $serializedLines->sum('inspection_failed_count'),
+            'label_view_opened_count' => (int) $serializedLines->sum('label_view_opened_count'),
+            'label_confirmed_count' => (int) $serializedLines->sum('label_confirmed_count'),
+            'label_remaining_count' => (int) $serializedLines->sum('label_remaining_count'),
         ];
     }
 }

@@ -402,7 +402,7 @@
                 <article class="sb-dashboard-kpi sb-dashboard-kpi--visits">
                     <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-users"></i></span>
                     <div class="sb-dashboard-kpi__content">
-                        <p class="sb-dashboard-kpi__label">Total Visits today</p>
+                        <p class="sb-dashboard-kpi__label">Total Walk-In</p>
                         @if (!empty($walkInSummary))
                             <p class="sb-dashboard-kpi__value walk_in_total">{{ $walkInSummary['walk_ins'] }}</p>
                             <p class="sb-dashboard-kpi__hint">Visits in selected range</p>
@@ -965,7 +965,7 @@
                                 <div class="tw-flex tw-items-center tw-flex-1 tw-min-w-0 tw-gap-1">
                                     <div class="tw-w-full sm:tw-w-1/2 md:tw-w-1/2">
                                         <h3 class="tw-font-bold tw-text-base lg:tw-text-xl">
-                                            Branch Performance This Month
+                                            Branch Performance
                                         </h3>
                                     </div>
                                     <div class="tw-w-full sm:tw-w-1/2 md:tw-w-1/2">

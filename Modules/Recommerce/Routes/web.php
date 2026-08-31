@@ -42,6 +42,11 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->middleware('throttle:10,1')
         ->name('recommerce.devices.label.print');
 
+    Route::post('/devices/{deviceId}/label/confirm', 'LabelController@confirm')
+        ->whereNumber('deviceId')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.devices.label.confirm');
+
     Route::post('/devices/{deviceId}/certification', 'DeviceCertificationController@store')
         ->whereNumber('deviceId')
         ->middleware('throttle:20,1')
@@ -139,6 +144,12 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->whereNumber('exceptionId')
         ->middleware('throttle:20,1')
         ->name('recommerce.transfers.exceptions.resolve');
+
+    Route::get('/transfers/{transferId}', 'TransferController@show')->whereNumber('transferId')->middleware('throttle:30,1')->name('recommerce.transfers.show');
+    Route::post('/transfers/{transferId}/select', 'TransferController@select')->whereNumber('transferId')->middleware('throttle:30,1')->name('recommerce.transfers.select');
+    Route::post('/transfers/{transferId}/dispatch', 'TransferController@dispatch')->whereNumber('transferId')->middleware('throttle:10,1')->name('recommerce.transfers.dispatch');
+    Route::post('/transfers/{transferId}/receive', 'TransferController@receive')->whereNumber('transferId')->middleware('throttle:30,1')->name('recommerce.transfers.receive');
+    Route::post('/transfers/{transferId}/complete', 'TransferController@complete')->whereNumber('transferId')->middleware('throttle:10,1')->name('recommerce.transfers.complete');
 
     Route::get('/repair', 'RepairJobController@index')
         ->middleware('throttle:30,1')

@@ -393,6 +393,7 @@ class TrackedReceivingService
                     'device_id' => $device->id,
                     'device_code' => $device->device_code,
                     'unit_ordinal' => ((int) ($coreReceipt['unit_ordinal_start'] ?? 1)) + $ordinal,
+                    'lifecycle_state' => $device->lifecycle_state,
                 ];
         }
 

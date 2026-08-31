@@ -319,8 +319,11 @@ class StockTransferController extends Controller
                 $purchase_transfer->purchase_lines()->createMany($purchase_lines);
             }
 
-            if (in_array($status, ['pending', 'in_transit', 'completed'], true)) {
+            if (in_array($status, ['pending', 'in_transit', 'completed'], true) && $this->hasRequestedDeviceSelections($products)) {
                 $this->deviceLifecycleService->synchroniseTransferReservation($request->user(), $sell_transfer->fresh(), $purchase_transfer->fresh(), $products);
+                if ($status === 'in_transit') {
+                    $this->deviceLifecycleService->dispatchTransfer($request->user(), $sell_transfer->fresh(), $purchase_transfer->fresh());
+                }
             }
 
             //Decrease product stock from sell location
@@ -649,6 +652,10 @@ class StockTransferController extends Controller
                 ->with(['sell_lines'])
                 ->findOrFail($id);
 
+        if ($sell_transfer->status === 'in_transit' && $this->hasDeviceTransferEvidence($sell_transfer->id)) {
+            abort(409, 'A dispatched tracked transfer cannot be edited. Complete it or use the controlled reversal workflow.');
+        }
+
         $purchase_transfer = Transaction::where('business_id',
                 $business_id)
                 ->where('transfer_parent_id', $id)
@@ -719,6 +726,11 @@ class StockTransferController extends Controller
             $sell_transfer = Transaction::where('business_id', $business_id)
                     ->where('type', 'sell_transfer')
                     ->findOrFail($id);
+
+            if ($sell_transfer->status === 'final'
+                || ($sell_transfer->status === 'in_transit' && $this->hasDeviceTransferEvidence($sell_transfer->id))) {
+                throw new \LogicException('A dispatched tracked transfer cannot be edited. Complete it or use the controlled reversal workflow.');
+            }
 
             $sell_transfer_before = $sell_transfer->replicate();
 
@@ -847,8 +859,11 @@ class StockTransferController extends Controller
                 $purchase_transfer->purchase_lines()->saveMany($purchase_lines);
             }
 
-            if (in_array($status, ['pending', 'in_transit', 'completed'], true)) {
+            if (in_array($status, ['pending', 'in_transit', 'completed'], true) && $this->hasRequestedDeviceSelections($products)) {
                 $this->deviceLifecycleService->synchroniseTransferReservation($request->user(), $sell_transfer->fresh(), $purchase_transfer->fresh(), $products);
+                if ($status === 'in_transit') {
+                    $this->deviceLifecycleService->dispatchTransfer($request->user(), $sell_transfer->fresh(), $purchase_transfer->fresh());
+                }
             }
 
             //Decrease product stock from sell location
@@ -957,6 +972,15 @@ class StockTransferController extends Controller
             }
 
             DB::beginTransaction();
+            if ($status === 'in_transit' && $sell_transfer->status === 'pending') {
+                // Native status becomes the authoritative dispatch document;
+                // Recommerce makes the selected physical Devices in-transit
+                // in the same database transaction.
+                $this->deviceLifecycleService->dispatchTransfer($request->user(), $sell_transfer->fresh(), $purchase_transfer->fresh());
+            }
+            if ($status === 'cancelled' && $sell_transfer->status === 'in_transit' && $this->hasDeviceTransferEvidence($sell_transfer->id)) {
+                throw new \LogicException('An in-transit tracked transfer cannot be cancelled. Use an explicit return-to-source reversal after physical receipt.');
+            }
             if ($status == 'completed' && ! $was_completed) {
                 foreach ($sell_transfer->sell_lines as $sell_line) {
                     if ($sell_line->product->enable_stock) {
@@ -1006,6 +1030,8 @@ class StockTransferController extends Controller
             // tracked cohort, require the edit workflow to provide it rather
             // than silently moving aggregate stock without physical records.
             if ($status == 'completed' && ! $was_completed) {
+                // Exact destination scans are mandatory before core aggregate
+                // quantity is marked received for a tracked transfer.
                 $this->deviceLifecycleService->recordCompletedTransfer($request->user(), $sell_transfer->fresh(), $purchase_transfer->fresh(), []);
             } elseif ($status === 'cancelled' && ! $was_completed) {
                 $this->deviceLifecycleService->cancelTransfer($request->user(), $sell_transfer->fresh());
@@ -1068,5 +1094,25 @@ class StockTransferController extends Controller
         }
 
         $this->productUtil->adjustStockOverSelling($purchase_transfer);
+    }
+
+    /** Native transfer creation stays usable before the physical manifest is selected. */
+    private function hasRequestedDeviceSelections(array $products): bool
+    {
+        foreach ($products as $product) {
+            if (! empty($product['recommerce_device_codes'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Any selected physical Device makes the native document audit-retained. */
+    private function hasDeviceTransferEvidence(int $transferId): bool
+    {
+        return DeviceTransferAssignment::query()
+            ->where('sell_transfer_transaction_id', $transferId)
+            ->exists();
     }
 }

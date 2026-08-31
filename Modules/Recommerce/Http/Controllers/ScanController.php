@@ -3,13 +3,18 @@
 namespace Modules\Recommerce\Http\Controllers;
 
 use App\User;
+use App\BusinessLocation;
+use App\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\ScanToken;
+use Modules\Recommerce\Entities\DeviceIdentifier;
+use Modules\Recommerce\Entities\DeviceTransferAssignment;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Modules\Recommerce\Support\Identity\OpaqueScanToken;
 use Modules\Recommerce\Support\Identity\ScanInput;
+use Modules\Recommerce\Support\Identity\StrongIdentifierHasher;
 use Modules\Recommerce\Services\DeviceCertificationService;
 
 class ScanController extends Controller
@@ -52,20 +57,17 @@ class ScanController extends Controller
 
         $parsed = ScanInput::parse($input);
 
-        if ($parsed === null) {
-            return $this->notFoundResponse();
-        }
-
         $user = auth()->user();
         $businessId = $user->business_id;
         $device = null;
 
-        if ($parsed['type'] === 'DEVICE_CODE') {
+        if ($parsed && $parsed['type'] === 'DEVICE_CODE') {
             $device = Device::query()
                 ->where('business_id', $businessId)
                 ->where('device_code', $parsed['value'])
+                ->with('product')
                 ->first();
-        } elseif ($parsed['type'] === 'DEVICE_TOKEN') {
+        } elseif ($parsed && $parsed['type'] === 'DEVICE_TOKEN') {
             try {
                 $tokenHash = $tokenService->hash($parsed['value']);
             } catch (\Throwable $exception) {
@@ -77,31 +79,40 @@ class ScanController extends Controller
                 ->where('business_id', $businessId)
                 ->where('subject_type', 'DEVICE')
                 ->where('status', 'ACTIVE')
-                ->with('device')
+                ->with('device.product')
                 ->first();
 
             $device = $scanToken ? $scanToken->device : null;
+        } else {
+            // Initial manufacturer identity remains a safe recovery lookup,
+            // but routine operations should prefer the permanent SAVERBRO QR.
+            try {
+                $hash = StrongIdentifierHasher::hash(StrongIdentifierHasher::normalize($input));
+                $identifier = DeviceIdentifier::query()
+                    ->where('business_id', $businessId)
+                    ->where('normalized_hash', $hash)
+                    ->with('device.product')
+                    ->first();
+                $device = $identifier?->device;
+            } catch (\Throwable $exception) {
+                return $this->notFoundResponse();
+            }
         }
 
-        if (! $device
-            || empty($device->current_location_id)
-            || ! User::can_access_this_location($device->current_location_id, $businessId)
-            || ! $authorizationGate->allowsRead(
-                $user,
-                'recommerce.device.view',
-                $businessId,
-                $device->current_location_id,
-                $device->variation_id
-            )) {
+        if (! $device || ! $this->authorizedLocationForDevice($user, $device, $authorizationGate)) {
             return $this->notFoundResponse();
         }
 
         return response()->json([
             'type' => 'DEVICE',
             'device_code' => $device->device_code,
+            'product' => optional($device->product)->name,
             'lifecycle_state' => $device->lifecycle_state,
             'custody_kind' => $device->custody_kind,
-            'actions' => [],
+            'transfer' => $this->transferContext($device),
+            // Future workflow contexts can add a permitted target here; the
+            // stable resolver is deliberately shared rather than per-module.
+            'actions' => [['key' => 'VIEW_DEVICE', 'url' => '/recommerce/devices/'.rawurlencode($device->device_code)]],
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
     }
@@ -115,7 +126,7 @@ class ScanController extends Controller
         try {
             $tokenHash = $tokenService->hash($token);
         } catch (\Throwable $exception) {
-            return $this->notFoundResponse();
+            return $this->publicUnavailableResponse();
         }
 
         $scanToken = ScanToken::query()
@@ -126,22 +137,15 @@ class ScanController extends Controller
             ->first();
 
         if (! $scanToken || ! $scanToken->device) {
-            return $this->notFoundResponse();
+            return $this->publicUnavailableResponse();
         }
 
         $device = $scanToken->device;
         $user = auth()->user();
-        if ($user && ! empty($device->current_location_id)) {
+        if ($user) {
             $businessId = $user->business_id;
             if ((string) $device->business_id === (string) $businessId
-                && User::can_access_this_location($device->current_location_id, $businessId)
-                && $authorizationGate->allowsRead(
-                    $user,
-                    'recommerce.device.view',
-                    $businessId,
-                    $device->current_location_id,
-                    $device->variation_id
-                )) {
+                && $this->authorizedLocationForDevice($user, $device, $authorizationGate)) {
                 return redirect('/recommerce/devices/'.rawurlencode($device->device_code))
                     ->header('Cache-Control', 'no-store')
                     ->header('Referrer-Policy', 'no-referrer');
@@ -150,10 +154,76 @@ class ScanController extends Controller
 
         $profile = $certificationService->publicProfile($device);
         if ($profile === null) {
-            return $this->notFoundResponse();
+            return $this->publicUnavailableResponse();
         }
 
         return response()->view('recommerce::device.public-certification', compact('profile'))
+            ->header('Cache-Control', 'no-store')
+            ->header('Referrer-Policy', 'no-referrer')
+            ->header('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    }
+
+    /** A transit scan is visible only to authorized source or destination staff. */
+    private function authorizedLocationForDevice($user, Device $device, AuthorizationGate $authorizationGate): ?int
+    {
+        $businessId = (int) $user->business_id;
+        $assignment = DeviceTransferAssignment::query()
+            ->where('device_id', $device->id)
+            ->whereIn('status', ['IN_TRANSIT', 'RECEIVED', 'RECEIVED_WITH_ISSUE'])
+            ->orderByDesc('id')
+            ->first();
+        // Preserve both branch scopes while a transfer remains open. A
+        // partially received Device has a destination location but source
+        // staff still need a truthful read-only scan result.
+        $candidateLocations = array_values(array_unique(array_filter([
+            (int) $device->current_location_id,
+            (int) optional($assignment)->to_location_id,
+            (int) optional($assignment)->from_location_id,
+        ])));
+
+        foreach ($candidateLocations as $locationId) {
+            if (User::can_access_this_location($locationId, $businessId)
+                && $authorizationGate->allowsRead($user, 'recommerce.device.view', $businessId, $locationId, $device->variation_id)) {
+                return $locationId;
+            }
+        }
+
+        return null;
+    }
+
+    /** Staff-only transfer context for a normal Device scan; never public QR output. */
+    private function transferContext(Device $device): ?array
+    {
+        $assignment = DeviceTransferAssignment::query()
+            ->where('device_id', $device->id)
+            ->whereIn('status', ['IN_TRANSIT', 'RECEIVED', 'RECEIVED_WITH_ISSUE'])
+            ->orderByDesc('id')
+            ->first();
+        if (! $assignment) {
+            return null;
+        }
+        $names = BusinessLocation::query()
+            ->whereIn('id', [$assignment->from_location_id, $assignment->to_location_id])
+            ->pluck('name', 'id');
+        $transfer = Transaction::query()->find($assignment->sell_transfer_transaction_id);
+
+        return [
+            'state' => $assignment->status === 'IN_TRANSIT' ? 'IN_TRANSIT' : 'RECEIVED_PENDING_COMPLETION',
+            'reference' => $transfer?->ref_no ?: 'Transfer #'.$assignment->sell_transfer_transaction_id,
+            'from_location' => $names->get($assignment->from_location_id, 'Source #'.$assignment->from_location_id),
+            'to_location' => $names->get($assignment->to_location_id, 'Destination #'.$assignment->to_location_id),
+        ];
+    }
+
+    /**
+     * A permanent physical QR must remain useful before a customer profile is
+     * published, without revealing whether its opaque token names a Device.
+     * Unknown, revoked, and not-yet-public tokens therefore get the exact
+     * same neutral document and status.
+     */
+    protected function publicUnavailableResponse()
+    {
+        return response()->view('recommerce::device.public-unavailable', [], 404)
             ->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer')
             ->header('X-Robots-Tag', 'noindex, nofollow, noarchive');

@@ -15,16 +15,29 @@
                             @if ($labelPrintEnabled)
                                 <form method="post" action="{{ route('recommerce.devices.label.print', $device->id) }}" target="_blank" style="display:inline">
                                     @csrf
-                                    <button class="btn btn-primary btn-sm" type="submit"><i class="fa fa-print"></i> Print label</button>
+                                    <button class="btn btn-primary btn-sm" type="submit"><i class="fa fa-print"></i> {{ $hasLabelPrintView ? 'Reprint Label' : 'Print SAVERBRO Label' }}</button>
                                 </form>
+                                @if ($labelStatus === 'Print view opened')
+                                    <form method="post" action="{{ route('recommerce.devices.label.confirm', $device->id) }}" style="display:inline">
+                                        @csrf
+                                        <button class="btn btn-success btn-sm" type="submit">Label Attached</button>
+                                    </form>
+                                @endif
                             @endif
                         </div>
                         <h3 class="box-title">Device detail</h3>
                     </div>
                     <div class="box-body">
+                        @if (session('status'))<div class="alert alert-success">{{ session('status') }}</div>@endif
                         <dl class="dl-horizontal">
                             <dt>Device code</dt>
                             <dd>{{ $device->device_code }}</dd>
+
+                            <dt>QR identity</dt>
+                            <dd>{{ $hasLabelPrintView ? 'Active' : 'Created when the first label is generated' }}</dd>
+
+                            <dt>Label</dt>
+                            <dd>{{ $labelStatus }}@if($labelStatus === 'Print view opened') <small class="text-muted">· physical printing is not confirmed</small>@endif</dd>
 
                             <dt>Lifecycle</dt>
                             <dd>{{ $device->lifecycle_state }}</dd>
@@ -152,7 +165,7 @@
                             <h4>Operational timeline</h4>
                             @forelse ($events as $event)
                                 <div class="well well-sm">
-                                    <strong>{{ $event['event_type'] }}</strong>
+                                    <strong>{{ $event['label'] ?? $event['event_type'] }}</strong>
                                     <span class="text-muted">{{ $event['occurred_at'] ?: 'Time unavailable' }}</span>
                                     @if ($event['source_command_uuid'])
                                         <br><small class="text-muted">Evidence command {{ $event['source_command_uuid'] }}</small>

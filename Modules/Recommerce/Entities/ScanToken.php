@@ -13,9 +13,11 @@ class ScanToken extends Model
 
     protected $hidden = [
         'token_hash',
+        'raw_token_encrypted',
     ];
 
     protected $casts = [
+        'raw_token_encrypted' => 'encrypted',
         'issued_at' => 'datetime',
         'revoked_at' => 'datetime',
     ];

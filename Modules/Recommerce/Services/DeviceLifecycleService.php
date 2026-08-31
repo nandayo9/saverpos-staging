@@ -155,38 +155,11 @@ class DeviceLifecycleService
             ->exists()) {
             throw new LogicException('Tracked transfer has unresolved receiving exceptions.');
         }
-        $expected = $requestedProducts === []
-            ? $this->reservedTransferSelections($sellTransfer)
-            : $this->selectedDevicesForLines($sellTransfer, $requestedProducts, 'recommerce_device_codes');
-        $this->assertOperationScope($user, 'recommerce.device.transfer', $sellTransfer, $expected);
-        $active = DeviceTransferAssignment::query()
-            ->where('sell_transfer_transaction_id', $sellTransfer->id)
-            ->where('status', 'RESERVED')
-            ->whereNotNull('active_transfer_key')
-            ->lockForUpdate()
-            ->get();
-        $expectedDeviceIds = collect($expected)->pluck('device_id')->sort()->values()->all();
-        $reservedDeviceIds = $active->pluck('device_id')->sort()->values()->all();
-        if ($expectedDeviceIds !== $reservedDeviceIds) {
-            throw new LogicException('Tracked transfer completion must use its originally reserved devices.');
-        }
-        foreach ($expected as $selection) {
-            $device = Device::query()->whereKey($selection['device_id'])->lockForUpdate()->firstOrFail();
-            $assignment = $active->firstWhere('device_id', $device->id);
-            if (! $assignment || $device->stock_participation !== 'IN_TRANSFER' || $device->lifecycle_state !== 'TRANSFER_PENDING') {
-                throw new LogicException('Tracked device is not reserved for this transfer.');
-            }
-            $movement = $this->move($device, 'TRANSFER', $sellTransfer->location_id, $purchaseTransfer->location_id, 'LOCATION', 'LOCATION', $sellTransfer->id, $selection['sell_line_id'], $user->id);
-            $device->update(['current_location_id' => $purchaseTransfer->location_id, 'custody_kind' => 'LOCATION', 'lifecycle_state' => 'AVAILABLE', 'stock_participation' => 'ON_HAND', 'updated_by' => $user->id, 'lock_version' => $device->lock_version + 1]);
-            $this->closeOpenCustody($device, $user->id);
-            CustodyPeriod::create(['device_id' => $device->id, 'business_id' => $device->business_id, 'custody_kind' => 'LOCATION', 'location_id' => $purchaseTransfer->location_id, 'starts_at' => now(), 'open_period_key' => $device->id, 'source_movement_id' => $movement->id, 'reason' => 'TRANSFER', 'recorded_by' => $user->id]);
-            $assignment->update(['status' => 'COMPLETED', 'active_transfer_key' => null, 'transferred_at' => now()]);
-            $this->eventRecorder->recordLifecycle($device->fresh(), 'TRANSFER_COMPLETED', $user->id, $sellTransfer->id, ['transfer_assignment_id' => $assignment->id, 'to_location_id' => $purchaseTransfer->location_id]);
-        }
+        $this->completeReceivedTransfer($user, $sellTransfer, $purchaseTransfer);
     }
 
     /** Reserves exact Devices while the native transfer is pending/in transit. */
-    public function synchroniseTransferReservation(User $user, Transaction $sellTransfer, Transaction $purchaseTransfer, array $requestedProducts): void
+    public function synchroniseTransferReservation(User $user, Transaction $sellTransfer, Transaction $purchaseTransfer, array $requestedProducts, bool $allowPartial = false): void
     {
         if (! config('recommerce.enabled') || ! config('recommerce.writes_enabled')) {
             return;
@@ -197,7 +170,9 @@ class DeviceLifecycleService
         if ($sellTransfer->type !== 'sell_transfer' || ! in_array($sellTransfer->status, ['pending', 'in_transit', 'final'], true)) {
             return;
         }
-        $expected = $this->selectedDevicesForLines($sellTransfer, $requestedProducts, 'recommerce_device_codes');
+        // The dedicated transfer screen opts into incremental selection; the
+        // native transfer form remains strict. Dispatch is always exact.
+        $expected = $this->selectedDevicesForLines($sellTransfer, $requestedProducts, 'recommerce_device_codes', null, $allowPartial);
         $this->assertOperationScope($user, 'recommerce.device.transfer', $sellTransfer, $expected);
         $active = DeviceTransferAssignment::query()
             ->where('sell_transfer_transaction_id', $sellTransfer->id)
@@ -210,10 +185,21 @@ class DeviceLifecycleService
         if ($current === $wanted) {
             return;
         }
+        $wantedKeys = array_flip($wanted);
+        $activeByKey = $active->keyBy(fn ($row) => $row->sell_line_id.':'.$row->device_id);
         foreach ($active as $assignment) {
-            $this->releaseTransferReservation($user, $sellTransfer, $assignment, 'TRANSFER_SELECTION_CHANGED');
+            if (! isset($wantedKeys[$assignment->sell_line_id.':'.$assignment->device_id])) {
+                $this->releaseTransferReservation($user, $sellTransfer, $assignment, 'TRANSFER_SELECTION_CHANGED');
+            }
         }
         foreach ($expected as $selection) {
+            $selectionKey = $selection['sell_line_id'].':'.$selection['device_id'];
+            // Keep an already-reserved unit in place when the operator adds
+            // another scan. This preserves its original evidence row and
+            // avoids re-inserting a historical unique assignment.
+            if ($activeByKey->has($selectionKey)) {
+                continue;
+            }
             $device = Device::query()->whereKey($selection['device_id'])->lockForUpdate()->firstOrFail();
             $this->assertTransferScope($user, $sellTransfer, $device, $selection['variation_id']);
             $assignment = DeviceTransferAssignment::create([
@@ -226,8 +212,96 @@ class DeviceLifecycleService
                 'transferred_at' => now(), 'status' => 'RESERVED',
                 'active_transfer_key' => $device->id, 'recorded_by' => $user->id,
             ]);
-            $device->update(['lifecycle_state' => 'TRANSFER_PENDING', 'stock_participation' => 'IN_TRANSFER', 'updated_by' => $user->id, 'lock_version' => $device->lock_version + 1]);
-            $this->eventRecorder->recordLifecycle($device->fresh(), 'TRANSFER_RESERVED', $user->id, $sellTransfer->id, ['transfer_assignment_id' => $assignment->id, 'to_location_id' => $purchaseTransfer->location_id]);
+            $device->update(['transfer_state' => 'RESERVED', 'stock_participation' => 'RESERVED', 'updated_by' => $user->id, 'lock_version' => $device->lock_version + 1]);
+            $this->eventRecorder->recordLifecycle($device->fresh(), 'TRANSFER_PREPARED', $user->id, $sellTransfer->id, ['transfer_assignment_id' => $assignment->id, 'to_location_id' => $purchaseTransfer->location_id]);
+        }
+    }
+
+    /**
+     * Dispatch keeps the native transfer document authoritative while making
+     * each selected physical unit unavailable at both locations. Aggregate
+     * stock is intentionally not moved here: UltimatePOS moves it when the
+     * destination completes the transfer.
+     */
+    public function dispatchTransfer(User $user, Transaction $sellTransfer, Transaction $purchaseTransfer): void
+    {
+        if (! config('recommerce.enabled') || ! config('recommerce.writes_enabled')) {
+            return;
+        }
+        $this->assertTrackedTransferManifest($user, $sellTransfer, $purchaseTransfer, 'RESERVED');
+        $assignments = DeviceTransferAssignment::query()
+            ->where('sell_transfer_transaction_id', $sellTransfer->id)
+            ->where('status', 'RESERVED')->whereNotNull('active_transfer_key')
+            ->lockForUpdate()->get();
+
+        foreach ($assignments as $assignment) {
+            $device = Device::query()->whereKey($assignment->device_id)->lockForUpdate()->firstOrFail();
+            if ((int) $device->current_location_id !== (int) $assignment->from_location_id
+                || $device->custody_kind !== 'LOCATION' || $device->stock_participation !== 'RESERVED') {
+                throw new LogicException('Tracked device is no longer available to dispatch from the source branch.');
+            }
+            $movement = $this->move($device, 'TRANSFER_DISPATCH', $assignment->from_location_id, null, 'LOCATION', 'IN_TRANSIT', $sellTransfer->id, $assignment->sell_line_id, $user->id);
+            $this->closeOpenCustody($device, $user->id);
+            $device->update(['custody_kind' => 'IN_TRANSIT', 'current_location_id' => null, 'stock_participation' => 'IN_TRANSFER', 'transfer_state' => 'IN_TRANSIT', 'updated_by' => $user->id, 'lock_version' => $device->lock_version + 1]);
+            CustodyPeriod::create(['device_id' => $device->id, 'business_id' => $device->business_id, 'custody_kind' => 'IN_TRANSIT', 'starts_at' => now(), 'open_period_key' => $device->id, 'source_movement_id' => $movement->id, 'reason' => 'TRANSFER_DISPATCH', 'recorded_by' => $user->id]);
+            $assignment->update(['status' => 'IN_TRANSIT', 'dispatched_at' => now()]);
+            $this->eventRecorder->recordLifecycle($device->fresh(), 'TRANSFER_DISPATCHED', $user->id, $sellTransfer->id, ['transfer_assignment_id' => $assignment->id, 'from_location_id' => $assignment->from_location_id, 'to_location_id' => $assignment->to_location_id]);
+        }
+    }
+
+    /** Records one physical destination scan; duplicate scans are idempotent. */
+    public function receiveTransferDevice(User $user, Transaction $sellTransfer, Transaction $purchaseTransfer, Device $device, string $condition = 'NORMAL', ?string $note = null): array
+    {
+        if (! config('recommerce.enabled') || ! config('recommerce.writes_enabled')) {
+            throw new LogicException('Device transfer workflow is not enabled.');
+        }
+        $assignment = DeviceTransferAssignment::query()
+            ->where('sell_transfer_transaction_id', $sellTransfer->id)
+            ->where('device_id', $device->id)->lockForUpdate()->first();
+        if (! $assignment) {
+            throw new LogicException('Device is not expected on this transfer.');
+        }
+        if (! $this->authorizationGate->allowsWrite($user, 'recommerce.device.transfer', $purchaseTransfer->business_id, $purchaseTransfer->location_id, $device->variation_id)) {
+            throw new AuthorizationException('Transfer receiving scope denied.');
+        }
+        if (in_array($assignment->status, ['RECEIVED', 'COMPLETED'], true)) {
+            return ['status' => 'ALREADY_RECEIVED', 'assignment' => $assignment];
+        }
+        if ($assignment->status !== 'IN_TRANSIT' || $device->transfer_state !== 'IN_TRANSIT' || $device->custody_kind !== 'IN_TRANSIT') {
+            throw new LogicException('Device is not currently in transit for this transfer.');
+        }
+        $movement = $this->move($device, 'TRANSFER_RECEIPT_SCAN', null, $assignment->to_location_id, 'IN_TRANSIT', 'LOCATION', $sellTransfer->id, $assignment->sell_line_id, $user->id);
+        $this->closeOpenCustody($device, $user->id);
+        // The physical unit is now at the destination, but it is deliberately
+        // not native on-hand stock until the whole UltimatePOS transfer is
+        // completed. This prevents either branch selling it during a partial
+        // receipt while preserving the truthful physical custody record.
+        $device->update(['custody_kind' => 'LOCATION', 'current_location_id' => $assignment->to_location_id, 'stock_participation' => 'IN_TRANSFER', 'transfer_state' => 'RECEIVED_PENDING_COMPLETION', 'updated_by' => $user->id, 'lock_version' => $device->lock_version + 1]);
+        CustodyPeriod::create(['device_id' => $device->id, 'business_id' => $device->business_id, 'custody_kind' => 'LOCATION', 'location_id' => $assignment->to_location_id, 'starts_at' => now(), 'open_period_key' => $device->id, 'source_movement_id' => $movement->id, 'reason' => 'TRANSFER_RECEIPT_SCAN', 'recorded_by' => $user->id]);
+        $assignment->update(['status' => $condition === 'NORMAL' ? 'RECEIVED' : 'RECEIVED_WITH_ISSUE', 'received_at' => now(), 'received_by' => $user->id, 'receipt_condition' => $condition, 'receipt_note' => $note]);
+        $this->eventRecorder->recordLifecycle($device->fresh(), 'TRANSFER_RECEIVED_SCAN', $user->id, $sellTransfer->id, ['transfer_assignment_id' => $assignment->id, 'to_location_id' => $assignment->to_location_id, 'receipt_condition' => $condition]);
+        return ['status' => $condition === 'NORMAL' ? 'RECEIVED' : 'RECEIVED_WITH_ISSUE', 'assignment' => $assignment->fresh()];
+    }
+
+    /** Makes received Devices native on-hand only after aggregate completion. */
+    public function completeReceivedTransfer(User $user, Transaction $sellTransfer, Transaction $purchaseTransfer): void
+    {
+        if (! config('recommerce.enabled') || ! config('recommerce.writes_enabled')) {
+            return;
+        }
+        $this->assertTrackedTransferManifest($user, $sellTransfer, $purchaseTransfer, 'RECEIVED');
+        $assignments = DeviceTransferAssignment::query()->where('sell_transfer_transaction_id', $sellTransfer->id)
+            ->where('status', 'RECEIVED')->whereNotNull('active_transfer_key')->lockForUpdate()->get();
+        foreach ($assignments as $assignment) {
+            $device = Device::query()->whereKey($assignment->device_id)->lockForUpdate()->firstOrFail();
+            if ($device->transfer_state !== 'RECEIVED_PENDING_COMPLETION'
+                || $device->custody_kind !== 'LOCATION'
+                || (int) $device->current_location_id !== (int) $assignment->to_location_id) {
+                throw new LogicException('Tracked device receipt state is no longer valid for completion.');
+            }
+            $device->update(['stock_participation' => 'ON_HAND', 'transfer_state' => 'NONE', 'updated_by' => $user->id, 'lock_version' => $device->lock_version + 1]);
+            $assignment->update(['status' => 'COMPLETED', 'active_transfer_key' => null, 'transferred_at' => now()]);
+            $this->eventRecorder->recordLifecycle($device->fresh(), 'TRANSFER_COMPLETED', $user->id, $sellTransfer->id, ['transfer_assignment_id' => $assignment->id, 'to_location_id' => $assignment->to_location_id]);
         }
     }
 
@@ -304,7 +378,7 @@ class DeviceLifecycleService
         }
     }
 
-    protected function selectedDevicesForLines(Transaction $transaction, array $requestedProducts, string $field, ?string $quantityField = null): array
+    protected function selectedDevicesForLines(Transaction $transaction, array $requestedProducts, string $field, ?string $quantityField = null, bool $allowPartial = false): array
     {
         $lines = $transaction->sell_lines()->orderBy('id')->get()->groupBy(fn ($line) => $line->product_id.':'.$line->variation_id);
         $inputs = collect($requestedProducts)->groupBy(fn ($input) => ($input['product_id'] ?? '').':'.($input['variation_id'] ?? ''));
@@ -320,7 +394,12 @@ class DeviceLifecycleService
                     ? (float) $inputRows[$index][$quantityField]
                     : (float) $line->quantity;
                 if ($quantity > (float) $line->quantity) { throw new InvalidArgumentException('Tracked quantity cannot exceed the original line quantity.'); }
-                if ($quantity !== floor($quantity) || count($codes) !== (int) $quantity) { throw new InvalidArgumentException('Tracked quantity must equal the number of selected devices.'); }
+                if ($quantity !== floor($quantity)
+                    || ($allowPartial ? count($codes) > (int) $quantity : count($codes) !== (int) $quantity)) {
+                    throw new InvalidArgumentException($allowPartial
+                        ? 'Tracked device selection cannot exceed the transfer quantity.'
+                        : 'Tracked quantity must equal the number of selected devices.');
+                }
                 foreach ($codes as $code) {
                     $device = Device::query()->where('business_id', $transaction->business_id)->where('device_code', $code)->first();
                     if (! $device) { throw new InvalidArgumentException('Selected tracked device was not found.'); }
@@ -350,6 +429,27 @@ class DeviceLifecycleService
             $device = Device::query()->findOrFail($assignment->device_id);
             return ['device_id' => $assignment->device_id, 'sell_line_id' => $assignment->sell_line_id, 'variation_id' => $device->variation_id];
         })->all();
+    }
+
+    /** Every tracked native line must have exactly one assignment per unit. */
+    protected function assertTrackedTransferManifest(User $user, Transaction $sellTransfer, Transaction $purchaseTransfer, string $requiredStatus): void
+    {
+        $assignments = DeviceTransferAssignment::query()->where('sell_transfer_transaction_id', $sellTransfer->id)->lockForUpdate()->get();
+        foreach ($sellTransfer->sell_lines()->orderBy('id')->get() as $line) {
+            if (! $this->isTracked($sellTransfer->business_id, (int) $line->variation_id)) {
+                continue;
+            }
+            if ((float) $line->quantity !== floor((float) $line->quantity)
+                || $assignments->where('sell_line_id', $line->id)->where('status', $requiredStatus)->count() !== (int) $line->quantity) {
+                throw new LogicException($requiredStatus === 'RESERVED'
+                    ? 'Tracked transfer needs exact Device selection before dispatch.'
+                    : 'Every dispatched Device must be scanned at the destination before completion.');
+            }
+            $scopeLocation = $requiredStatus === 'RESERVED' ? $sellTransfer->location_id : $purchaseTransfer->location_id;
+            if (! $this->authorizationGate->allowsWrite($user, 'recommerce.device.transfer', $sellTransfer->business_id, $scopeLocation, $line->variation_id)) {
+                throw new AuthorizationException('Recommerce transfer scope denied.');
+            }
+        }
     }
 
     protected function isTracked(int $businessId, int $variationId): bool
@@ -384,18 +484,25 @@ class DeviceLifecycleService
 
     protected function assertTransferScope(User $user, Transaction $transfer, Device $device, ?int $expectedVariationId = null): void
     {
-        if (! $this->authorizationGate->allowsWrite($user, 'recommerce.device.transfer', $transfer->business_id, $transfer->location_id, $device->variation_id) || ($expectedVariationId !== null && (int) $device->variation_id !== $expectedVariationId) || (int) $device->current_location_id !== (int) $transfer->location_id || $device->lifecycle_state !== 'AVAILABLE' || $device->stock_participation !== 'ON_HAND') { throw new AuthorizationException('Recommerce transfer scope denied.'); }
+        $eligibleLifecycle = in_array($device->lifecycle_state, ['AVAILABLE', 'RECEIVED_PENDING_INSPECTION', 'REFURBISHMENT_REQUIRED'], true);
+        if (! $this->authorizationGate->allowsWrite($user, 'recommerce.device.transfer', $transfer->business_id, $transfer->location_id, $device->variation_id)
+            || ($expectedVariationId !== null && (int) $device->variation_id !== $expectedVariationId)
+            || (int) $device->current_location_id !== (int) $transfer->location_id
+            || $device->custody_kind !== 'LOCATION' || ! $eligibleLifecycle
+            || $device->stock_participation !== 'ON_HAND' || ($device->transfer_state ?? 'NONE') !== 'NONE') {
+            throw new AuthorizationException('Recommerce transfer scope denied.');
+        }
     }
 
     protected function releaseTransferReservation(User $user, Transaction $sellTransfer, DeviceTransferAssignment $assignment, string $reason): void
     {
         $device = Device::query()->whereKey($assignment->device_id)->lockForUpdate()->firstOrFail();
-        if ((int) $device->current_location_id !== (int) $assignment->from_location_id || $device->stock_participation !== 'IN_TRANSFER') {
+        if ((int) $device->current_location_id !== (int) $assignment->from_location_id || $device->stock_participation !== 'RESERVED' || $device->transfer_state !== 'RESERVED') {
             throw new LogicException('Transfer reservation cannot be released after physical state changed.');
         }
         $this->assertOperationScope($user, 'recommerce.device.reverse_disposition', $sellTransfer, [['variation_id' => $device->variation_id]]);
         $assignment->update(['status' => $reason === 'TRANSFER_CANCELLED' ? 'CANCELLED' : 'REPLACED', 'active_transfer_key' => null, 'reversed_at' => now(), 'reversal_transaction_id' => $sellTransfer->id]);
-        $device->update(['lifecycle_state' => 'AVAILABLE', 'stock_participation' => 'ON_HAND', 'updated_by' => $user->id, 'lock_version' => $device->lock_version + 1]);
+        $device->update(['stock_participation' => 'ON_HAND', 'transfer_state' => 'NONE', 'updated_by' => $user->id, 'lock_version' => $device->lock_version + 1]);
         $this->eventRecorder->recordLifecycle($device->fresh(), $reason, $user->id, $sellTransfer->id, ['transfer_assignment_id' => $assignment->id]);
     }
 
