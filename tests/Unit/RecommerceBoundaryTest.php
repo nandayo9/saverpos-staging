@@ -309,6 +309,17 @@ class RecommerceBoundaryTest extends TestCase
         }
     }
 
+    public function test_native_role_editor_metadata_matches_the_generic_permission_control_shape(): void
+    {
+        config(['recommerce.permissions' => ['recommerce.tradein.view']]);
+
+        $permission = (new DataController())->user_permissions()[0];
+
+        $this->assertSame('recommerce.tradein.view', $permission['name']);
+        $this->assertSame('recommerce.tradein.view', $permission['value']);
+        $this->assertFalse($permission['default']);
+    }
+
     public function test_disabled_route_provider_registers_no_recommerce_routes()
     {
         config(['recommerce.enabled' => false]);

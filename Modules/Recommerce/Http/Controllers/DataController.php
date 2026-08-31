@@ -56,6 +56,12 @@ class DataController extends Controller
         return collect(config('recommerce.permissions', []))
             ->map(fn (string $permission): array => [
                 'name' => $permission,
+                // The native role editor consumes the generic module
+                // permission shape (`value`/`default`), while the `name`
+                // field remains the stable metadata key used by our tests
+                // and audit tooling.
+                'value' => $permission,
+                'default' => false,
                 'label' => $labels[$permission] ?? $permission,
             ])
             ->values()

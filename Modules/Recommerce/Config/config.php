@@ -11,6 +11,7 @@ return [
     |
     */
     'name' => 'Recommerce',
+    'module_version' => '1.0.0',
     'enabled' => env('RECOMMERCE_ENABLED', false),
     'writes_enabled' => env('RECOMMERCE_WRITES_ENABLED', false),
     'resolver_host' => env('RECOMMERCE_RESOLVER_HOST'),
