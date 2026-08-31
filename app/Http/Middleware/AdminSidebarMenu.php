@@ -986,6 +986,19 @@ class AdminSidebarMenu
                     ['icon' => '<svg aria-hidden="true" class="tw-size-5 tw-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 4h6v6h-6z"></path><path d="M14 4h6v6h-6z"></path><path d="M4 14h6v6h-6z"></path><path d="M14 14h2v2h-2z"></path><path d="M18 14h2v2h-2z"></path><path d="M14 18h2v2h-2z"></path><path d="M18 18h2v2h-2z"></path></svg>']
                 )->order(28);
             }
+
+            if (config('recommerce.enabled', false)
+                && Route::has('recommerce.tradeins.index')
+                && auth()->user()->can('recommerce.tradein.view')) {
+                $menu->url(
+                    route('recommerce.tradeins.index'),
+                    'Trade-in Acquisition',
+                    [
+                        'icon' => '<svg aria-hidden="true" class="tw-size-5 tw-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M12 3v18"></path><path d="M17 7h-6.5a3.5 3.5 0 0 0 0 7h3a3.5 3.5 0 0 1 0 7H7"></path></svg>',
+                        'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'trade-ins',
+                    ]
+                )->order(29);
+            }
         });
 
         //Add menus from modules
