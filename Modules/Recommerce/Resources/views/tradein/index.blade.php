@@ -99,7 +99,7 @@
                             <div class="form-group"><label for="rule-code">Rule code</label><input class="form-control" id="rule-code" name="rule_code" maxlength="64" pattern="[A-Za-z0-9_]+" placeholder="LAPTOP_STANDARD" required></div>
                             <div class="form-group"><label for="rule-variation">Authorised variation</label><select class="form-control" id="rule-variation" name="variation_id" required>@foreach ($variations as $variation)<option value="{{ $variation->id }}">{{ $variation->product->name }} · {{ $variation->name ?: $variation->id }}</option>@endforeach</select></div>
                             @foreach (['target_margin_percent' => 'Target margin', 'warranty_reserve_percent' => 'Warranty reserve', 'hidden_defect_reserve_percent' => 'Hidden defect reserve', 'markdown_reserve_percent' => 'Markdown reserve', 'opening_offer_ratio' => 'Opening offer ratio', 'target_acquisition_ratio' => 'Target acquisition ratio', 'negotiation_ceiling_ratio' => 'Negotiation ceiling ratio'] as $field => $label)
-                                <div class="form-group"><label for="{{ $field }}">{{ $label }} (0–1)</label><input class="form-control" id="{{ $field }}" name="{{ $field }}" type="number" min="0" max="1" step="0.01" required></div>
+                                <div class="form-group"><label for="{{ $field }}">{{ $label }} (0–1)</label><input class="form-control" id="{{ $field }}" name="{{ $field }}" type="number" min="0" max="1" step="0.001" required></div>
                             @endforeach
                             <button class="btn btn-default btn-sm" type="submit">Publish new version</button>
                         </form>
