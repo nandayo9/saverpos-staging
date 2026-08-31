@@ -71,6 +71,19 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->middleware('throttle:20,1')
         ->name('recommerce.receiving.attach_purchase');
 
+    Route::get('/inspection', 'InspectionController@index')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.inspection.index');
+    Route::post('/inspection/assign', 'InspectionController@assign')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.inspection.assign');
+    Route::post('/inspection/{deviceId}/start', 'InspectionController@start')
+        ->whereNumber('deviceId')->middleware('throttle:30,1')
+        ->name('recommerce.inspection.start');
+    Route::post('/inspection/{deviceId}/complete', 'InspectionController@complete')
+        ->whereNumber('deviceId')->middleware('throttle:20,1')
+        ->name('recommerce.inspection.complete');
+
     Route::get('/trade-ins', 'TradeInController@index')
         ->middleware('throttle:30,1')
         ->name('recommerce.tradeins.index');

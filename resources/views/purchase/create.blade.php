@@ -18,10 +18,7 @@
 
 	<div class="alert alert-info" role="status">
 		<strong><i class="fa fa-cubes" aria-hidden="true"></i> Stock entry</strong>
-		<span>Use this form for the purchase, supplier, pricing and payment record. If every unit also needs a serial or device record, complete the purchase first, then continue in Stock &amp; Devices.</span>
-		@if (config('recommerce.enabled', false) && auth()->user()->can('recommerce.receiving.prepare'))
-			<a class="tw-ml-2" href="{{ route('recommerce.receiving.index') }}">Receive serialised purchase <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
-		@endif
+		<span>Use this form for the supplier, pricing, payment, and stock record. After a received purchase is saved, SaverPOS will guide you to register any individual Devices that require it.</span>
 	</div>
 
 	<!-- Page level currency setting -->

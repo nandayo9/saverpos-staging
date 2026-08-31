@@ -140,7 +140,7 @@ assert(repairRoutes.includes("/repair/{jobCode}/transition"), 'Repair transition
 assert(repairRoutes.includes("/repair/intake"), 'Repair intake route must be explicit');
 assert(repairIndexView.includes('Customer Repairs') && repairIndexView.includes('Repair workbench'), 'Customer and internal repair workspaces must remain clearly separated');
 assert(repairRoutes.includes('/customer-repairs') && repairController.includes('customerIndex'), 'Customer Repairs must have its own explicit workspace route');
-assert(purchaseCreateView.includes('Stock entry') && purchaseCreateView.includes('Receive serialised purchase'), 'purchase create must explain the stock-to-device receiving handoff');
+assert(purchaseCreateView.includes('Stock entry') && purchaseCreateView.includes('register any individual Devices'), 'purchase create must explain the stock-to-device receiving handoff');
 assert(repairShowView.includes('expected_lock_version'), 'Repair workbench must submit stale-form protection');
 assert(recommerceProvider.includes('RepairJobIntakeService::class'), 'Repair intake service must be container-bound');
 const partsMigration = read('Modules/Recommerce/Database/Migrations/2026_08_28_000010_create_recommerce_repair_parts.php');
@@ -166,7 +166,7 @@ assert(controller.includes('ReceivingInProgressException'), 'receiving controlle
 assert(controller.includes('ReceivingReconciliationBlockedException'), 'receiving controller must expose the reconciliation stop-line boundary');
 assert(routes.includes('/receiving/attach-purchase') && controller.includes('attachPurchase'), 'received POS purchases must have an explicit device-attachment route');
 assert(service.includes('attachToExistingUltimatePosPurchase') && service.includes("'core_stock_changed' => false"), 'existing POS purchase serialisation must not post stock twice');
-assert(purchaseController.includes('Serialise devices') && purchaseIndexView.includes('One stock workflow.'), 'the Purchase workspace must expose the serialisation handoff');
+assert(purchaseController.includes('Receive devices') && purchaseIndexView.includes('Device receiving'), 'the Purchase workspace must expose the purchase-led Device receiving handoff');
 assert(reconciliationService.includes('assertTrackedReceiveMayProceed'), 'reconciliation service must guard new tracked receives after a mismatch');
 assert(service.includes('assertTrackedReceiveMayProceed'), 'tracked receiving must invoke the reconciliation stop-line guard');
 assert(labelController.includes('LabelRenderer'), 'label controller must use the bounded renderer');
@@ -221,15 +221,13 @@ assert(html.includes('function identifierHint(value)'), 'static preview must def
 assert(html.includes('identifier_hint: identifierHint(unit.value)'), 'static preview must use the safe identifier hint helper');
 assert(html.includes("inputs[0].value.trim().toUpperCase() === identifierType"), 'static add-unit duplicate check must include identifier type');
 assert(html.includes('`${unit.type}|${normalizeIdentifierValue(unit.value)}`'), 'static preflight duplicate check must include identifier type');
-assert(blade.includes('state.commandUuid = null;'), 'production receiving must reset UUID after a prepared draft edit');
-assert(blade.includes("document.getElementById('device-results-box').style.display = 'none';"), 'production receiving must clear stale Device results after a draft edit');
-assert(blade.includes("'/label/print'"), 'production receiving must hand label actions to the print-ready endpoint');
-assert(blade.includes("'Accept': 'text/html'"), 'production receiving print action must request HTML safely');
-assert(blade.includes('previewWindow.opener = null'), 'production receiving print preview must sever the opener reference');
-assert(blade.includes('Print preview could not be opened. Label was not issued.'), 'production receiving must fail before issuance when the preview window is blocked');
-assert(blade.includes('shouldIgnoreDuplicateScan'), 'production receiving must debounce identical scanner reads');
-assert(blade.includes('recordReconcileUrl'), 'production receiving must expose the guarded reconciliation evidence URL');
-assert(blade.includes('evidence retained'), 'production receiving must explain retained reconciliation evidence');
+assert(blade.includes('const commandUuid = uuid()'), 'purchase-led receiving must create one idempotency UUID per registration batch');
+assert(blade.includes('staged = []; render();'), 'purchase-led receiving must clear a completed staged batch');
+assert(blade.includes('recommerce.devices.label.print'), 'purchase-led receiving must expose the print-ready label action for registered Devices');
+assert(blade.includes('target="_blank"'), 'purchase-led receiving labels must open in a separate print target');
+assert(blade.includes("scanner.addEventListener('keydown'"), 'purchase-led receiving must remain scanner-first');
+assert(blade.includes('This identifier is already in the current batch.'), 'purchase-led receiving must reject duplicate batch scans');
+assert(blade.includes("route('recommerce.reconciliation.index')"), 'purchase-led receiving must retain the guarded stock-check route');
 assert(html.includes('shouldIgnoreDuplicateScan'), 'static preview must debounce identical scanner reads');
 
 const normalizeSource = html.match(/function normalizeIdentifierValue\(value\) \{[^}]*\}/)?.[0];

@@ -20,6 +20,9 @@ use App\Variation;
 use Excel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Modules\Recommerce\Services\DeviceReceivingProgressService;
+use Modules\Recommerce\Support\AuthorizationGate;
 use Spatie\Activitylog\Models\Activity;
 use Yajra\DataTables\Facades\DataTables;
 use App\Events\PurchaseCreatedOrModified;
@@ -63,8 +66,26 @@ class PurchaseController extends Controller
             abort(403, 'Unauthorized action.');
         }
         $business_id = request()->session()->get('user.business_id');
+        $recommerceGate = app(AuthorizationGate::class);
+        $cohortLocationId = (int) config('recommerce.cohort.location_id');
+        $cohortVariationId = (int) collect(config('recommerce.cohort.variation_ids', []))->first();
+        $deviceReceivingEnabled = config('recommerce.enabled', false)
+            && Schema::hasTable('recommerce_serialization_profiles')
+            && Schema::hasTable('recommerce_device_purchase_assignments')
+            && $cohortLocationId > 0
+            && $cohortVariationId > 0
+            && $recommerceGate->allowsRead(
+                auth()->user(),
+                'recommerce.receiving.prepare',
+                (int) $business_id,
+                $cohortLocationId,
+                $cohortVariationId
+            );
         if (request()->ajax()) {
             $purchases = $this->transactionUtil->getListPurchases($business_id);
+            if ($deviceReceivingEnabled) {
+                $purchases = $this->transactionUtil->withDeviceReceivingProgress($purchases, (int) $business_id);
+            }
 
             $permitted_locations = auth()->user()->permitted_locations();
             if ($permitted_locations != 'all') {
@@ -101,8 +122,8 @@ class PurchaseController extends Controller
                 $purchases->where('transactions.created_by', request()->session()->get('user.id'));
             }
 
-            return Datatables::of($purchases)
-                ->addColumn('action', function ($row) {
+            $datatable = Datatables::of($purchases)
+                ->addColumn('action', function ($row) use ($recommerceGate) {
                     $html = '<div class="btn-group">
                             <button type="button" class="btn-modal tw-dw-btn tw-dw-btn-xs tw-dw-btn-outline  tw-dw-btn-info tw-w-max dropdown-toggle" 
                                 data-toggle="dropdown" aria-expanded="false">'.
@@ -128,8 +149,19 @@ class PurchaseController extends Controller
 
                     if (config('recommerce.enabled', false)
                         && \Route::has('recommerce.receiving.index')
-                        && auth()->user()->can('recommerce.receiving.prepare')) {
-                        $html .= '<li><a href="'.route('recommerce.receiving.index', ['purchase_id' => $row->id]).'"><i class="fas fa-qrcode" aria-hidden="true"></i>Serialise devices</a></li>';
+                        && $recommerceGate->allowsRead(
+                            auth()->user(),
+                            'recommerce.receiving.prepare',
+                            (int) $row->business_id,
+                            (int) $row->location_id,
+                            (int) collect(config('recommerce.cohort.variation_ids', []))->first()
+                        )) {
+                        $expected = (int) ($row->device_expected ?? 0);
+                        $registered = (int) ($row->device_registered ?? 0);
+                        if ($expected > $registered) {
+                            $label = $registered > 0 ? 'Continue receiving '.($expected - $registered) : 'Receive devices';
+                            $html .= '<li><a href="'.route('recommerce.receiving.index', ['purchase_id' => $row->id]).'"><i class="fas fa-qrcode" aria-hidden="true"></i>'.$label.'</a></li>';
+                        }
                     }
 
                     if (auth()->user()->can('purchase.view') && ! empty($row->document)) {
@@ -216,8 +248,26 @@ class PurchaseController extends Controller
                         } else {
                             return '';
                         }
-                    }, ])
-                ->rawColumns(['final_total', 'action', 'payment_due', 'payment_status', 'status', 'ref_no', 'name'])
+                    }, ]);
+
+            if ($deviceReceivingEnabled) {
+                $datatable->addColumn('device_receiving', function ($row) {
+                    $expected = (int) ($row->device_expected ?? 0);
+                    $registered = (int) ($row->device_registered ?? 0);
+                    $ready = (int) ($row->inspection_ready_count ?? 0);
+                    if ($expected < 1) {
+                        return '<span class="text-muted">Bulk stock</span>';
+                    }
+                    if ($registered >= $expected) {
+                        return '<span class="label label-success">Received complete</span><br><small>'.$registered.' / '.$expected.' · '.$ready.' ready</small>';
+                    }
+
+                    return '<span class="label label-warning">'.($expected - $registered).' remaining</span><br><small>'.$registered.' / '.$expected.' received · '.$ready.' ready</small>';
+                });
+            }
+
+            return $datatable
+                ->rawColumns(['final_total', 'action', 'payment_due', 'payment_status', 'status', 'ref_no', 'name', 'device_receiving'])
                 ->make(true);
         }
 
@@ -226,7 +276,7 @@ class PurchaseController extends Controller
         $orderStatuses = $this->productUtil->orderStatuses();
 
         return view('purchase.index')
-            ->with(compact('business_locations', 'suppliers', 'orderStatuses'));
+            ->with(compact('business_locations', 'suppliers', 'orderStatuses', 'deviceReceivingEnabled'));
     }
 
     /**
@@ -301,6 +351,7 @@ class PurchaseController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        $deviceReceivingNotice = null;
         try {
             $business_id = $request->session()->get('user.business_id');
 
@@ -432,6 +483,35 @@ class PurchaseController extends Controller
             $output = ['success' => 1,
                 'msg' => __('purchase.purchase_add_success'),
             ];
+
+            if ($transaction->status === 'received'
+                && config('recommerce.enabled', false)
+                && Schema::hasTable('recommerce_serialization_profiles')
+                && Schema::hasTable('recommerce_device_purchase_assignments')
+                && class_exists(DeviceReceivingProgressService::class)
+                && \Route::has('recommerce.receiving.index')) {
+                $progress = app(DeviceReceivingProgressService::class)->forPurchase((int) $business_id, (int) $transaction->id);
+                $eligibleLine = $progress ? collect($progress['lines'])->first(function ($line) use ($transaction, $business_id) {
+                    return $line->tracking_mode === DeviceReceivingProgressService::TRACKING_SERIALIZED_DEVICE
+                        && $line->remaining_count > 0
+                        && app(AuthorizationGate::class)->allowsRead(
+                            auth()->user(),
+                            'recommerce.receiving.prepare',
+                            (int) $business_id,
+                            (int) $transaction->location_id,
+                            (int) $line->variation_id
+                        );
+                }) : null;
+                if ($eligibleLine) {
+                    $deviceReceivingNotice = [
+                        'reference' => $transaction->ref_no ?: '#'.$transaction->id,
+                        'expected' => $progress['expected_count'],
+                        'registered' => $progress['registered_count'],
+                        'remaining' => $progress['remaining_count'],
+                        'url' => route('recommerce.receiving.index', ['purchase_id' => $transaction->id]),
+                    ];
+                }
+            }
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());
@@ -441,7 +521,12 @@ class PurchaseController extends Controller
             ];
         }
 
-        return redirect('purchases')->with('status', $output);
+        $redirect = redirect('purchases')->with('status', $output);
+        if ($deviceReceivingNotice !== null) {
+            $redirect->with('device_receiving_notice', $deviceReceivingNotice);
+        }
+
+        return $redirect;
     }
 
     /**

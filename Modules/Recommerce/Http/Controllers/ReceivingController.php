@@ -14,167 +14,111 @@ use InvalidArgumentException;
 use LogicException;
 use Modules\Recommerce\Exceptions\ReceivingInProgressException;
 use Modules\Recommerce\Exceptions\ReceivingReconciliationBlockedException;
+use Modules\Recommerce\Services\DeviceReceivingProgressService;
 use Modules\Recommerce\Services\TrackedReceivingService;
+use Modules\Recommerce\Entities\DeviceIdentifier;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Modules\Recommerce\Support\Identity\StrongIdentifierHasher;
 
 class ReceivingController extends Controller
 {
-    public function index(AuthorizationGate $authorizationGate, ?Request $request = null)
+    public function index(
+        AuthorizationGate $authorizationGate,
+        ?DeviceReceivingProgressService $progressService = null,
+        ?Request $request = null
+    )
     {
         $request = $request ?: request();
+        $progressService = $progressService ?: app(DeviceReceivingProgressService::class);
         $user = auth()->user();
-        $businessId = $user->business_id;
-        $locationId = config('recommerce.cohort.location_id');
-        $variationId = collect(config('recommerce.cohort.variation_ids', []))->first();
+        $businessId = (int) $user->business_id;
+        $purchaseContext = $this->receivedPurchaseContext($request, $authorizationGate, $user, $businessId, $progressService);
+        $selectedLine = $purchaseContext['selected_line'] ?? null;
+        $locationId = $purchaseContext['purchase']->location_id ?? config('recommerce.cohort.location_id');
 
-        if (! is_numeric($locationId)
-            || ! is_numeric($variationId)
-            || ! User::can_access_this_location((int) $locationId, $businessId)
-            || ! $authorizationGate->allowsRead(
-                $user,
-                'recommerce.receiving.prepare',
-                $businessId,
-                (int) $locationId,
-                (int) $variationId
-            )) {
+        if (! is_numeric($locationId) || ! User::can_access_this_location((int) $locationId, $businessId)) {
             abort(404);
         }
 
-        $variation = Variation::query()
-            ->with('product')
-            ->where('id', (int) $variationId)
-            ->whereHas('product', function ($query) use ($businessId) {
-                $query->where('business_id', $businessId);
-            })
-            ->first();
-
-        if (! $variation || ! $variation->product) {
-            abort(404);
-        }
-
-        $purchaseContext = $this->receivedPurchaseContext($request, $authorizationGate, $user, (int) $businessId, (int) $locationId);
-        if (! empty($purchaseContext['selected_line'])) {
-            $selectedLine = $purchaseContext['selected_line'];
-            $variation = Variation::query()
-                ->with('product')
-                ->where('id', $selectedLine->variation_id)
-                ->where('product_id', $selectedLine->product_id)
-                ->whereHas('product', function ($query) use ($businessId) {
-                    $query->where('business_id', $businessId);
-                })
-                ->first();
-
-            if (! $variation || ! $variation->product) {
-                abort(404);
-            }
-        }
-
-        $postEnabled = $authorizationGate->allowsWrite(
+        $postEnabled = $selectedLine !== null && $authorizationGate->allowsWrite(
             $user,
             'recommerce.receiving.post',
             $businessId,
             (int) $locationId,
-            (int) $variation->id
+            (int) $selectedLine->variation_id
         );
-
-        $reconciliationRecordEnabled = $authorizationGate->allowsWrite(
+        $canOverrideCost = $selectedLine !== null && $authorizationGate->allowsWrite(
             $user,
-            'recommerce.stock.reconcile.record',
+            'recommerce.device.override_acquisition_cost',
             $businessId,
             (int) $locationId,
-            (int) $variation->id
+            (int) $selectedLine->variation_id
         );
+        $registeredDevices = $selectedLine === null ? collect() : DB::table('recommerce_device_purchase_assignments as dpa')
+            ->join('recommerce_devices as d', 'd.id', '=', 'dpa.device_id')
+            ->where('dpa.business_id', $businessId)
+            ->where('dpa.purchase_line_id', $selectedLine->id)
+            ->orderBy('dpa.unit_ordinal')
+            ->get(['d.id as device_id', 'dpa.unit_ordinal', 'dpa.unit_acquisition_cost', 'd.device_code', 'd.lifecycle_state']);
 
         return response()->view('recommerce::receiving.index', [
             'businessId' => (int) $businessId,
             'locationId' => (int) $locationId,
-            'variation' => $variation,
             'purchaseContext' => $purchaseContext,
             'postEnabled' => $postEnabled,
-            'reconciliationRecordEnabled' => $reconciliationRecordEnabled,
+            'canOverrideCost' => $canOverrideCost,
+            // Retained for integrations that render this workspace through an
+            // existing response decorator. Reconciliation is linked from the
+            // purchase-led screen; it is not a receiving prerequisite.
+            'reconciliationRecordEnabled' => false,
+            'registeredDevices' => $registeredDevices,
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
     }
 
-    /**
-     * Build a scoped handoff from the native Purchase list. Only unassigned,
-     * whole-unit received lines in the approved cohort are selectable.
-     */
+    /** Product policy decides which purchase lines need Device registration. */
     protected function receivedPurchaseContext(
         Request $request,
         AuthorizationGate $authorizationGate,
         User $user,
         int $businessId,
-        int $locationId
-    ): ?array {
+        DeviceReceivingProgressService $progressService
+    ): array {
         $purchaseId = (int) $request->query('purchase_id', 0);
         if ($purchaseId < 1) {
-            return null;
+            return [
+                'purchase' => null,
+                'lines' => collect(),
+                'selected_line' => null,
+                'expected_count' => 0,
+                'registered_count' => 0,
+                'remaining_count' => 0,
+            ];
         }
 
-        $purchase = DB::table('transactions')
-            ->where('id', $purchaseId)
-            ->where('business_id', $businessId)
-            ->where('location_id', $locationId)
-            ->where('type', 'purchase')
-            ->where('status', 'received')
-            ->first(['id', 'ref_no', 'invoice_no', 'transaction_date']);
-        if (! $purchase) {
+        $context = $progressService->forPurchase($businessId, $purchaseId);
+        if (! $context || ! User::can_access_this_location((int) $context['purchase']->location_id, $businessId)) {
             abort(404);
         }
 
-        $cohortVariationIds = array_values(array_filter(array_map('intval', (array) config('recommerce.cohort.variation_ids', []))));
-        $lines = DB::table('purchase_lines')
-            ->join('products', 'products.id', '=', 'purchase_lines.product_id')
-            ->where('purchase_lines.transaction_id', $purchase->id)
-            ->whereIn('purchase_lines.variation_id', $cohortVariationIds)
-            ->select([
-                'purchase_lines.id',
-                'purchase_lines.transaction_id',
-                'purchase_lines.product_id',
-                'purchase_lines.variation_id',
-                'purchase_lines.quantity',
-                'products.name as product_name',
-            ])
-            ->orderBy('purchase_lines.id')
-            ->get()
-            ->filter(function ($line) use ($authorizationGate, $user, $businessId, $locationId) {
-                $isWholeUnit = (float) $line->quantity > 0
-                    && abs((float) $line->quantity - round((float) $line->quantity)) <= 0.000001;
-                $assignmentCount = DB::table('recommerce_device_purchase_assignments')
-                    ->where('business_id', $businessId)
-                    ->where('transaction_id', $line->transaction_id)
-                    ->where('purchase_line_id', $line->id)
-                    ->count();
-                $line->assigned_count = $assignmentCount;
-                $line->remaining_unit_count = max(0, (int) round((float) $line->quantity) - $assignmentCount);
-
-                return $isWholeUnit
-                    && $line->remaining_unit_count > 0
-                    && $authorizationGate->allowsRead(
-                        $user,
-                        'recommerce.receiving.prepare',
-                        $businessId,
-                        $locationId,
-                        (int) $line->variation_id
-                    );
-            })
-            ->values();
+        $locationId = (int) $context['purchase']->location_id;
+        $context['lines'] = collect($context['lines'])->filter(function ($line) use ($authorizationGate, $user, $businessId, $locationId) {
+            return $line->tracking_mode !== DeviceReceivingProgressService::TRACKING_SERIALIZED_DEVICE
+                || $authorizationGate->allowsRead($user, 'recommerce.receiving.prepare', $businessId, $locationId, (int) $line->variation_id);
+        })->values();
 
         $selectedLineId = (int) $request->query('purchase_line_id', 0);
+        $serializedLines = $context['lines']->where('tracking_mode', DeviceReceivingProgressService::TRACKING_SERIALIZED_DEVICE);
         $selectedLine = $selectedLineId > 0
-            ? $lines->firstWhere('id', $selectedLineId)
-            : ($lines->count() === 1 ? $lines->first() : null);
+            ? $serializedLines->firstWhere('id', $selectedLineId)
+            : ($serializedLines->count() === 1 ? $serializedLines->first() : $serializedLines->firstWhere('remaining_count', '>', 0));
         if ($selectedLineId > 0 && ! $selectedLine) {
             abort(404);
         }
 
-        return [
-            'purchase' => $purchase,
-            'lines' => $lines,
-            'selected_line' => $selectedLine,
-        ];
+        $context['selected_line'] = $selectedLine;
+
+        return $context;
     }
 
     public function prepare(Request $request, AuthorizationGate $authorizationGate)
@@ -187,6 +131,7 @@ class ReceivingController extends Controller
                 'units' => ['required', 'array', 'min:1', 'max:'.(int) config('recommerce.receive_batch_limit', 50)],
                 'units.*.identifier_type' => ['required', 'string', 'regex:/^[A-Z0-9_]{1,40}$/'],
                 'units.*.identifier_value' => ['required', 'string', 'max:255'],
+                'units.*.unit_acquisition_cost' => ['nullable', 'numeric', 'min:0'],
             ]);
         } catch (ValidationException $exception) {
             return response()->json([
@@ -237,6 +182,36 @@ class ReceivingController extends Controller
                 }
 
                 $identifierHashes[$identifierKey] = true;
+                $existing = DeviceIdentifier::query()
+                    ->with(['device.product'])
+                    ->where('business_id', $businessId)
+                    ->where('identifier_type', $unit['identifier_type'])
+                    ->where('normalized_hash', $hash)
+                    ->first();
+                if ($existing) {
+                    $device = $existing->device;
+                    $safeDevice = $device
+                        && $device->current_location_id
+                        && $authorizationGate->allowsRead(
+                            $user,
+                            'recommerce.device.view',
+                            $businessId,
+                            (int) $device->current_location_id,
+                            (int) $device->variation_id
+                        );
+
+                    return response()->json([
+                        'message' => 'Identifier already exists. Remove the scan or resolve the supplier discrepancy before continuing.',
+                        'exception' => array_filter([
+                            'type' => 'DUPLICATE_IDENTIFIER',
+                            'device_code' => $safeDevice ? $device->device_code : null,
+                            'model' => $safeDevice ? optional($device->product)->name : null,
+                            'lifecycle_state' => $safeDevice ? $device->lifecycle_state : null,
+                            'device_url' => $safeDevice ? route('recommerce.devices.show', $device->device_code) : null,
+                        ], static fn ($value) => $value !== null),
+                    ], 409)->header('Cache-Control', 'no-store')
+                        ->header('Referrer-Policy', 'no-referrer');
+                }
                 $hints[] = [
                     'identifier_type' => $unit['identifier_type'],
                     'identifier_hint' => $this->identifierHint($normalized),
@@ -306,6 +281,11 @@ class ReceivingController extends Controller
                 'units.*.identifier_type' => ['required', 'string', 'regex:/^[A-Z0-9_]{1,40}$/'],
                 'units.*.identifier_value' => ['required', 'string', 'max:255'],
                 'units.*.unit_acquisition_cost' => ['nullable', 'numeric', 'min:0'],
+                'units.*.cost_override_reason_code' => ['nullable', 'string', 'max:48'],
+                'units.*.cost_override_reason_notes' => ['nullable', 'string', 'max:2000'],
+                'units.*.intake_observations' => ['nullable', 'array', 'max:5'],
+                'units.*.intake_observations.*.type' => ['required_with:units.*.intake_observations', 'string', 'max:48'],
+                'units.*.intake_observations.*.notes' => ['nullable', 'string', 'max:2000'],
             ]);
         } catch (ValidationException $exception) {
             return response()->json([
@@ -365,6 +345,12 @@ class ReceivingController extends Controller
                 'units' => ['required', 'array', 'min:1', 'max:'.(int) config('recommerce.receive_batch_limit', 50)],
                 'units.*.identifier_type' => ['required', 'string', 'regex:/^[A-Z0-9_]{1,40}$/'],
                 'units.*.identifier_value' => ['required', 'string', 'max:255'],
+                'units.*.unit_acquisition_cost' => ['nullable', 'numeric', 'min:0'],
+                'units.*.cost_override_reason_code' => ['nullable', 'string', 'max:48'],
+                'units.*.cost_override_reason_notes' => ['nullable', 'string', 'max:2000'],
+                'units.*.intake_observations' => ['nullable', 'array', 'max:5'],
+                'units.*.intake_observations.*.type' => ['required_with:units.*.intake_observations', 'string', 'max:48'],
+                'units.*.intake_observations.*.notes' => ['nullable', 'string', 'max:2000'],
             ]);
         } catch (ValidationException $exception) {
             return response()->json([
@@ -384,7 +370,7 @@ class ReceivingController extends Controller
             abort(404);
         } catch (InvalidArgumentException|LogicException $exception) {
             return response()->json([
-                'message' => 'Purchase attachment was rejected.',
+                'message' => $this->safeAttachmentMessage($exception),
             ], 422)->header('Cache-Control', 'no-store')
                 ->header('Referrer-Policy', 'no-referrer');
         } catch (ReceivingInProgressException $exception) {
@@ -399,5 +385,21 @@ class ReceivingController extends Controller
             'result' => $result,
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
+    }
+
+    protected function safeAttachmentMessage(\Throwable $exception): string
+    {
+        $message = $exception->getMessage();
+        $allowed = [
+            'The supplied Device count exceeds the unassigned units on the selected POS purchase line.',
+            'Receiving command contains an identifier already registered to a Device.',
+            'Purchase attachment contains an identifier already registered to a Device.',
+            'An acquisition-cost override requires a reason.',
+            'Other acquisition-cost overrides require notes.',
+        ];
+
+        return in_array($message, $allowed, true)
+            ? $message
+            : 'Purchase attachment was rejected.';
     }
 }

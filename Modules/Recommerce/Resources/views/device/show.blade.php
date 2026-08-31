@@ -50,11 +50,38 @@
                                 <dd>{{ $device->manufacturer_serial_display }}</dd>
                             @endif
 
-                            @if ($device->purchaseAssignment && $device->purchaseAssignment->unit_acquisition_cost !== null)
+                            @if ($economicsVisible && $device->purchaseAssignment && $device->purchaseAssignment->unit_acquisition_cost !== null)
                                 <dt>Acquisition cost</dt>
                                 <dd>RM {{ number_format((float) $device->purchaseAssignment->unit_acquisition_cost, 2) }}</dd>
                             @endif
                         </dl>
+
+                        <h4>Acquisition provenance</h4>
+                        @if ($device->purchaseAssignment)
+                            <dl class="dl-horizontal">
+                                <dt>Source purchase</dt><dd>{{ optional($acquisition)->ref_no ?: optional($acquisition)->invoice_no ?: 'Purchase #'.$device->purchaseAssignment->transaction_id }}</dd>
+                                <dt>Supplier</dt><dd>{{ optional($acquisition)->supplier_business_name ?: optional($acquisition)->supplier_name ?: 'Supplier unavailable' }}</dd>
+                                <dt>Received</dt><dd>{{ optional($acquisition)->transaction_date ? \Carbon\Carbon::parse($acquisition->transaction_date)->format('d M Y') : ($device->purchaseAssignment->assigned_at?->format('d M Y') ?: 'Not recorded') }}</dd>
+                                <dt>Receiving location</dt><dd>{{ optional($acquisition)->location_name ?: 'Location #'.$device->current_location_id }}</dd>
+                                <dt>Purchase line</dt><dd>#{{ $device->purchaseAssignment->purchase_line_id }} · unit {{ $device->purchaseAssignment->unit_ordinal }}</dd>
+                            </dl>
+                            @if ($economicsVisible && $device->costOverrideEvents->isNotEmpty())
+                                <p><strong>Cost override history</strong></p>
+                                @foreach ($device->costOverrideEvents as $override)
+                                    <div class="well well-sm">RM {{ number_format((float) $override->previous_unit_acquisition_cost, 2) }} → RM {{ number_format((float) $override->new_unit_acquisition_cost, 2) }}<br><small>{{ str_replace('_', ' ', $override->reason_code) }} · {{ $override->overridden_at?->format('d M Y H:i') }} · user #{{ $override->overridden_by }}</small>@if($override->reason_notes)<br><small>{{ $override->reason_notes }}</small>@endif</div>
+                                @endforeach
+                            @endif
+                        @else
+                            <p class="text-muted">No native supplier-purchase assignment is recorded for this Device.</p>
+                        @endif
+
+                        @if ($device->inspection)
+                            <h4>Receiving inspection</h4>
+                            <p><strong>{{ str_replace('_', ' ', $device->inspection->status) }}</strong> · received {{ $device->inspection->received_at?->format('d M Y H:i') }}</p>
+                            @if($device->inspection->assigned_to)<p class="text-muted">Assigned to user #{{ $device->inspection->assigned_to }}</p>@endif
+                            @if($device->inspection->outcome_notes)<p class="text-muted">{{ $device->inspection->outcome_notes }}</p>@endif
+                            @forelse($device->intakeObservations as $observation)<div class="well well-sm"><strong>{{ str_replace('_', ' ', $observation->observation_type) }}</strong>@if($observation->notes)<br><small>{{ $observation->notes }}</small>@endif</div>@empty<p class="text-muted">No intake observations recorded.</p>@endforelse
+                        @endif
 
                         <h4>SaverBro certification</h4>
                         @if ($device->certification)

@@ -70,7 +70,7 @@ class DashboardController extends Controller
                 ->where('business_id', $businessId)
                 ->where('current_location_id', $locationId)
                 ->whereIn('variation_id', $cohortVariationIds)
-                ->selectRaw("COUNT(*) as total, SUM(CASE WHEN stock_participation = 'ON_HAND' THEN 1 ELSE 0 END) as on_hand, SUM(CASE WHEN stock_participation = 'RESERVED' THEN 1 ELSE 0 END) as reserved")
+            ->selectRaw("COUNT(*) as total, SUM(CASE WHEN stock_participation = 'ON_HAND' THEN 1 ELSE 0 END) as on_hand, SUM(CASE WHEN stock_participation = 'RESERVED' THEN 1 ELSE 0 END) as reserved, SUM(CASE WHEN lifecycle_state = 'RECEIVED_PENDING_INSPECTION' THEN 1 ELSE 0 END) as awaiting_inspection, SUM(CASE WHEN lifecycle_state = 'REFURBISHMENT_REQUIRED' THEN 1 ELSE 0 END) as repair_required, SUM(CASE WHEN lifecycle_state = 'AVAILABLE' AND stock_participation = 'ON_HAND' THEN 1 ELSE 0 END) as ready_for_sale, SUM(CASE WHEN acquired_at >= ? AND acquired_at < ? THEN 1 ELSE 0 END) as received_today", [now()->startOfDay(), now()->copy()->addDay()->startOfDay()])
                 ->first()
             : null;
 

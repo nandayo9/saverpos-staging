@@ -25,6 +25,7 @@ use App\TransactionSellLinesPurchaseLines;
 use App\Variation;
 use App\VariationLocationDetails;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use App\CashRegister;
 
@@ -5174,6 +5175,8 @@ class TransactionUtil extends Util
                     ->where('transactions.type', 'purchase')
                     ->select(
                         'transactions.id',
+                        'transactions.business_id',
+                        'transactions.location_id',
                         'transactions.document',
                         'transactions.transaction_date',
                         'transactions.ref_no',
@@ -5200,6 +5203,59 @@ class TransactionUtil extends Util
                     ->groupBy('transactions.id');
 
         return $purchases;
+    }
+
+    /**
+     * Adds one aggregate, read-only Device receiving projection to the native
+     * Purchase list. No Recommerce row can change stock or purchase state.
+     */
+    public function withDeviceReceivingProgress($purchases, int $businessId)
+    {
+        if (! config('recommerce.enabled', false)
+            || ! Schema::hasTable('recommerce_serialization_profiles')
+            || ! Schema::hasTable('recommerce_device_purchase_assignments')) {
+            return $purchases;
+        }
+
+        $assignments = DB::table('recommerce_device_purchase_assignments as dpa')
+            ->where('dpa.business_id', $businessId)
+            ->selectRaw('dpa.purchase_line_id, COUNT(*) as registered_count, 0 as inspection_ready_count')
+            ->groupBy('dpa.purchase_line_id');
+
+        if (Schema::hasTable('recommerce_device_inspections')) {
+            $assignments = DB::table('recommerce_device_purchase_assignments as dpa')
+                ->join('recommerce_devices as d', 'd.id', '=', 'dpa.device_id')
+                ->leftJoin('recommerce_device_inspections as di', 'di.device_id', '=', 'd.id')
+                ->where('dpa.business_id', $businessId)
+                ->selectRaw("dpa.purchase_line_id, COUNT(*) as registered_count, SUM(CASE WHEN di.status = 'PASSED' AND d.lifecycle_state = 'AVAILABLE' THEN 1 ELSE 0 END) as inspection_ready_count")
+                ->groupBy('dpa.purchase_line_id');
+        }
+        $variationIds = array_values(array_filter(array_map('intval', (array) config('recommerce.cohort.variation_ids', []))));
+
+        $serializedLines = DB::table('purchase_lines as rdpl')
+            ->join('recommerce_serialization_profiles as rsp', function ($join) use ($businessId) {
+                $join->on('rsp.product_id', '=', 'rdpl.product_id')
+                    ->on('rsp.variation_id', '=', 'rdpl.variation_id')
+                    ->where('rsp.business_id', '=', $businessId)
+                    ->where('rsp.mode', '=', 'TRACKED_REQUIRED');
+            })
+            ->leftJoinSub($assignments, 'rdpa', fn ($join) => $join->on('rdpa.purchase_line_id', '=', 'rdpl.id'))
+            ->whereRaw('rdpl.quantity > 0 AND rdpl.quantity = ROUND(rdpl.quantity)')
+            ->whereIn('rdpl.variation_id', $variationIds ?: [-1])
+            ->when(
+                Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'),
+                fn ($query) => $query->where('rsp.inventory_tracking_mode', 'SERIALIZED_DEVICE')
+            )
+            ->selectRaw('rdpl.transaction_id, SUM(rdpl.quantity) as device_expected, SUM(COALESCE(rdpa.registered_count, 0)) as device_registered, SUM(COALESCE(rdpa.inspection_ready_count, 0)) as inspection_ready_count')
+            ->groupBy('rdpl.transaction_id');
+
+        return $purchases
+            ->leftJoinSub($serializedLines, 'device_receiving', fn ($join) => $join->on('device_receiving.transaction_id', '=', 'transactions.id'))
+            ->addSelect(
+                DB::raw('MAX(device_receiving.device_expected) as device_expected'),
+                DB::raw('MAX(device_receiving.device_registered) as device_registered'),
+                DB::raw('MAX(device_receiving.inspection_ready_count) as inspection_ready_count')
+            );
     }
 
         /**

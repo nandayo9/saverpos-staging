@@ -41,6 +41,22 @@ class Device extends Model
         return $this->hasOne(DevicePurchaseAssignment::class, 'device_id');
     }
 
+    /** Operational receiving-to-clearance record; it never owns stock. */
+    public function inspection(): HasOne
+    {
+        return $this->hasOne(DeviceInspection::class, 'device_id');
+    }
+
+    public function intakeObservations(): HasMany
+    {
+        return $this->hasMany(DeviceIntakeObservation::class, 'device_id');
+    }
+
+    public function costOverrideEvents(): HasMany
+    {
+        return $this->hasMany(DeviceCostOverrideEvent::class, 'device_id');
+    }
+
     public function acquisitions(): HasMany
     {
         return $this->hasMany(DeviceAcquisition::class, 'device_id');

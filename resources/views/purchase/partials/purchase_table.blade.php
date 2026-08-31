@@ -11,6 +11,7 @@
             <th>@lang('purchase.location')</th>
             <th>@lang('purchase.supplier')</th>
             <th>@lang('purchase.purchase_status')</th>
+            @if (!empty($deviceReceivingEnabled))<th>Device receiving</th>@endif
             <th class="add_without_price_hide">@lang('purchase.payment_status')</th>
             <th class="add_without_price_hide">@lang('purchase.grand_total')</th>
             @php
@@ -28,8 +29,9 @@
     </thead>
     <tfoot>
         <tr class="bg-gray font-17 text-center footer-total">
-            <td colspan="5"><strong>@lang('sale.total'):</strong></td>
+            <td colspan="{{ !empty($deviceReceivingEnabled) ? 6 : 5 }}"><strong>@lang('sale.total'):</strong></td>
             <td class="footer_status_count"></td>
+            @if (!empty($deviceReceivingEnabled))<td></td>@endif
             <td class="footer_payment_status_count add_without_price_hide"></td>
             <td class="footer_purchase_total add_without_price_hide"></td>
             <td class="text-left add_without_price_hide"><small>@lang('report.purchase_due') - <span class="footer_total_due"></span><br>

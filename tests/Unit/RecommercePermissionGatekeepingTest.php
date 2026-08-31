@@ -37,26 +37,113 @@ class RecommercePermissionGatekeepingTest extends TestCase
     ];
 
     /**
+     * Native Ultimate POS permissions a Recommerce class may check inline.
+     *
+     * These are not Recommerce permissions and are deliberately NOT routed
+     * through `AuthorizationGate`: the gate answers "may this user act on this
+     * cohort", and it denies anything outside `recommerce.permissions`, so
+     * passing a native permission to it would always deny. A native check
+     * guards a native side effect — here, creating an Ultimate POS contact.
+     *
+     * The allowlist exists so these cannot proliferate silently. Adding an
+     * entry is a deliberate act with a reason attached.
+     */
+    private const ALLOWED_NATIVE_PERMISSIONS = [
+        // TradeInSellerService registers a walk-in seller as a POS customer.
+        'customer.create',
+    ];
+
+    /**
      * `DataController::user_permissions()` names every catalogued permission
      * because it renders the labels for the native role editor. It decides
      * nothing, which the first test proves rather than assumes.
      */
     private const LABEL_ONLY_FILES = ['DataController.php'];
 
-    public function test_no_service_or_controller_reaches_an_authorization_answer_without_the_gate(): void
+    /**
+     * The invariant is about *Recommerce* authorisation. An inline check of a
+     * catalogued Recommerce permission is the RC-041 defect: it satisfies the
+     * permission half and silently skips the cohort half. An inline check of a
+     * native POS permission is a different thing and is allowlisted above.
+     *
+     * A non-literal argument — `->can($permission)` — is always an offender,
+     * because nothing here can tell which half it is, and it would otherwise be
+     * the obvious way around this guard.
+     */
+    public function test_no_service_or_controller_decides_a_recommerce_permission_inline(): void
     {
+        $catalogue = $this->cataloguedPermissions();
+        $this->assertGreaterThan(30, count($catalogue), 'The permission catalogue failed to load.');
+
         $offenders = [];
 
         foreach ($this->scannedFiles() as $path) {
             $source = file_get_contents($path);
             foreach (self::BYPASS_PRIMITIVES as $primitive) {
-                if (str_contains($source, $primitive)) {
-                    $offenders[] = basename($path).' uses '.$primitive;
+                $offset = 0;
+                while (($at = strpos($source, $primitive, $offset)) !== false) {
+                    $offset = $at + strlen($primitive);
+                    $argument = $this->firstStringArgument(substr($source, $at, 200));
+                    $name = basename($path);
+
+                    if ($argument === null) {
+                        $offenders[] = $name.' calls '.$primitive.' with a non-literal permission';
+                        continue;
+                    }
+                    if (in_array($argument, $catalogue, true)) {
+                        $offenders[] = $name.' decides Recommerce permission '.$argument.' inline';
+                        continue;
+                    }
+                    if (! in_array($argument, self::ALLOWED_NATIVE_PERMISSIONS, true)) {
+                        $offenders[] = $name.' checks undocumented native permission '.$argument;
+                    }
                 }
             }
         }
 
-        $this->assertSame([], $offenders, 'Authorisation must be decided by AuthorizationGate, not inline.');
+        $this->assertSame([], $offenders, 'Recommerce authorisation must be decided by AuthorizationGate, not inline.');
+    }
+
+    /**
+     * Every allowlisted native permission must still be a real Ultimate POS
+     * permission that stock code itself checks. An entry that matches nothing
+     * in `app/` is either a typo or a Recommerce permission smuggled in.
+     */
+    public function test_each_allowlisted_native_permission_is_a_real_pos_permission(): void
+    {
+        $catalogue = $this->cataloguedPermissions();
+
+        foreach (self::ALLOWED_NATIVE_PERMISSIONS as $permission) {
+            $this->assertNotContains(
+                $permission,
+                $catalogue,
+                $permission.' is a Recommerce permission and must go through the gate, not the native allowlist.'
+            );
+
+            $found = false;
+            foreach ((glob(base_path('app/*.php')) ?: []) + (glob(base_path('app/Http/Middleware/*.php')) ?: []) as $file) {
+                if (str_contains((string) file_get_contents($file), "'".$permission."'")) {
+                    $found = true;
+                    break;
+                }
+            }
+            $this->assertTrue($found, $permission.' is not a permission stock Ultimate POS code checks.');
+        }
+    }
+
+    /**
+     * Extract the first single-quoted argument from a call fragment, or null
+     * when the argument is not a literal.
+     */
+    private function firstStringArgument(string $fragment): ?string
+    {
+        $open = strpos($fragment, '(');
+        if ($open === false) {
+            return null;
+        }
+        $rest = ltrim(substr($fragment, $open + 1));
+
+        return preg_match("/^'([^']*)'/", $rest, $m) === 1 ? $m[1] : null;
     }
 
     public function test_everything_that_names_a_catalogued_permission_holds_the_gate(): void
@@ -93,6 +180,7 @@ class RecommercePermissionGatekeepingTest extends TestCase
             foreach (self::BYPASS_PRIMITIVES as $primitive) {
                 $this->assertStringNotContainsString($primitive, $source, $name.' is exempt only because it decides nothing.');
             }
+            $this->assertStringNotContainsString('AuthorizationException', $source, $name.' must not refuse access either.');
         }
     }
 

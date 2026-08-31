@@ -1,419 +1,221 @@
 @extends('layouts.app')
 
-@section('title', 'Tracked receiving')
+@section('title', 'Receive Devices')
 
 @section('content')
-    @php
-        $existingPurchaseLine = data_get($purchaseContext, 'selected_line');
-        $existingPurchase = data_get($purchaseContext, 'purchase');
-        $purchaseLines = collect(data_get($purchaseContext, 'lines', []));
-        $receivingPostUrl = $postEnabled && (! $purchaseContext || $existingPurchaseLine)
-            ? ($existingPurchaseLine ? route('recommerce.receiving.attach_purchase') : route('recommerce.receiving.post'))
-            : null;
-        $purchaseAttachment = $existingPurchaseLine ? [
-            'transaction_id' => (int) $existingPurchase->id,
-            'purchase_line_id' => (int) $existingPurchaseLine->id,
-        ] : null;
-        $maxUnits = $existingPurchaseLine
-            ? min((int) $existingPurchaseLine->remaining_unit_count, (int) config('recommerce.receive_batch_limit', 50))
-            : (int) config('recommerce.receive_batch_limit', 50);
-    @endphp
-    <section class="container" id="recommerce-receiving" data-csrf-token="{{ csrf_token() }}">
-        <div class="row">
-            <div class="col-md-9">
-                <div class="box box-primary">
-                    <div class="box-header with-border">
-                        <div class="pull-right"><a class="btn btn-default btn-sm" href="{{ route('recommerce.dashboard') }}">Operations overview</a></div>
-                        <h3 class="box-title">{{ $existingPurchaseLine ? 'Serialise received purchase' : 'New serialised purchase' }}</h3>
-                        <p class="text-muted" style="margin:6px 0 0">{{ $existingPurchaseLine ? 'Add Device identity to an existing POS purchase line. Stock, supplier, payment, and accounting remain unchanged.' : 'Create one controlled POS purchase and one Device evidence set per unit.' }}</p>
-                    </div>
-                    <div class="box-body">
-                        @if ($postEnabled)
-                            <div class="alert alert-warning" role="status">Pilot write gate is open for this cohort. Review the prepared impact before posting.</div>
-                        @else
-                            <div class="alert alert-info" role="status">Prepare-only mode. The write gate is closed; validation creates no purchase, Device, label, or stock record.</div>
-                        @endif
+@php
+    $purchase = data_get($purchaseContext, 'purchase');
+    $lines = collect(data_get($purchaseContext, 'lines', []));
+    $selectedLine = data_get($purchaseContext, 'selected_line');
+    $purchaseReference = $purchase ? ($purchase->ref_no ?: $purchase->invoice_no ?: '#'.$purchase->id) : null;
+@endphp
+<style>
+    .sb-device-receiving { max-width: 1180px; margin: 0 auto; }
+    .sb-device-receiving .box { border-radius: 10px; }
+    .sb-receiving-progress { height: 9px; margin: 8px 0; background: rgba(148,163,184,.2); border-radius: 999px; overflow: hidden; }
+    .sb-receiving-progress > span { display:block; height:100%; background: var(--sb-success, #22c55e); }
+    .sb-receiving-line { border-left: 3px solid var(--sb-border, #475569); padding: 11px 12px; margin-bottom: 9px; background: rgba(15,23,42,.03); }
+    .sb-receiving-line.is-active { border-left-color: var(--sb-primary, #3b82f6); background: rgba(59,130,246,.08); }
+    .sb-scanner-input { height: 54px; font-size: 19px; letter-spacing: .03em; }
+    .sb-staged-unit { display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid rgba(148,163,184,.18); }
+    .sb-staged-unit:last-child { border-bottom:0; }
+    @media (max-width: 767px) { .sb-staged-unit { align-items:stretch; flex-wrap:wrap; } .sb-staged-unit .form-control { min-width:0; } }
+</style>
 
-                        @if ($purchaseContext)
-                            @if ($purchaseLines->isEmpty())
-                                <div class="alert alert-warning" role="status">This received POS purchase has no unassigned whole-unit lines in the approved serialised-device cohort.</div>
-                            @else
-                                <form method="get" action="{{ route('recommerce.receiving.index') }}" class="well well-sm">
-                                    <input type="hidden" name="purchase_id" value="{{ $existingPurchase->id }}">
-                                    <label for="purchase-line-id">POS purchase {{ $existingPurchase->ref_no ?: $existingPurchase->invoice_no ?: '#'.$existingPurchase->id }}</label>
-                                    <div class="input-group">
-                                        <select id="purchase-line-id" name="purchase_line_id" class="form-control">
-                                            <option value="">Choose a line to serialise</option>
-                                            @foreach ($purchaseLines as $line)
-                                                <option value="{{ $line->id }}" @selected($existingPurchaseLine && (int) $existingPurchaseLine->id === (int) $line->id)>{{ $line->product_name }} · variation {{ $line->variation_id }} · {{ (int) $line->remaining_unit_count }} unassigned unit(s)</option>
-                                            @endforeach
-                                        </select>
-                                        <span class="input-group-btn"><button type="submit" class="btn btn-default">Use purchase line</button></span>
-                                    </div>
-                                </form>
-                            @endif
-                        @endif
-
-                        @if (! $purchaseContext || $existingPurchaseLine)
-                        <div class="row">
-                            <div class="col-sm-4">
-                                <div class="form-group"><label for="receive-location">Location</label><input id="receive-location" class="form-control" value="{{ $locationId }}" readonly></div>
-                            </div>
-                            <div class="col-sm-4">
-                                <div class="form-group"><label for="receive-product">Product</label><input id="receive-product" class="form-control" value="{{ $variation->product->name }}" readonly></div>
-                            </div>
-                            <div class="col-sm-4">
-                                <div class="form-group"><label for="receive-variation">Variation ID</label><input id="receive-variation" class="form-control" value="{{ $variation->id }}" readonly></div>
-                            </div>
-                        </div>
-
-                        @if (! $existingPurchaseLine)
-                        <div class="row">
-                            <div class="col-sm-4">
-                                <div class="form-group"><label for="receive-supplier">Supplier contact ID</label><input id="receive-supplier" class="form-control" type="number" min="1" required></div>
-                            </div>
-                            <div class="col-sm-4">
-                                <div class="form-group"><label for="receive-date">Transaction date</label><input id="receive-date" class="form-control" type="date" value="{{ now()->format('Y-m-d') }}" required></div>
-                            </div>
-                            <div class="col-sm-4">
-                                <div class="form-group"><label for="receive-notes">Evidence note</label><input id="receive-notes" class="form-control" maxlength="2000"></div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-sm-4"><div class="form-group"><label for="receive-unit-cost">Unit purchase price</label><input id="receive-unit-cost" class="form-control" type="number" min="0" step="0.01" required></div></div>
-                            <div class="col-sm-4"><div class="form-group"><label for="receive-unit-cost-tax">Unit price incl. tax</label><input id="receive-unit-cost-tax" class="form-control" type="number" min="0" step="0.01" required></div></div>
-                            <div class="col-sm-4"><div class="form-group"><label for="receive-unit-tax">Unit item tax</label><input id="receive-unit-tax" class="form-control" type="number" min="0" step="0.01" value="0" required></div></div>
-                        </div>
-                        @else
-                            <div class="alert alert-success" role="status">This action can add up to {{ $maxUnits }} Device record(s) in this batch to the selected POS purchase line. It does not create another purchase or change stock quantity.</div>
-                        @endif
-
-                        <div class="clearfix" style="margin:10px 0 8px"><strong>Physical identifiers</strong><span class="pull-right text-muted" id="unit-count">0 units</span></div>
-                        <div id="unit-list" aria-live="polite"></div>
-                        <button type="button" class="btn btn-default" id="add-unit">＋ Add unit</button>
-
-                        <div class="well" style="margin-top:18px" aria-live="polite">
-                            <strong id="preflight-title">Receiving preflight</strong>
-                            <p class="text-muted" id="preflight-copy" style="margin:5px 0 0">Review the bounded command before any write can be attempted.</p>
-                            <pre id="preflight-output" style="margin-top:12px;white-space:pre-wrap">No command prepared.</pre>
-                        </div>
-
-                        <div class="btn-toolbar" role="toolbar" aria-label="Receiving actions">
-                            <button type="button" class="btn btn-primary" id="prepare-receipt">Validate and prepare</button>
-                            <button type="button" class="btn btn-warning" id="post-receipt" disabled @if (! $postEnabled) title="Write gate is closed" @endif>Post receipt</button>
-                        </div>
-                        <div id="post-result" class="alert" style="display:none;margin-top:15px" role="status"></div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="box box-default">
-                    <div class="box-header with-border"><h3 class="box-title">Slice status</h3></div>
-                    <div class="box-body">
-                        <p><span class="label label-success">Read</span> Prepare, scan, and reconcile responses are cache-safe.</p>
-                        <p><span class="label label-warning">Write</span> Posting requires the explicit cohort and permission gate.</p>
-                        <p><span class="label label-info">Identity</span> Raw identifiers are never echoed by preflight.</p>
-                        <p class="text-muted">The label boundary returns only safe code, description, template, and QR payload fields.</p>
-                    </div>
-                </div>
-                <div class="box box-default" id="device-results-box" style="display:none">
-                    <div class="box-header with-border"><h3 class="box-title">Received Devices</h3></div>
-                    <div class="box-body" id="device-results" aria-live="polite"></div>
-                </div>
-                <div class="box box-default" id="scan-box" style="display:none">
-                    <div class="box-header with-border"><h3 class="box-title">Scan and reconcile</h3></div>
-                    <div class="box-body">
-                        <div class="form-group"><label for="scan-value">Device code or approved QR URL</label><input id="scan-value" class="form-control" autocomplete="off"></div>
-                        <button type="button" class="btn btn-default" id="resolve-scan">Resolve scan</button>
-                        <button type="button" class="btn btn-default" id="run-reconcile">Run reconciliation</button>
-                        <button type="button" class="btn btn-default" id="record-reconcile" @disabled(! $reconciliationRecordEnabled) title="{{ $reconciliationRecordEnabled ? 'Retain this comparison as evidence' : 'Requires the reconciliation evidence permission and write switch' }}">Record evidence</button>
-                        <div id="scan-result" class="alert" style="display:none;margin-top:12px" role="status"></div>
-                        <div id="reconcile-result" class="alert" style="display:none;margin-top:12px" role="status"></div>
-                    </div>
-                </div>
+<section class="container-fluid sb-device-receiving" id="device-receiving" data-csrf-token="{{ csrf_token() }}" data-label-print-prefix="{{ url('/recommerce/devices') }}" aria-labelledby="device-receiving-title">
+    @if (! $purchase)
+        <div class="box box-primary">
+            <div class="box-header with-border"><h1 id="device-receiving-title" class="box-title">Receive Devices</h1></div>
+            <div class="box-body">
+                <p class="text-muted">Start from a received supplier purchase. SaverPOS will identify the product lines that need individual Device registration.</p>
+                <a class="btn btn-primary" href="{{ action([\App\Http\Controllers\PurchaseController::class, 'index']) }}">Open Purchases</a>
             </div>
         </div>
-    </section>
+    @else
+        <div class="row">
+            <div class="col-md-8">
+                <div class="box box-primary">
+                    <div class="box-header with-border">
+                        <div class="pull-right"><a class="btn btn-default btn-sm" href="{{ action([\App\Http\Controllers\PurchaseController::class, 'index']) }}">Back to Purchases</a></div>
+                        <h1 id="device-receiving-title" class="box-title">Receive Devices</h1>
+                    </div>
+                    <div class="box-body">
+                        <div class="row">
+                            <div class="col-sm-4"><strong>Purchase</strong><br>{{ $purchaseReference }}</div>
+                            <div class="col-sm-4"><strong>Supplier</strong><br>{{ $purchase->supplier_business_name ?: $purchase->supplier_name ?: 'Not recorded' }}</div>
+                            <div class="col-sm-4"><strong>Branch</strong><br>{{ $purchase->location_name ?: 'Branch '.$locationId }}<br><small class="text-muted">Received {{ \Carbon\Carbon::parse($purchase->transaction_date)->format('d M Y') }}</small></div>
+                        </div>
+                        <div class="sb-receiving-progress" aria-label="Overall Device receiving progress"><span style="width: {{ data_get($purchaseContext, 'expected_count', 0) > 0 ? min(100, round(data_get($purchaseContext, 'registered_count', 0) / data_get($purchaseContext, 'expected_count', 1) * 100)) : 0 }}%"></span></div>
+                        <div class="row text-center" style="margin-top:12px"><div class="col-xs-3"><strong>{{ data_get($purchaseContext, 'expected_count', 0) }}</strong><br><small>Expected</small></div><div class="col-xs-3"><strong id="registered-count">{{ data_get($purchaseContext, 'registered_count', 0) }}</strong><br><small>Registered</small></div><div class="col-xs-3"><strong id="remaining-count">{{ data_get($purchaseContext, 'remaining_count', 0) }}</strong><br><small>Remaining</small></div><div class="col-xs-3"><strong>{{ data_get($purchaseContext, 'inspection_cleared_count', 0) }}</strong><br><small>Inspection cleared</small></div></div>
+                    </div>
+                </div>
 
-    <script>
-        (function () {
-            const root = document.getElementById('recommerce-receiving');
-            const config = {
-                businessId: @json($businessId),
-                locationId: @json($locationId),
-                productId: @json($variation->product_id),
-                variationId: @json($variation->id),
-                prepareUrl: @json(route('recommerce.receiving.prepare')),
-                postUrl: @json($receivingPostUrl),
-                purchaseAttachment: @json($purchaseAttachment),
-                maxUnits: @json($maxUnits),
-                labelBaseUrl: @json(url('/recommerce/devices')),
-                scanUrl: @json(route('recommerce.scans.resolve')),
-                reconcileUrl: @json(route('recommerce.reconciliation.show', ['variationId' => $variation->id])),
-                recordReconcileUrl: @json($reconciliationRecordEnabled ? route('recommerce.reconciliation.runs.store', ['variationId' => $variation->id]) : null)
-            };
-            const state = { prepared: null, commandUuid: null, devices: [] };
-            const unitList = document.getElementById('unit-list');
+                @if ($selectedLine)
+                    <div class="box box-primary">
+                        <div class="box-header with-border">
+                            <h2 class="box-title">{{ $selectedLine->product_name }}@if($selectedLine->variation_name) <small>{{ $selectedLine->variation_name }}</small>@endif</h2>
+                            <p id="selected-line-progress" class="text-muted" style="margin:6px 0 0">{{ $selectedLine->registered_count }} registered · {{ $selectedLine->remaining_count }} remaining</p>
+                        </div>
+                        <div class="box-body">
+                            @if (! $selectedLine->is_whole_unit)
+                                <div class="alert alert-warning">This purchase quantity must be corrected to a whole number before individual Devices can be received.</div>
+                            @elseif ($selectedLine->remaining_count === 0)
+                                <div class="alert alert-success">All Devices for this purchase line are registered.</div>
+                            @elseif (! $postEnabled)
+                                <div class="alert alert-info">You can review this purchase line, but Device registration is not available for your current access.</div>
+                            @else
+                                <label for="scan-identifier">Scan serial / IMEI</label>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-btn"><select id="identifier-type" class="form-control" aria-label="Identifier type"><option value="SERIAL">Serial</option><option value="IMEI">IMEI</option><option value="ASSET_TAG">Asset tag</option></select></span>
+                                    <input id="scan-identifier" class="form-control sb-scanner-input" maxlength="255" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Scan or enter identifier, then press Enter">
+                                </div>
+                                <p class="help-block">Scan → validate → accepted. Valid scans remain staged while an exception is resolved; the scanner returns to focus after every result.</p>
 
-            function uuid() {
-                if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
-                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (char) { const random = Math.random() * 16 | 0; const value = char === 'x' ? random : (random & 0x3 | 0x8); return value.toString(16); });
-            }
+                                <div id="scan-message" class="alert" style="display:none" role="status" aria-live="polite"></div>
+                                <div id="scan-exceptions" aria-live="polite"></div>
+                                <p id="batch-summary" class="text-muted">0 valid · 0 blocked</p>
+                                <div id="staged-units" aria-live="polite"></div>
+                                <div id="empty-staged" class="text-muted" style="padding:12px 0">No Devices staged yet.</div>
+                                <div class="btn-toolbar" style="margin-top:16px">
+                                    <button id="register-devices" class="btn btn-primary" type="button" disabled>Register Devices</button>
+                                    <button id="clear-staged" class="btn btn-default" type="button" disabled>Clear staged scans</button>
+                                </div>
+                                <div id="recent-labels" style="margin-top:12px"></div>
+                            @endif
+                        </div>
+                    </div>
+                @elseif ($lines->where('tracking_mode', 'SERIALIZED_DEVICE')->isEmpty())
+                    <div class="box box-default"><div class="box-body"><p class="text-muted">This purchase contains bulk stock only. No individual Device registration is required.</p></div></div>
+                @else
+                    <div class="box box-default"><div class="box-body"><p class="text-muted">Choose a serialized product line from the list to continue receiving.</p></div></div>
+                @endif
 
-            function setMessage(id, message, kind) {
-                const target = document.getElementById(id);
-                target.textContent = message;
-                target.className = 'alert alert-' + kind;
-                target.style.display = 'block';
-            }
+                @if ($selectedLine)
+                    <div class="box box-default">
+                        <div class="box-header with-border"><h3 class="box-title">Registered Devices</h3></div>
+                        <div class="box-body table-responsive">
+                            <table class="table table-hover"><thead><tr><th>#</th><th>Device ID</th><th>Identifier</th><th>Unit cost</th><th>Status</th><th></th></tr></thead><tbody id="registered-device-list">
+                                @forelse ($registeredDevices as $device)
+                                    <tr><td>{{ $device->unit_ordinal }}</td><td><strong>{{ $device->device_code }}</strong></td><td>Protected identifier recorded</td><td>{{ $device->unit_acquisition_cost === null ? '—' : 'RM '.number_format((float) $device->unit_acquisition_cost, 2) }}</td><td>{{ str_replace('_', ' ', $device->lifecycle_state) }}</td><td><form method="post" action="{{ route('recommerce.devices.label.print', $device->device_id) }}" target="_blank"><input type="hidden" name="_token" value="{{ csrf_token() }}"><button class="btn btn-default btn-xs" type="submit">Print label</button></form></td></tr>
+                                @empty
+                                    <tr id="no-registered-devices"><td colspan="6" class="text-muted">No Devices have been registered for this purchase line.</td></tr>
+                                @endforelse
+                            </tbody></table>
+                        </div>
+                    </div>
+                @endif
+            </div>
 
-            function addUnit(type, value) {
-                const row = document.createElement('div');
-                row.className = 'row unit-row';
-                row.style.marginBottom = '8px';
-                row.innerHTML = '<div class="col-xs-3"><select class="form-control unit-type" aria-label="Identifier type"><option>SERIAL</option><option>ASSET_TAG</option><option>IMEI</option></select></div><div class="col-xs-7"><input class="form-control unit-value" maxlength="255" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Identifier value"></div><div class="col-xs-2"><button type="button" class="btn btn-default remove-unit" aria-label="Remove unit">×</button></div>';
-                row.querySelector('.unit-type').value = type || 'SERIAL';
-                row.querySelector('.unit-value').value = value || '';
-                row.querySelector('.remove-unit').addEventListener('click', function () { row.remove(); updateCount(); invalidatePrepared(); });
-                row.querySelector('.unit-type').addEventListener('change', invalidatePrepared);
-                row.querySelector('.unit-value').addEventListener('input', invalidatePrepared);
-                unitList.appendChild(row);
-                updateCount();
-            }
+            <div class="col-md-4">
+                <div class="box box-default">
+                    <div class="box-header with-border"><h3 class="box-title">Purchase lines</h3></div>
+                    <div class="box-body">
+                        @foreach ($lines as $line)
+                            @if ($line->tracking_mode === 'SERIALIZED_DEVICE')
+                                @php $active = $selectedLine && (int) $selectedLine->id === (int) $line->id; $percent = $line->expected_count > 0 ? min(100, round($line->registered_count / $line->expected_count * 100)) : 0; @endphp
+                                <div class="sb-receiving-line {{ $active ? 'is-active' : '' }}">
+                                    <strong>{{ $line->product_name }}</strong>@if($line->variation_name)<br><small>{{ $line->variation_name }}</small>@endif
+                                    <div class="sb-receiving-progress"><span style="width: {{ $percent }}%"></span></div>
+                                    <span id="line-progress-{{ $line->id }}">{{ $line->registered_count }} / {{ $line->expected_count }}</span>
+                                    @if ($line->remaining_count > 0)
+                                        <span class="text-muted"> · {{ $line->remaining_count }} remaining</span>
+                                    @else
+                                        <span class="text-success"> · Complete</span>
+                                    @endif
+                                    @if($line->registered_count > 0)
+                                        <br><small class="text-muted">{{ $line->inspection_cleared_count }} ready · {{ $line->inspection_open_count }} awaiting inspection
+                                        @if($line->inspection_failed_count)
+                                            · {{ $line->inspection_failed_count }} action required
+                                        @endif
+                                        </small>
+                                    @endif
+                                    <br><a class="btn btn-default btn-xs" style="margin-top:7px" href="{{ route('recommerce.receiving.index', ['purchase_id' => $purchase->id, 'purchase_line_id' => $line->id]) }}">{{ $line->remaining_count > 0 ? ($line->registered_count ? 'Continue receiving' : 'Receive Devices') : 'View Devices' }}</a>
+                                </div>
+                            @else
+                                <div class="sb-receiving-line"><strong>{{ $line->product_name }}</strong><br><span class="text-muted">Bulk stock · no individual Devices required</span></div>
+                            @endif
+                        @endforeach
+                    </div>
+                </div>
+                <div class="box box-default"><div class="box-body"><a class="btn btn-default btn-block" href="{{ route('recommerce.inspection.index') }}">Open Inspection Queue</a><a class="btn btn-default btn-block" href="{{ route('recommerce.devices.index') }}">Open Device Registry</a><a class="btn btn-default btn-block" href="{{ route('recommerce.reconciliation.index') }}">Stock Check</a></div></div>
+            </div>
+        </div>
+    @endif
+</section>
 
-            function updateCount() {
-                const count = unitList.querySelectorAll('.unit-row').length;
-                document.getElementById('unit-count').textContent = count + ' unit' + (count === 1 ? '' : 's');
-                document.getElementById('add-unit').disabled = count >= config.maxUnits;
-            }
-
-            function units() {
-                return Array.from(unitList.querySelectorAll('.unit-row')).map(function (row) {
-                    const unitCost = document.getElementById('receive-unit-cost');
-                    return { identifier_type: row.querySelector('.unit-type').value, identifier_value: row.querySelector('.unit-value').value, unit_acquisition_cost: unitCost ? unitCost.value : null };
-                });
-            }
-
-            function preparePayload() {
-                return { location_id: config.locationId, product_id: config.productId, variation_id: config.variationId, units: units() };
-            }
-
-            function postPayload() {
-                if (config.purchaseAttachment) {
-                    return {
-                        business_id: config.businessId,
-                        command_uuid: state.commandUuid || (state.commandUuid = uuid()),
-                        location_id: config.locationId,
-                        product_id: config.productId,
-                        variation_id: config.variationId,
-                        purchase_transaction_id: config.purchaseAttachment.transaction_id,
-                        purchase_line_id: config.purchaseAttachment.purchase_line_id,
-                        units: units()
-                    };
-                }
-                return { business_id: config.businessId, command_uuid: state.commandUuid || (state.commandUuid = uuid()), location_id: config.locationId, product_id: config.productId, variation_id: config.variationId, purchase: { contact_id: document.getElementById('receive-supplier').value, transaction_date: document.getElementById('receive-date').value, unit_purchase_price: document.getElementById('receive-unit-cost').value, unit_purchase_price_inc_tax: document.getElementById('receive-unit-cost-tax').value, unit_item_tax: document.getElementById('receive-unit-tax').value, additional_notes: document.getElementById('receive-notes').value }, units: units() };
-            }
-
-            async function request(url, method, body) {
-                const options = { method: method, headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': root.dataset.csrfToken }, credentials: 'same-origin' };
-                if (body) options.body = JSON.stringify(body);
-                const response = await fetch(url, options);
-                const data = await response.json().catch(function () { return {}; });
-                if (!response.ok) throw new Error(data.message || 'The request was rejected.');
-                return data;
-            }
-
-            async function requestPrintPreview(url) {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Accept': 'text/html', 'X-CSRF-TOKEN': root.dataset.csrfToken },
-                    credentials: 'same-origin'
-                });
-                const markup = await response.text();
-                if (!response.ok) throw new Error('The label preview was rejected.');
-                return markup;
-            }
-
-            let lastScan = { value: '', at: 0 };
-
-            function shouldIgnoreDuplicateScan(value) {
-                const normalized = value.trim();
-                const now = Date.now();
-                const duplicate = normalized !== ''
-                    && normalized === lastScan.value
-                    && now - lastScan.at < 750;
-                lastScan = { value: normalized, at: now };
-                return duplicate;
-            }
-
-            function invalidatePrepared() {
-                if (!state.prepared) return;
-                state.prepared = null;
-                state.commandUuid = null;
-                state.devices = [];
-                document.getElementById('post-receipt').disabled = true;
-                document.getElementById('preflight-title').textContent = 'Receiving preflight needs review';
-                document.getElementById('preflight-copy').textContent = 'The unit draft changed. Prepare it again before posting.';
-                document.getElementById('device-results').replaceChildren();
-                document.getElementById('device-results-box').style.display = 'none';
-                document.getElementById('scan-box').style.display = 'none';
-                document.getElementById('scan-result').style.display = 'none';
-                document.getElementById('reconcile-result').style.display = 'none';
-                document.getElementById('post-result').style.display = 'none';
-            }
-
-            function renderDevices(devices) {
-                const box = document.getElementById('device-results-box');
-                const target = document.getElementById('device-results');
-                target.replaceChildren();
-                devices.forEach(function (device) {
-                    const row = document.createElement('div');
-                    row.className = 'well well-sm';
-                    const code = document.createElement('strong');
-                    code.textContent = device.device_code;
-                    const copy = document.createElement('p');
-                    copy.className = 'text-muted';
-                    copy.textContent = 'Received · label not issued';
-                    const labelButton = document.createElement('button');
-                    labelButton.type = 'button';
-                    labelButton.className = 'btn btn-default btn-xs';
-                    labelButton.textContent = 'Open safe label preview';
-                    labelButton.addEventListener('click', function () { issueLabel(device, row, copy, labelButton); });
-                    row.append(code, copy, labelButton);
-                    target.appendChild(row);
-                });
-                box.style.display = 'block';
-                document.getElementById('scan-box').style.display = 'block';
-                document.getElementById('scan-value').focus();
-            }
-
-            async function issueLabel(device, row, copy, button) {
-                button.disabled = true;
-                const previewWindow = window.open('', '_blank');
-                if (previewWindow) previewWindow.opener = null;
-                if (!previewWindow || previewWindow.closed) {
-                    button.disabled = false;
-                    copy.textContent = 'Print preview could not be opened. Label was not issued.';
-                    return;
-                }
-                try {
-                    const markup = await requestPrintPreview(config.labelBaseUrl + '/' + encodeURIComponent(device.device_id) + '/label/print');
-                    if (previewWindow.closed) throw new Error('A print preview window was closed before rendering.');
-                    previewWindow.document.open();
-                    previewWindow.document.write(markup);
-                    previewWindow.document.close();
-                    copy.textContent = 'READY_TO_PRINT · raw token hidden from the operator view';
-                    button.textContent = 'Label preview opened';
-                    row.className = 'well well-sm';
-                    document.getElementById('scan-value').value = device.device_code;
-                    document.getElementById('scan-value').focus();
-                } catch (error) {
-                    if (previewWindow && !previewWindow.closed) previewWindow.close();
-                    button.disabled = false;
-                    copy.textContent = 'Label request rejected. Retry after checking the print gate.';
-                }
-            }
-
-            document.getElementById('add-unit').addEventListener('click', function () { if (unitList.querySelectorAll('.unit-row').length < config.maxUnits) addUnit('SERIAL', ''); });
-            document.getElementById('prepare-receipt').addEventListener('click', async function () {
-                try {
-                    const data = await request(config.prepareUrl, 'POST', preparePayload());
-                    state.prepared = data;
-                    document.getElementById('preflight-title').textContent = 'PREPARED_NO_WRITE';
-                    document.getElementById('preflight-copy').textContent = 'Safe hints returned. Raw physical identifiers are not echoed.';
-                    document.getElementById('preflight-output').textContent = JSON.stringify({ status: data.status, unit_count: data.unit_count, identifiers: data.identifiers, post_url_available: Boolean(data.post_url) }, null, 2);
-                    document.getElementById('post-receipt').disabled = !config.postUrl;
-                    const impact = config.purchaseAttachment
-                        ? 'Prepared. The selected POS purchase will keep its existing stock quantity; ' + data.unit_count + ' Device record' + (data.unit_count === 1 ? '' : 's') + ' will be attached after posting.'
-                        : 'Prepared. Core quantity will increase by ' + data.unit_count + ' and ' + data.unit_count + ' Device record' + (data.unit_count === 1 ? '' : 's') + ' will be created only after posting.';
-                    setMessage('post-result', config.postUrl ? impact : 'Prepared in read-only mode. No write URL is available.', 'info');
-                } catch (error) {
-                    state.prepared = null;
-                    document.getElementById('post-receipt').disabled = true;
-                    setMessage('post-result', 'Preflight rejected. Check the required fields and identifier format.', 'warning');
-                }
-            });
-
-            document.getElementById('post-receipt').addEventListener('click', async function () {
-                if (!state.prepared || !config.postUrl) return;
-                const button = document.getElementById('post-receipt');
-                button.disabled = true;
-                try {
-                    const data = await request(config.postUrl, 'POST', postPayload());
-                    state.devices = data.result && data.result.devices ? data.result.devices : [];
-                    const result = data.result || {};
-                    const unitCount = Number(result.unit_count || state.devices.length || 0);
-                    const postedMessage = config.purchaseAttachment
-                        ? 'POS purchase ' + (result.transaction_id || 'linked') + ' serialised. Core stock was unchanged; ' + unitCount + ' Device record' + (unitCount === 1 ? '' : 's') + ' attached.'
-                        : 'Receipt posted. Core quantity +' + unitCount + '; ' + unitCount + ' Device record' + (unitCount === 1 ? '' : 's') + ' created; transaction ' + (result.transaction_id || 'linked') + '.';
-                    setMessage('post-result', postedMessage, 'success');
-                    renderDevices(state.devices);
-                } catch (error) {
-                    button.disabled = false;
-                    setMessage('post-result', 'Receipt was not posted. Retry with the same prepared command only after checking the result.', 'warning');
-                }
-            });
-
-            document.getElementById('resolve-scan').addEventListener('click', async function () {
-                const value = document.getElementById('scan-value').value.trim();
-                if (shouldIgnoreDuplicateScan(value)) {
-                    setMessage('scan-result', 'Duplicate scan ignored. No mutation performed.', 'info');
-                    return;
-                }
-
-                try {
-                    const data = await request(config.scanUrl, 'POST', { value: value });
-                    setMessage('scan-result', data.device_code + ' · ' + data.lifecycle_state + ' · ' + data.custody_kind + ' · no mutation performed', 'success');
-                } catch (error) {
-                    setMessage('scan-result', 'Scan could not be resolved in the authorized cohort.', 'warning');
-                }
-            });
-
-            document.getElementById('scan-value').addEventListener('input', function () {
-                lastScan = { value: '', at: 0 };
-            });
-
-            document.getElementById('scan-value').addEventListener('keydown', function (event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    document.getElementById('resolve-scan').click();
-                }
-            });
-
-            document.getElementById('run-reconcile').addEventListener('click', async function () {
-                try {
-                    const data = await request(config.reconcileUrl + '?location_id=' + encodeURIComponent(config.locationId), 'GET');
-                    setMessage('reconcile-result', data.status + ' · core ' + (data.core_quantity === null ? 'unavailable' : data.core_quantity) + ' · tracked ' + data.tracked_device_count + ' · no correction performed', data.status === 'PASS' ? 'success' : 'warning');
-                } catch (error) {
-                    setMessage('reconcile-result', 'Reconciliation is unavailable for this scope.', 'warning');
-                }
-            });
-
-            document.getElementById('record-reconcile').addEventListener('click', async function () {
-                if (!config.recordReconcileUrl) return;
-                const button = this;
-                button.disabled = true;
-                try {
-                    const data = await request(config.recordReconcileUrl, 'POST', { location_id: config.locationId });
-                    setMessage('reconcile-result', data.status + ' · evidence retained · run ' + data.run_uuid + ' · no stock correction performed', 'success');
-                } catch (error) {
-                    setMessage('reconcile-result', 'Reconciliation evidence could not be recorded in this scope.', 'warning');
-                } finally {
-                    button.disabled = false;
-                }
-            });
-
-            ['receive-supplier', 'receive-date', 'receive-notes', 'receive-unit-cost', 'receive-unit-cost-tax', 'receive-unit-tax'].forEach(function (id) {
-                const field = document.getElementById(id);
-                if (!field) return;
-                field.addEventListener('input', invalidatePrepared);
-                field.addEventListener('change', invalidatePrepared);
-            });
-
-            addUnit('SERIAL', '');
-        }());
-    </script>
+@if ($purchase && $selectedLine && $postEnabled && $selectedLine->remaining_count > 0)
+<script>
+(() => {
+    const root = document.getElementById('device-receiving');
+    const scanner = document.getElementById('scan-identifier');
+    const type = document.getElementById('identifier-type');
+    const stagedTarget = document.getElementById('staged-units');
+    const emptyState = document.getElementById('empty-staged');
+    const registerButton = document.getElementById('register-devices');
+    const clearButton = document.getElementById('clear-staged');
+    const message = document.getElementById('scan-message');
+    const exceptions = document.getElementById('scan-exceptions');
+    const batchSummary = document.getElementById('batch-summary');
+    const recentLabels = document.getElementById('recent-labels');
+    const config = {
+        attachUrl: @json(route('recommerce.receiving.attach_purchase')),
+        prepareUrl: @json(route('recommerce.receiving.prepare')),
+        purchaseId: @json((int) $purchase->id), purchaseLineId: @json((int) $selectedLine->id),
+        locationId: @json((int) $locationId), productId: @json((int) $selectedLine->product_id), variationId: @json((int) $selectedLine->variation_id),
+        max: @json(min((int) $selectedLine->remaining_count, (int) config('recommerce.receive_batch_limit', 50))), remaining: @json((int) $selectedLine->remaining_count), registered: @json((int) $selectedLine->registered_count), expected: @json((int) $selectedLine->expected_count),
+        defaultCost: @json($selectedLine->default_unit_acquisition_cost), canOverrideCost: @json($canOverrideCost)
+    };
+    let staged = []; let blocked = [];
+    const uuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+    const normalise = value => value.trim().toUpperCase().replace(/[\s_-]+/g, '');
+    const notify = (text, kind) => { message.textContent = text; message.className = 'alert alert-' + kind; message.style.display = 'block'; };
+    const resetMessage = () => { message.style.display = 'none'; };
+    const money = value => value === null || value === '' ? '—' : 'RM ' + Number(value).toFixed(2);
+    function render() {
+        stagedTarget.replaceChildren(); emptyState.style.display = staged.length ? 'none' : 'block';
+        batchSummary.textContent = staged.length + ' valid · ' + blocked.length + ' blocked';
+        exceptions.replaceChildren();
+        blocked.forEach((exception, index) => { const card = document.createElement('div'); card.className = 'alert alert-warning'; const text = document.createElement('span'); text.textContent = exception.message; card.append(text); if (exception.device_url) { const link = document.createElement('a'); link.href = exception.device_url; link.className = 'btn btn-default btn-xs pull-right'; link.textContent = 'View Device'; card.append(link); } const dismiss = document.createElement('button'); dismiss.type = 'button'; dismiss.className = 'btn btn-link btn-xs'; dismiss.textContent = 'Remove scan'; dismiss.addEventListener('click', () => { blocked.splice(index, 1); render(); scanner.focus(); }); card.append(dismiss); exceptions.append(card); });
+        staged.forEach((unit, index) => {
+            const row = document.createElement('div'); row.className = 'sb-staged-unit';
+            const identity = document.createElement('strong'); identity.textContent = unit.type + ' · ' + unit.mask;
+            const details = document.createElement('span'); details.className = 'text-muted'; details.textContent = 'Valid · ready to register';
+            const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn btn-default btn-xs'; remove.textContent = 'Remove'; remove.addEventListener('click', () => { staged.splice(index, 1); render(); scanner.focus(); });
+            row.append(identity, details);
+            if (config.canOverrideCost) { const cost = document.createElement('input'); cost.type = 'number'; cost.min = '0'; cost.step = '0.01'; cost.className = 'form-control input-sm'; cost.style.width = '110px'; cost.value = unit.cost === null ? '' : unit.cost; cost.setAttribute('aria-label', 'Unit acquisition cost'); cost.addEventListener('input', () => { unit.cost = cost.value === '' ? null : cost.value; }); const reason = document.createElement('select'); reason.className = 'form-control input-sm'; reason.style.width = '170px'; reason.setAttribute('aria-label', 'Cost override reason'); [['','Default purchase cost'],['SUPPLIER_UNIT_PRICING','Supplier unit pricing'],['BUNDLE_ALLOCATION','Bundle allocation'],['INVOICE_CORRECTION','Invoice correction'],['MANAGEMENT_ADJUSTMENT','Management adjustment'],['OTHER','Other']].forEach(([value,label]) => { const option = document.createElement('option'); option.value=value; option.textContent=label; option.selected=unit.costReason===value; reason.append(option); }); reason.addEventListener('change', () => { unit.costReason = reason.value; }); row.append(cost, reason); }
+            else { const cost = document.createElement('span'); cost.className = 'text-muted'; cost.textContent = money(unit.cost); row.append(cost); }
+            const observation = document.createElement('select'); observation.className = 'form-control input-sm'; observation.style.width = '170px'; observation.setAttribute('aria-label', 'Optional intake observation'); [['','No intake issue'],['DAMAGED_PACKAGING','Damaged packaging'],['VISIBLE_PHYSICAL_DAMAGE','Visible damage'],['PRODUCT_MISMATCH','Product mismatch'],['MISSING_CHARGER','Missing charger'],['UNREADABLE_IDENTIFIER','Unreadable identifier'],['SUPPLIER_DISCREPANCY','Supplier discrepancy'],['OTHER','Other issue']].forEach(([value,label]) => { const option=document.createElement('option'); option.value=value; option.textContent=label; option.selected=unit.observationType===value; observation.append(option); }); observation.addEventListener('change', () => { unit.observationType=observation.value; }); row.append(observation);
+            row.append(remove); stagedTarget.append(row);
+        });
+        registerButton.disabled = staged.length === 0; clearButton.disabled = staged.length === 0;
+        registerButton.textContent = staged.length ? 'Register ' + staged.length + ' Device' + (staged.length === 1 ? '' : 's') : 'Register Devices';
+    }
+    async function stageCurrent() {
+        const value = scanner.value.trim(); const key = normalise(value); resetMessage();
+        if (!key) { notify('Scan or enter a serial, IMEI, or asset tag first.', 'warning'); return; }
+        if (staged.length >= Math.min(config.max, config.remaining)) { notify('This purchase line already has the maximum number of Devices ready for this batch.', 'warning'); return; }
+        if (staged.some(unit => unit.type === type.value && unit.key === key)) { notify('This identifier is already in the current batch.', 'warning'); scanner.select(); return; }
+        scanner.disabled = true;
+        try { await request(config.prepareUrl, { location_id: config.locationId, product_id: config.productId, variation_id: config.variationId, units: [{ identifier_type: type.value, identifier_value: value }] }); const mask = key.length <= 4 ? '••••' : '••••' + key.slice(-4); staged.push({ type: type.value, value, key, mask, cost: config.defaultCost, costReason: '', observationType: '' }); scanner.value = ''; notify('Accepted. Scan the next Device.', 'success'); }
+        catch (error) { blocked.push({ message: error.message || 'This scan needs attention.', device_url: error.device_url || null }); notify('Scan blocked. Valid staged Devices are unchanged.', 'warning'); }
+        finally { scanner.disabled = false; render(); scanner.focus(); }
+    }
+    async function request(url, body) {
+        const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': root.dataset.csrfToken }, body: JSON.stringify(body) });
+        const data = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(data.message || 'This Device could not be registered.'); error.device_url = data.exception && data.exception.device_url; throw error; } return data;
+    }
+    function payload(commandUuid) { return { command_uuid: commandUuid, location_id: config.locationId, product_id: config.productId, variation_id: config.variationId, purchase_transaction_id: config.purchaseId, purchase_line_id: config.purchaseLineId, units: staged.map(unit => ({ identifier_type: unit.type, identifier_value: unit.value, unit_acquisition_cost: unit.cost, cost_override_reason_code: unit.costReason, intake_observations: unit.observationType ? [{ type: unit.observationType }] : [] })) }; }
+    scanner.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); stageCurrent(); } });
+    clearButton.addEventListener('click', () => { staged = []; resetMessage(); render(); scanner.focus(); });
+    registerButton.addEventListener('click', async () => {
+        if (!staged.length) return; registerButton.disabled = true; const commandUuid = uuid();
+        try {
+            const data = await request(config.attachUrl, payload(commandUuid)); const devices = (data.result && data.result.devices) || [];
+            const registered = document.getElementById('registered-count'); const remaining = document.getElementById('remaining-count'); config.registered += devices.length; config.remaining = Math.max(0, config.remaining - devices.length); if (registered) registered.textContent = Number(registered.textContent || 0) + devices.length; if (remaining) remaining.textContent = config.remaining; const selectedProgress = document.getElementById('selected-line-progress'); if (selectedProgress) selectedProgress.textContent = config.registered + ' registered · ' + config.remaining + ' remaining'; const lineProgress = document.getElementById('line-progress-' + config.purchaseLineId); if (lineProgress) lineProgress.textContent = config.registered + ' / ' + config.expected; const emptyRegistered = document.getElementById('no-registered-devices'); if (emptyRegistered) emptyRegistered.remove(); const registeredList = document.getElementById('registered-device-list'); devices.forEach(device => { const row = document.createElement('tr'); [String(device.unit_ordinal), device.device_code, 'Protected identifier recorded', money(config.defaultCost), 'RECEIVED PENDING INSPECTION'].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); const action = document.createElement('td'); const link = document.createElement('a'); link.className = 'btn btn-default btn-xs'; link.href = root.dataset.labelPrintPrefix.replace(/\/$/, '') + '/' + device.device_code; link.textContent = 'Open Device'; action.append(link); row.append(action); registeredList.append(row); }); recentLabels.replaceChildren(); if (devices.length) { const heading = document.createElement('strong'); heading.textContent = 'Print Device Labels'; recentLabels.append(heading); devices.forEach(device => { const form = document.createElement('form'); form.method = 'post'; form.action = root.dataset.labelPrintPrefix.replace(/\/$/, '') + '/' + device.device_id + '/label/print'; form.target = '_blank'; form.style.display = 'inline-block'; form.style.margin = '5px 5px 0 0'; const token = document.createElement('input'); token.type = 'hidden'; token.name = '_token'; token.value = root.dataset.csrfToken; const button = document.createElement('button'); button.type = 'submit'; button.className = 'btn btn-default btn-sm'; button.textContent = 'Print ' + device.device_code; form.append(token, button); recentLabels.append(form); }); } notify(devices.length + ' Device' + (devices.length === 1 ? '' : 's') + ' registered and sent to inspection.', 'success'); staged = []; render(); scanner.focus();
+        } catch (error) { notify(error.message || 'This batch could not be registered. Check the identifiers and try again.', 'warning'); registerButton.disabled = false; scanner.focus(); }
+    });
+    render(); scanner.focus();
+})();
+</script>
+@endif
 @endsection

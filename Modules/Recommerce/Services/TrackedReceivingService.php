@@ -18,6 +18,7 @@ use Modules\Recommerce\Entities\DeviceMovement;
 use Modules\Recommerce\Entities\CustodyPeriod;
 use Modules\Recommerce\Entities\OwnershipPeriod;
 use Modules\Recommerce\Entities\DevicePurchaseAssignment;
+use Modules\Recommerce\Entities\DeviceCostOverrideEvent;
 use Modules\Recommerce\Entities\StockCommand;
 use Modules\Recommerce\Exceptions\ReceivingInProgressException;
 use Modules\Recommerce\Services\StockReconciliationService;
@@ -37,7 +38,9 @@ class TrackedReceivingService
         protected AuthorizationGate $authorizationGate,
         protected ?UltimatePosPurchaseWriter $ultimatePosPurchaseWriter = null,
         protected ?DeviceEventRecorder $deviceEventRecorder = null,
-        protected ?StockReconciliationService $stockReconciliationService = null
+        protected ?StockReconciliationService $stockReconciliationService = null,
+        protected ?DeviceReceivingProgressService $deviceReceivingProgressService = null,
+        protected ?DeviceInspectionService $deviceInspectionService = null
     )
     {
     }
@@ -122,6 +125,7 @@ class TrackedReceivingService
             }
 
             $coreReceipt = $this->lockExistingPurchaseLine($normalized, count($normalized['units']));
+            $this->assertExistingCostOverrides($user, $normalized, $coreReceipt);
             $this->assertNoExistingIdentifiers($normalized);
 
             $commandReceipt = StockCommand::create([
@@ -234,6 +238,8 @@ class TrackedReceivingService
 
             $coreReceipt = $corePurchaseWriter($normalized);
             $this->assertCoreReceipt($coreReceipt, $normalized, count($normalized['units']));
+            $coreReceipt = $this->applyIntakePolicy($normalized, $coreReceipt);
+            $this->assertExistingCostOverrides($user, $normalized, $coreReceipt);
 
             $deviceResults = $this->createTrackedDeviceEvidence($user, $normalized, $coreReceipt);
 
@@ -274,10 +280,12 @@ class TrackedReceivingService
                     'current_location_id' => $normalized['location_id'],
                     'product_id' => $normalized['product_id'],
                     'variation_id' => $normalized['variation_id'],
-                    // A completed commercial purchase is now physically on hand and
-                    // may enter the ordinary transfer/POS lifecycle.  The immutable
-                    // RECEIVE movement and event retain the distinct receipt history.
-                    'lifecycle_state' => 'AVAILABLE',
+                    // A completed commercial purchase is physically on hand, but a
+                    // serialized Device remains unavailable to POS/transfer until
+                    // inspection clears it through the lifecycle workflow.
+                    'lifecycle_state' => ! empty($coreReceipt['inspection_required'])
+                        ? 'RECEIVED_PENDING_INSPECTION'
+                        : 'AVAILABLE',
                     'stock_participation' => 'ON_HAND',
                     'acquired_at' => now(),
                     'created_by' => $user->id,
@@ -307,16 +315,40 @@ class TrackedReceivingService
                     'is_verified' => false,
                 ]);
 
-                DevicePurchaseAssignment::create([
+                $assignment = DevicePurchaseAssignment::create([
                     'device_id' => $device->id,
                     'business_id' => $normalized['business_id'],
                     'transaction_id' => $coreReceipt['transaction_id'],
                     'purchase_line_id' => $coreReceipt['purchase_line_id'],
                     'unit_ordinal' => ((int) ($coreReceipt['unit_ordinal_start'] ?? 1)) + $ordinal,
-                    'unit_acquisition_cost' => $unit['unit_acquisition_cost'],
+                    'unit_acquisition_cost' => $unit['unit_acquisition_cost']
+                        ?? ($coreReceipt['default_unit_acquisition_cost'] ?? null),
                     'assigned_at' => now(),
                     'assigned_by' => $user->id,
                 ]);
+
+                if ($this->isCostOverride($unit, $coreReceipt)) {
+                    $override = DeviceCostOverrideEvent::create([
+                        'device_id' => $device->id,
+                        'purchase_assignment_id' => $assignment->id,
+                        'business_id' => $normalized['business_id'],
+                        'previous_unit_acquisition_cost' => $coreReceipt['default_unit_acquisition_cost'],
+                        'new_unit_acquisition_cost' => $unit['unit_acquisition_cost'],
+                        'reason_code' => $unit['cost_override_reason_code'],
+                        'reason_notes' => $unit['cost_override_reason_notes'],
+                        'overridden_by' => $user->id,
+                        'overridden_at' => now(),
+                    ]);
+                    // Amounts intentionally stay in the append-only, access
+                    // controlled economic record rather than event/outbox JSON.
+                    ($this->deviceEventRecorder ?: new DeviceEventRecorder())->recordLifecycle(
+                        $device,
+                        'ACQUISITION_COST_OVERRIDDEN',
+                        (int) $user->id,
+                        (int) $coreReceipt['transaction_id'],
+                        ['cost_override_event_id' => (int) $override->id, 'reason_code' => $override->reason_code]
+                    );
+                }
 
                 $movement = DeviceMovement::create([
                     'device_id' => $device->id,
@@ -352,9 +384,15 @@ class TrackedReceivingService
                     (int) $user->id
                 );
 
+                if (! empty($coreReceipt['inspection_required'])) {
+                    ($this->deviceInspectionService ?: app(DeviceInspectionService::class))
+                        ->queueReceivedDevice($device, $coreReceipt, $user, $unit['intake_observations']);
+                }
+
                 $deviceResults[] = [
                     'device_id' => $device->id,
                     'device_code' => $device->device_code,
+                    'unit_ordinal' => ((int) ($coreReceipt['unit_ordinal_start'] ?? 1)) + $ordinal,
                 ];
         }
 
@@ -452,6 +490,10 @@ class TrackedReceivingService
                 'identifier_type' => $unit['identifier_type'],
                 'identifier_value' => $normalizedIdentifier,
                 'unit_acquisition_cost' => $unitCost === null ? null : (float) $unitCost,
+                'cost_override_reason_code' => $this->normaliseCostOverrideReasonCode($unit['cost_override_reason_code'] ?? null),
+                'cost_override_reason_notes' => $this->normaliseOptionalNotes($unit['cost_override_reason_notes'] ?? null),
+                'intake_observations' => ($this->deviceInspectionService ?: app(DeviceInspectionService::class))
+                    ->normaliseObservations(is_array($unit['intake_observations'] ?? null) ? $unit['intake_observations'] : []),
             ];
         }
 
@@ -528,10 +570,20 @@ class TrackedReceivingService
             }
             $identifierHashes[$identifierKey] = true;
 
+            $unitCost = $unit['unit_acquisition_cost'] ?? null;
+            if ($unitCost !== null
+                && (! is_numeric($unitCost) || ! is_finite((float) $unitCost) || (float) $unitCost < 0)) {
+                throw new LogicException('Purchase attachment unit acquisition cost is invalid.');
+            }
+
             $normalizedUnits[] = [
                 'identifier_type' => $unit['identifier_type'],
                 'identifier_value' => $normalizedIdentifier,
-                'unit_acquisition_cost' => null,
+                'unit_acquisition_cost' => $unitCost === null ? null : (float) $unitCost,
+                'cost_override_reason_code' => $this->normaliseCostOverrideReasonCode($unit['cost_override_reason_code'] ?? null),
+                'cost_override_reason_notes' => $this->normaliseOptionalNotes($unit['cost_override_reason_notes'] ?? null),
+                'intake_observations' => ($this->deviceInspectionService ?: app(DeviceInspectionService::class))
+                    ->normaliseObservations(is_array($unit['intake_observations'] ?? null) ? $unit['intake_observations'] : []),
             ];
         }
 
@@ -633,6 +685,7 @@ class TrackedReceivingService
                 'purchase_lines.product_id',
                 'purchase_lines.variation_id',
                 'purchase_lines.quantity',
+                'purchase_lines.purchase_price_inc_tax',
                 'transactions.id as transaction_id',
                 'transactions.business_id',
                 'transactions.location_id',
@@ -657,6 +710,16 @@ class TrackedReceivingService
             throw new LogicException('The selected POS purchase line must be a positive whole-unit line.');
         }
 
+        $policy = ($this->deviceReceivingProgressService ?: new DeviceReceivingProgressService())
+            ->serializedPolicyFor(
+                (int) $purchaseLine->business_id,
+                (int) $purchaseLine->product_id,
+                (int) $purchaseLine->variation_id
+            );
+        if (! $policy) {
+            throw new LogicException('The selected purchase line does not require Device registration.');
+        }
+
         $assignmentCount = DevicePurchaseAssignment::query()
             ->where('business_id', $normalized['business_id'])
             ->where('transaction_id', $normalized['purchase_transaction_id'])
@@ -677,7 +740,98 @@ class TrackedReceivingService
             'variation_id' => (int) $purchaseLine->variation_id,
             'assignment_count' => $assignmentCount,
             'unit_ordinal_start' => $assignmentCount + 1,
+            'default_unit_acquisition_cost' => $purchaseLine->purchase_price_inc_tax === null
+                ? null
+                : (float) $purchaseLine->purchase_price_inc_tax,
+            'inspection_required' => ($this->deviceReceivingProgressService ?: new DeviceReceivingProgressService())
+                ->inspectionRequired($policy),
         ];
+    }
+
+    /** Ensure a direct endpoint cannot bypass the product's tracking policy. */
+    protected function applyIntakePolicy(array $normalized, array $coreReceipt): array
+    {
+        $policy = ($this->deviceReceivingProgressService ?: new DeviceReceivingProgressService())
+            ->serializedPolicyFor(
+                (int) $normalized['business_id'],
+                (int) $normalized['product_id'],
+                (int) $normalized['variation_id']
+            );
+        if (! $policy) {
+            throw new LogicException('The selected product variation does not require Device registration.');
+        }
+
+        $coreReceipt['inspection_required'] = ($this->deviceReceivingProgressService ?: new DeviceReceivingProgressService())
+            ->inspectionRequired($policy);
+        $coreReceipt['default_unit_acquisition_cost'] = $coreReceipt['unit_purchase_price_inc_tax']
+            ?? $normalized['purchase']['unit_purchase_price_inc_tax'];
+
+        return $coreReceipt;
+    }
+
+    /** Only an explicitly permitted user may replace the purchase-line cost. */
+    protected function assertExistingCostOverrides(User $user, array $normalized, array $coreReceipt): void
+    {
+        $defaultCost = $coreReceipt['default_unit_acquisition_cost'] ?? null;
+        if ($defaultCost === null) {
+            return;
+        }
+
+        foreach ($normalized['units'] as $unit) {
+            if ($unit['unit_acquisition_cost'] === null
+                || abs((float) $unit['unit_acquisition_cost'] - (float) $defaultCost) < 0.000001) {
+                continue;
+            }
+
+            if (! $this->authorizationGate->allowsWrite(
+                $user,
+                'recommerce.device.override_acquisition_cost',
+                $normalized['business_id'],
+                $normalized['location_id'],
+                $normalized['variation_id']
+            )) {
+                throw new AuthorizationException('Device acquisition-cost override scope denied.');
+            }
+            if ($unit['cost_override_reason_code'] === null) {
+                throw new LogicException('An acquisition-cost override requires a reason.');
+            }
+            if ($unit['cost_override_reason_code'] === 'OTHER' && $unit['cost_override_reason_notes'] === null) {
+                throw new LogicException('Other acquisition-cost overrides require notes.');
+            }
+        }
+    }
+
+    protected function isCostOverride(array $unit, array $coreReceipt): bool
+    {
+        return $unit['unit_acquisition_cost'] !== null
+            && ($coreReceipt['default_unit_acquisition_cost'] ?? null) !== null
+            && abs((float) $unit['unit_acquisition_cost'] - (float) $coreReceipt['default_unit_acquisition_cost']) >= 0.000001;
+    }
+
+    protected function normaliseCostOverrideReasonCode($reason): ?string
+    {
+        if ($reason === null || trim((string) $reason) === '') {
+            return null;
+        }
+        $reason = strtoupper(trim((string) $reason));
+        if (! in_array($reason, DeviceInspectionService::COST_OVERRIDE_REASONS, true)) {
+            throw new LogicException('Acquisition-cost override reason is invalid.');
+        }
+
+        return $reason;
+    }
+
+    protected function normaliseOptionalNotes($notes): ?string
+    {
+        if ($notes === null || trim((string) $notes) === '') {
+            return null;
+        }
+        $notes = trim((string) $notes);
+        if ((function_exists('mb_strlen') ? mb_strlen($notes) : strlen($notes)) > 2000) {
+            throw new LogicException('Receiving notes are too long.');
+        }
+
+        return $notes;
     }
 
     protected function assertNoExistingIdentifiers(array $normalized): void

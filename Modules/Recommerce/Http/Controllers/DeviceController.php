@@ -41,6 +41,13 @@ class DeviceController extends Controller
             ->orderBy('device_code');
 
         $term = trim((string) $request->query('q', ''));
+        $state = strtoupper(trim((string) $request->query('state', '')));
+        $state = in_array($state, ['RECEIVED_PENDING_INSPECTION', 'REFURBISHMENT_REQUIRED', 'AVAILABLE'], true)
+            ? $state
+            : '';
+        if ($state !== '') {
+            $query->where('lifecycle_state', $state);
+        }
         if ($term !== '') {
             $query->where(function ($builder) use ($term) {
                 $builder->where('device_code', 'like', '%'.strtoupper($term).'%')
@@ -64,6 +71,7 @@ class DeviceController extends Controller
             'devices' => $devices,
             'locationId' => $locationId,
             'query' => $term,
+            'state' => $state,
             'canReceive' => $authorizationGate->allowsWriteLocation(
                 $user,
                 'recommerce.receiving.prepare',
@@ -93,6 +101,9 @@ class DeviceController extends Controller
                 'product',
                 'variation',
                 'purchaseAssignment',
+                'inspection',
+                'intakeObservations',
+                'costOverrideEvents',
                 'certification',
                 'ownershipPeriods' => fn ($query) => $query->orderBy('starts_at')->orderBy('id'),
                 'custodyPeriods' => fn ($query) => $query->orderBy('starts_at')->orderBy('id'),
@@ -161,6 +172,23 @@ class DeviceController extends Controller
             $device->variation_id
         ) && ! empty($device->sold_at);
 
+        $acquisition = null;
+        if ($device->purchaseAssignment) {
+            $acquisition = DB::table('transactions as t')
+                ->leftJoin('contacts as c', 'c.id', '=', 't.contact_id')
+                ->leftJoin('business_locations as l', 'l.id', '=', 't.location_id')
+                ->where('t.id', $device->purchaseAssignment->transaction_id)
+                ->select(['t.id', 't.ref_no', 't.invoice_no', 't.transaction_date', 'c.name as supplier_name', 'c.supplier_business_name', 'l.name as location_name'])
+                ->first();
+        }
+        $economicsVisible = $authorizationGate->allowsRead(
+            $user,
+            'recommerce.device.view_economics',
+            $businessId,
+            $accessLocationId,
+            $device->variation_id
+        );
+
         $events = $auditVisible ? $timelineService->forDevice($device) : collect();
 
         return response()->view('recommerce::device.show', [
@@ -169,6 +197,8 @@ class DeviceController extends Controller
             'events' => $events,
             'labelPrintEnabled' => $labelPrintEnabled,
             'certificationPublishEnabled' => $certificationPublishEnabled,
+            'acquisition' => $acquisition,
+            'economicsVisible' => $economicsVisible,
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
     }

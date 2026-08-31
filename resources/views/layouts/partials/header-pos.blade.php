@@ -248,18 +248,18 @@
             @if (config('recommerce.enabled', false) && auth()->user()->can('recommerce.device.view'))
                 <span class="pos-nav-divider tw-inline-block tw-w-px tw-h-[18px] tw-bg-[#e2e8f0] tw-flex-shrink-0 tw-self-center tw-rounded-[1px] tw-mx-[3px]"></span>
                 <div class="dropdown pos-recommerce-nav">
-                    <button type="button" title="Stock & Devices" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                    <button type="button" title="Devices" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
                         class="tw-shadow-[rgba(17,_17,_26,_0.1)_0px_0px_16px] tw-bg-white hover:tw-bg-white/60 tw-cursor-pointer tw-border-2 tw-flex tw-items-center tw-justify-center tw-rounded-md tw-w-auto tw-h-auto tw-py-1 tw-px-3 tw-text-gray-600 active:tw-scale-95 tw-transition-transform">
                         <strong class="tw-inline-flex tw-items-center tw-gap-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-qrcode tw-text-[#646EE4]" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4h6v6h-6z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6h-6z"/><path d="M14 14h2v2h-2z"/><path d="M18 14h2v2h-2z"/><path d="M14 18h2v2h-2z"/><path d="M18 18h2v2h-2z"/></svg>
-                            <span>Stock &amp; Devices</span>
+                            <span>Devices</span>
                         </strong>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-right" style="min-width:190px">
                         <li><a href="{{ route('recommerce.scans.index') }}"><i class="fa fa-qrcode"></i> Scan &amp; Entry</a></li>
                         <li><a href="{{ route('recommerce.devices.index') }}"><i class="fa fa-cubes"></i> Device registry</a></li>
                         @if (auth()->user()->can('recommerce.receiving.prepare'))
-                            <li><a href="{{ route('recommerce.receiving.index') }}"><i class="fa fa-truck"></i> Receive serialised purchase</a></li>
+                            <li><a href="{{ route('recommerce.receiving.index') }}"><i class="fa fa-truck"></i> Receive Devices</a></li>
                         @endif
                         @if (auth()->user()->can('recommerce.repair.intake'))
                             <li><a href="{{ route('recommerce.repair.internal.create') }}"><i class="fa fa-wrench"></i> Internal refurbishment</a></li>

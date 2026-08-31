@@ -44,6 +44,7 @@ use Modules\Recommerce\Services\UltimatePosStockAdjustmentWriter;
 use Modules\Recommerce\Services\DiagnosticTemplateService;
 use Modules\Recommerce\Services\DeviceCertificationService;
 use Modules\Recommerce\Services\DeviceLifecycleService;
+use Modules\Recommerce\Services\DeviceReceivingProgressService;
 use Modules\Recommerce\Services\DeviceTransferExceptionService;
 use Modules\Recommerce\Entities\DiagnosticCheck;
 use Modules\Recommerce\Entities\DiagnosticTemplate;
@@ -75,6 +76,10 @@ class RecommerceReceivingIntegrationTest extends TestCase
             'recommerce.permissions' => [
                 'recommerce.receiving.post',
                 'recommerce.receiving.prepare',
+                'recommerce.inspection.view',
+                'recommerce.inspection.assign',
+                'recommerce.inspection.complete',
+                'recommerce.device.override_acquisition_cost',
                 'recommerce.device.view',
                 'recommerce.device.print_label',
                 'recommerce.device.rotate_token',
@@ -129,10 +134,34 @@ class RecommerceReceivingIntegrationTest extends TestCase
             $table->string('guard_name');
             $table->timestamps();
         });
+        $schema->create('roles', function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('name');
+            $table->string('guard_name');
+            $table->timestamps();
+        });
+        $schema->create('model_has_roles', function (Blueprint $table) {
+            $table->unsignedInteger('role_id');
+            $table->unsignedInteger('model_id');
+            $table->string('model_type');
+            $table->primary(['role_id', 'model_id', 'model_type']);
+        });
+        $schema->create('role_has_permissions', function (Blueprint $table) {
+            $table->unsignedInteger('permission_id');
+            $table->unsignedInteger('role_id');
+            $table->primary(['permission_id', 'role_id']);
+        });
+        $schema->create('model_has_permissions', function (Blueprint $table) {
+            $table->unsignedInteger('permission_id');
+            $table->unsignedInteger('model_id');
+            $table->string('model_type');
+            $table->primary(['permission_id', 'model_id', 'model_type']);
+        });
         $schema->create('contacts', function (Blueprint $table) {
             $table->unsignedInteger('id')->primary();
             $table->unsignedInteger('business_id');
             $table->string('name')->nullable();
+            $table->string('supplier_business_name')->nullable();
             $table->string('type', 20)->nullable();
             $table->string('contact_id', 64)->nullable();
             $table->string('mobile', 32)->nullable();
@@ -141,6 +170,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $schema->create('business_locations', function (Blueprint $table) {
             $table->unsignedInteger('id')->primary();
             $table->unsignedInteger('business_id');
+            $table->string('name')->nullable();
         });
         $schema->create('products', function (Blueprint $table) {
             $table->unsignedInteger('id')->primary();
@@ -150,6 +180,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $schema->create('variations', function (Blueprint $table) {
             $table->unsignedInteger('id')->primary();
             $table->unsignedInteger('product_id');
+            $table->string('name')->nullable();
             $table->timestamp('deleted_at')->nullable();
         });
         $schema->create('tax_rates', function (Blueprint $table) {
@@ -190,6 +221,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
             $table->unsignedInteger('product_id');
             $table->unsignedInteger('variation_id');
             $table->decimal('quantity', 22, 4);
+            $table->decimal('purchase_price_inc_tax', 22, 4)->nullable();
         });
         $schema->create('transaction_sell_lines', function (Blueprint $table) {
             $table->increments('id');
@@ -251,6 +283,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
             'product_id' => 202,
             'variation_id' => 303,
             'quantity' => 1,
+            'purchase_price_inc_tax' => 1850,
         ]);
 
         $migration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_27_000002_create_recommerce_alpha_tables.php');
@@ -285,6 +318,10 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $transferStatusMigration->up();
         $transferExceptionMigration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_29_000022_create_recommerce_transfer_exceptions.php');
         $transferExceptionMigration->up();
+        $intakePolicyMigration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000034_add_device_intake_policy_to_serialization_profiles.php');
+        $intakePolicyMigration->up();
+        $intakeOperationsMigration = require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000036_create_recommerce_device_intake_operations.php');
+        $intakeOperationsMigration->up();
 
         DB::table('recommerce_serialization_profiles')->insert([
             'id' => 909,
@@ -361,6 +398,70 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame('ON_HAND', $device->fresh()->stock_participation);
         $this->assertSame(1, DeviceReturnDisposition::query()->count());
         $this->assertSame(3, DB::table('recommerce_device_events')->whereIn('event_type', ['SALE_DISPOSED', 'SALE_REVERSED', 'SALE_RETURN_RECORDED'])->distinct()->count('event_type'));
+    }
+
+    public function test_received_device_stays_out_of_pos_sale_until_inspection_clears_it(): void
+    {
+        $device = $this->receiveOneDevice();
+        $sale = Transaction::create([
+            'business_id' => 7, 'location_id' => 101, 'type' => 'sell',
+            'status' => 'final', 'contact_id' => 405, 'transaction_date' => now(), 'created_by' => 900,
+        ]);
+        $sale->sell_lines()->create([
+            'product_id' => 202, 'variation_id' => 303, 'quantity' => 1,
+            'unit_price' => 2000, 'unit_price_inc_tax' => 2000,
+        ]);
+
+        $this->expectException(LogicException::class);
+        (new DeviceLifecycleService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder()))
+            ->synchroniseFinalSale($this->authorizedUser(), $sale->fresh(), [[
+                'product_id' => 202,
+                'variation_id' => 303,
+                'recommerce_device_codes' => $device->device_code,
+            ]]);
+    }
+
+    public function test_purchase_received_device_has_assignment_observations_and_explicit_inspection_release(): void
+    {
+        $device = $this->service()->attachToExistingUltimatePosPurchase($this->authorizedUser(), [
+            'business_id' => 7, 'location_id' => 101, 'product_id' => 202, 'variation_id' => 303,
+            'purchase_transaction_id' => 606, 'purchase_line_id' => 707,
+            'command_uuid' => '98989898-9898-4989-8989-989898989898',
+            'units' => [[
+                'identifier_type' => 'SERIAL', 'identifier_value' => 'SN-INSPECTION-01',
+                'intake_observations' => [['type' => 'DAMAGED_PACKAGING', 'notes' => 'Outer carton torn.']],
+            ]],
+        ])['devices'][0];
+        $passport = Device::query()->findOrFail($device['device_id']);
+        $inspection = DB::table('recommerce_device_inspections')->where('device_id', $passport->id)->first();
+        $this->assertSame('PENDING', $inspection->status);
+        $this->assertSame(1, DB::table('recommerce_device_intake_observations')->where('device_id', $passport->id)->count());
+
+        $service = new \Modules\Recommerce\Services\DeviceInspectionService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder());
+        $service->assign($this->authorizedUser(), [$passport->id], 900);
+        $this->assertSame('ASSIGNED', DB::table('recommerce_device_inspections')->where('device_id', $passport->id)->value('status'));
+        $service->start($this->authorizedUser(), $passport);
+        $released = $service->complete($this->authorizedUser(), $passport, true, 'All required receiving checks passed.');
+
+        $this->assertSame('AVAILABLE', $released->lifecycle_state);
+        $this->assertSame('PASSED', DB::table('recommerce_device_inspections')->where('device_id', $passport->id)->value('status'));
+        $this->assertSame(1, DB::table('recommerce_device_events')->where('event_type', 'INSPECTION_PASSED')->count());
+    }
+
+    public function test_failed_receiving_inspection_cannot_be_released_for_sale_or_transfer(): void
+    {
+        $device = $this->receiveOneDevice();
+        $service = new \Modules\Recommerce\Services\DeviceInspectionService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder());
+        $failed = $service->complete($this->authorizedUser(), $device, false, 'Screen damage needs refurbishment.');
+        $this->assertSame('REFURBISHMENT_REQUIRED', $failed->lifecycle_state);
+        $this->assertSame('FAILED', DB::table('recommerce_device_inspections')->where('device_id', $device->id)->value('status'));
+
+        $sale = Transaction::create(['business_id' => 7, 'location_id' => 101, 'type' => 'sell', 'status' => 'final', 'contact_id' => 405, 'transaction_date' => now(), 'created_by' => 900]);
+        $sale->sell_lines()->create(['product_id' => 202, 'variation_id' => 303, 'quantity' => 1, 'unit_price' => 2000, 'unit_price_inc_tax' => 2000]);
+        $this->expectException(LogicException::class);
+        (new DeviceLifecycleService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder()))->synchroniseFinalSale($this->authorizedUser(), $sale->fresh(), [[
+            'product_id' => 202, 'variation_id' => 303, 'recommerce_device_codes' => $device->device_code,
+        ]]);
     }
 
     public function test_partial_return_requires_and_records_only_the_requested_exact_device(): void
@@ -769,6 +870,94 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame([1, 2], DB::table('recommerce_device_purchase_assignments')->orderBy('unit_ordinal')->pluck('unit_ordinal')->all());
         $this->assertSame(1, DB::table('transactions')->count());
         $this->assertSame(2.0, (float) DB::table('purchase_lines')->where('id', 707)->value('quantity'));
+    }
+
+    public function test_purchase_led_progress_distinguishes_bulk_and_resumes_serialised_receiving(): void
+    {
+        DB::table('purchase_lines')->where('id', 707)->update([
+            'quantity' => 3,
+            'purchase_price_inc_tax' => 712.50,
+        ]);
+        DB::table('purchase_lines')->insert([
+            'id' => 708,
+            'transaction_id' => 606,
+            'product_id' => 202,
+            'variation_id' => 304,
+            'quantity' => 4,
+            'purchase_price_inc_tax' => 99.99,
+        ]);
+
+        $base = [
+            'business_id' => 7,
+            'location_id' => 101,
+            'product_id' => 202,
+            'variation_id' => 303,
+            'purchase_transaction_id' => 606,
+            'purchase_line_id' => 707,
+        ];
+        $this->service()->attachToExistingUltimatePosPurchase($this->authorizedUser(), $base + [
+            'command_uuid' => '12121212-1212-4121-8121-121212121212',
+            'units' => [['identifier_type' => 'SERIAL', 'identifier_value' => 'SN-PROGRESS-01']],
+        ]);
+
+        $first = (new DeviceReceivingProgressService())->forPurchase(7, 606);
+        $serialized = $first['lines']->firstWhere('id', 707);
+        $bulk = $first['lines']->firstWhere('id', 708);
+        $this->assertSame('SERIALIZED_DEVICE', $serialized->tracking_mode);
+        $this->assertSame(3, $serialized->expected_count);
+        $this->assertSame(1, $serialized->registered_count);
+        $this->assertSame(2, $serialized->remaining_count);
+        $this->assertSame(712.50, $serialized->default_unit_acquisition_cost);
+        $this->assertSame('BULK', $bulk->tracking_mode);
+        $this->assertSame(0, $bulk->expected_count);
+
+        $this->service()->attachToExistingUltimatePosPurchase($this->authorizedUser(), $base + [
+            'command_uuid' => '13131313-1313-4131-8131-131313131313',
+            'units' => [
+                ['identifier_type' => 'SERIAL', 'identifier_value' => 'SN-PROGRESS-02'],
+                ['identifier_type' => 'SERIAL', 'identifier_value' => 'SN-PROGRESS-03'],
+            ],
+        ]);
+
+        $completed = (new DeviceReceivingProgressService())->forPurchase(7, 606);
+        $line = $completed['lines']->firstWhere('id', 707);
+        $this->assertSame(0, $line->remaining_count);
+        $this->assertSame([1, 2, 3], DB::table('recommerce_device_purchase_assignments')->orderBy('unit_ordinal')->pluck('unit_ordinal')->all());
+        $this->assertSame(1, DB::table('transactions')->count());
+    }
+
+    public function test_purchase_attachment_defaults_cost_and_requires_permission_for_override(): void
+    {
+        DB::table('purchase_lines')->where('id', 707)->update(['quantity' => 2, 'purchase_price_inc_tax' => 712.50]);
+        $base = [
+            'business_id' => 7,
+            'location_id' => 101,
+            'product_id' => 202,
+            'variation_id' => 303,
+            'purchase_transaction_id' => 606,
+            'purchase_line_id' => 707,
+        ];
+        $this->service()->attachToExistingUltimatePosPurchase($this->authorizedUser(), $base + [
+            'command_uuid' => '14141414-1414-4141-8141-141414141414',
+            'units' => [['identifier_type' => 'SERIAL', 'identifier_value' => 'SN-COST-DEFAULT']],
+        ]);
+        $this->assertSame(712.50, (float) DB::table('recommerce_device_purchase_assignments')->value('unit_acquisition_cost'));
+
+        $this->service()->attachToExistingUltimatePosPurchase($this->authorizedUser(), $base + [
+            'command_uuid' => '15151515-1515-4151-8151-151515151515',
+            'units' => [[
+                'identifier_type' => 'SERIAL',
+                'identifier_value' => 'SN-COST-OVERRIDE',
+                'unit_acquisition_cost' => 700.00,
+                'cost_override_reason_code' => 'INVOICE_CORRECTION',
+                'cost_override_reason_notes' => 'Supplier issued corrected invoice.',
+            ]],
+        ]);
+        $this->assertSame(700.00, (float) DB::table('recommerce_device_purchase_assignments')->orderByDesc('id')->value('unit_acquisition_cost'));
+        $override = DB::table('recommerce_device_cost_override_events')->orderByDesc('id')->first();
+        $this->assertSame(712.50, (float) $override->previous_unit_acquisition_cost);
+        $this->assertSame(700.00, (float) $override->new_unit_acquisition_cost);
+        $this->assertSame('INVOICE_CORRECTION', $override->reason_code);
     }
 
     public function test_module_migration_registers_named_permissions_for_native_role_editor(): void
@@ -1983,29 +2172,6 @@ class RecommerceReceivingIntegrationTest extends TestCase
     {
         config(['recommerce.writes_enabled' => false]);
         $authorizationGate = Mockery::mock(AuthorizationGate::class);
-        $authorizationGate->shouldReceive('allowsRead')
-            ->once()
-            ->withArgs(function (User $user, string $permission, int $businessId, int $locationId, int $variationId): bool {
-                return $user->business_id === 7
-                    && $permission === 'recommerce.receiving.prepare'
-                    && $businessId === 7
-                    && $locationId === 101
-                    && $variationId === 303;
-            })
-            ->andReturnTrue();
-        $authorizationGate->shouldReceive('allowsWrite')
-            ->twice()
-            ->withArgs(function (User $user, string $permission, int $businessId, int $locationId, int $variationId): bool {
-                return $user->business_id === 7
-                    && in_array($permission, [
-                        'recommerce.receiving.post',
-                        'recommerce.stock.reconcile.record',
-                    ], true)
-                    && $businessId === 7
-                    && $locationId === 101
-                    && $variationId === 303;
-            })
-            ->andReturnFalse();
 
         $viewName = null;
         $viewData = null;
@@ -2323,7 +2489,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame(1, DB::table('transactions')->where('source', 'recommerce')->count());
         $this->assertSame(2, DB::table('purchase_lines')->count());
         $this->assertSame(1, DB::table('recommerce_devices')->count());
-        $this->assertSame('AVAILABLE', DB::table('recommerce_devices')->value('lifecycle_state'));
+        $this->assertSame('RECEIVED_PENDING_INSPECTION', DB::table('recommerce_devices')->value('lifecycle_state'));
         $this->assertSame(1, DB::table('recommerce_stock_commands')->count());
         $this->assertStringNotContainsString('SN-HTTP-REAL-01', json_encode($data));
     }
@@ -2363,12 +2529,11 @@ class RecommerceReceivingIntegrationTest extends TestCase
             ->postJson('/recommerce/receiving/post', $this->command([
                 ['identifier_type' => 'SERIAL', 'identifier_value' => 'SN-VERTICAL-01', 'unit_acquisition_cost' => 1850],
             ]));
-        $receiveData = $receiveResponse->getData(true);
-        $deviceCode = $receiveData['result']['devices'][0]['device_code'];
-
         $receiveResponse->assertOk()
             ->assertJsonPath('status', 'RECEIVED_TRACKED')
             ->assertJsonPath('result.unit_count', 1);
+        $receiveData = $receiveResponse->getData(true);
+        $deviceCode = $receiveData['result']['devices'][0]['device_code'];
 
         $labelResponse = $this->actingAs($this->authorizedUser())
             ->postJson('/recommerce/devices/'.$receiveData['result']['devices'][0]['device_id'].'/label');
@@ -2982,6 +3147,10 @@ class RecommerceReceivingIntegrationTest extends TestCase
                 return in_array($ability, [
                     'recommerce.receiving.post',
                     'recommerce.receiving.prepare',
+                    'recommerce.inspection.view',
+                    'recommerce.inspection.assign',
+                    'recommerce.inspection.complete',
+                    'recommerce.device.override_acquisition_cost',
                     'recommerce.device.view',
                     'recommerce.device.print_label',
                     'recommerce.device.rotate_token',

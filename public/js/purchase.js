@@ -596,7 +596,8 @@ $(document).ready(function() {
             },
         },
         aaSorting: [[1, 'desc']],
-        columns: [
+        columns: (function() {
+            var columns = [
             { data: 'action', name: 'action', orderable: false, searchable: false },
             { data: 'transaction_date', name: 'transaction_date' },
             { data: 'ref_no', name: 'ref_no' },
@@ -614,7 +615,12 @@ $(document).ready(function() {
 
             
             { data: 'added_by', name: 'u.first_name' },
-        ],
+            ];
+            if ($('#purchase_device_receiving_enabled').length) {
+                columns.splice(6, 0, { data: 'device_receiving', name: 'device_receiving', orderable: false, searchable: false });
+            }
+            return columns;
+        })(),
         fnDrawCallback: function(oSettings) {
             __currency_convert_recursively($('#purchase_table'));
         },
@@ -1396,5 +1402,4 @@ $("#purchase_requisition_ids").on("select2:unselect", function (e) {
         }
     });
 });
-
 

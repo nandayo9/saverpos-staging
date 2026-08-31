@@ -937,7 +937,7 @@ class AdminSidebarMenu
                     || auth()->user()->can('recommerce.stock.reconcile')
                     || auth()->user()->can('recommerce.repair.intake'))) {
                 $menu->dropdown(
-                    'Stock & Devices',
+                    'Devices',
                     function ($sub) {
                         if (auth()->user()->can('recommerce.device.view')
                             || auth()->user()->can('recommerce.receiving.prepare')
@@ -945,33 +945,33 @@ class AdminSidebarMenu
                             || auth()->user()->can('recommerce.repair.intake')) {
                             $sub->url(
                                 route('recommerce.dashboard'),
-                                'Operations overview',
+                                'Device pipeline',
                                 ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) === null]
                             );
                         }
                         if (auth()->user()->can('recommerce.device.view')) {
                             $sub->url(
                                 route('recommerce.devices.index'),
-                                'Device registry',
+                                'Devices',
                                 ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'devices']
                             );
                             $sub->url(
                                 route('recommerce.scans.index'),
-                                'Scan & Entry',
+                                'Scan Device',
                                 ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'scans']
                             );
                         }
                         if (auth()->user()->can('recommerce.receiving.prepare')) {
                             $sub->url(
                                 route('recommerce.receiving.index'),
-                                'Receive serialised purchase',
+                                'Receive Devices',
                                 ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'receiving']
                             );
                         }
                         if (auth()->user()->can('recommerce.stock.reconcile')) {
                             $sub->url(
                                 route('recommerce.reconciliation.index'),
-                                'Stock reconciliation',
+                                'Stock Check',
                                 ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'reconciliation']
                             );
                         }

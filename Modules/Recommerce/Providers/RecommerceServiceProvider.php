@@ -24,6 +24,8 @@ use Modules\Recommerce\Services\CustomerRepairDeviceService;
 use Modules\Recommerce\Services\RepairPublicLookupService;
 use Modules\Recommerce\Services\DeviceCertificationService;
 use Modules\Recommerce\Services\DeviceTransferExceptionService;
+use Modules\Recommerce\Services\DeviceReceivingProgressService;
+use Modules\Recommerce\Services\DeviceInspectionService;
 
 class RecommerceServiceProvider extends ServiceProvider
 {
@@ -59,7 +61,20 @@ class RecommerceServiceProvider extends ServiceProvider
                 $app->make(AuthorizationGate::class),
                 $app->make(UltimatePosPurchaseWriter::class),
                 $app->make(DeviceEventRecorder::class),
-                $app->make(StockReconciliationService::class)
+                $app->make(StockReconciliationService::class),
+                $app->make(DeviceReceivingProgressService::class),
+                $app->make(DeviceInspectionService::class)
+            );
+        });
+
+        $this->app->singleton(DeviceReceivingProgressService::class, function () {
+            return new DeviceReceivingProgressService();
+        });
+
+        $this->app->singleton(DeviceInspectionService::class, function ($app) {
+            return new DeviceInspectionService(
+                $app->make(AuthorizationGate::class),
+                $app->make(DeviceEventRecorder::class)
             );
         });
 

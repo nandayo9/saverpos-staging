@@ -5,11 +5,14 @@ the native POS admin shell and shares its business, locations, roles, contacts,
 products, stock, sales, payments, and accounting. The operational write
 boundary remains explicitly gated until the pilot evidence gates are cleared.
 
-The integrated operator flow is: create normal stock in **Purchases**, choose
-**Serialise devices** for an eligible received whole-unit purchase line, then
-continue in Device Registry or Internal Refurbishment. The attachment creates
-Device identity/custody evidence only; it never creates a second POS purchase
-or changes aggregate stock, payments, or accounting. Customer Repairs is a
+The integrated operator flow is: create and receive normal stock in
+**Purchases**, then select **Receive Devices** on an eligible received
+whole-unit line. The scan workspace displays expected, registered, and
+remaining units and can be resumed in bounded batches. It creates Device
+identity/custody evidence only; it never creates a second POS purchase or
+changes aggregate stock, payments, or accounting. Newly registered Devices
+start as `RECEIVED_PENDING_INSPECTION`, so they cannot be selected for POS sale
+or transfer until the lifecycle process clears them. Customer Repairs is a
 separate main POS workspace for customer-owned, non-stock Devices.
 
 - `modules_statuses.json` keeps `Recommerce` disabled.
@@ -56,10 +59,11 @@ separate main POS workspace for customer-owned, non-stock Devices.
   payment-status, activity-log, and purchase-event primitives. It is not
   exposed directly by a route; `TrackedReceivingService` owns the transaction
   when the guarded receiving-post endpoint invokes it.
-- `TrackedReceivingService::executeWithUltimatePosPurchase()` is the only
-  production integration seam currently provided for that adapter. It is
-  reachable only through the guarded receiving-post path and is not called by a
-  core POS controller while the module remains off.
+- `TrackedReceivingService::attachToExistingUltimatePosPurchase()` is the
+  production receiving seam for normal Purchases: it locks the received
+  purchase line, bounds the unassigned unit count, and creates Device evidence
+  without writing aggregate stock a second time. The legacy special-purchase
+  seam remains compatibility-only and is not offered as an operator start.
 - `Services/StockReconciliationService.php` backs the protected read-only
   reconciliation endpoint, comparing core location quantity against tracked
   Devices plus approved persisted evidence. A `TRACKED_REQUIRED` serialization

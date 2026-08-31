@@ -16,10 +16,21 @@
 
     <!-- Main content -->
     <section class="content no-print">
-        @if (config('recommerce.enabled', false) && auth()->user()->can('recommerce.receiving.prepare'))
+        @if (!empty($deviceReceivingEnabled))
             <div class="alert alert-info" role="status">
-                <strong><i class="fa fa-cubes" aria-hidden="true"></i> One stock workflow.</strong>
-                Add received stock here first. For an approved serialised-device line, choose <em>Serialise devices</em> from that purchase’s actions to add device identity without creating stock a second time.
+                <strong><i class="fa fa-cubes" aria-hidden="true"></i> Device receiving.</strong>
+                Add stock here as normal. Purchases containing tracked Devices show their registration progress and a <em>Receive Devices</em> action.
+            </div>
+            <input id="purchase_device_receiving_enabled" type="hidden" value="1">
+        @endif
+        @if (session('device_receiving_notice'))
+            @php
+                $notice = session('device_receiving_notice');
+            @endphp
+            <div class="alert alert-success" role="status">
+                <strong>Purchase {{ $notice['reference'] }} received successfully.</strong>
+                {{ $notice['expected'] }} Devices require registration. {{ $notice['registered'] }} / {{ $notice['expected'] }} registered.
+                <a class="btn btn-success btn-sm pull-right" href="{{ $notice['url'] }}">Receive {{ $notice['remaining'] }} Devices</a>
             </div>
         @endif
         @component('components.filters', ['title' => __('report.filters')])
