@@ -52,7 +52,9 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         $schema->create('business', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); });
         $schema->create('users', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('business_id'); });
         $schema->create('business_locations', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('business_id'); });
-        $schema->create('contacts', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('business_id'); $table->string('type'); $table->string('name')->nullable(); $table->timestamp('deleted_at')->nullable(); });
+        $schema->create('contacts', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('business_id'); $table->string('type'); $table->string('name')->nullable(); $table->string('mobile')->nullable(); $table->timestamp('deleted_at')->nullable(); });
+        $schema->create('roles', function (Blueprint $table) { $table->increments('id'); $table->string('name'); $table->string('guard_name')->default('web'); $table->unsignedInteger('business_id')->nullable(); });
+        $schema->create('model_has_roles', function (Blueprint $table) { $table->unsignedInteger('role_id'); $table->string('model_type'); $table->unsignedInteger('model_id'); });
         $schema->create('products', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('business_id'); $table->string('name')->nullable(); });
         $schema->create('variations', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('product_id'); $table->timestamp('deleted_at')->nullable(); });
         $schema->create('transactions', function (Blueprint $table) {
@@ -83,6 +85,7 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_28_000006_create_recommerce_ownership_periods.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_28_000007_create_recommerce_custody_periods.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000031_create_recommerce_trade_in_tables.php'))->up();
+        (require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000033_extend_trade_in_for_branch_v2.php'))->up();
 
         DB::table('recommerce_devices')->insert([
             'id' => 11, 'business_id' => 7, 'device_uuid' => 'b4068cc7-0f29-4d22-8f45-4f9a29de1101', 'device_code' => 'SB-DV-00000001-9',
@@ -182,6 +185,7 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         $this->assertSame('BUSINESS', $device->ownership_kind);
         $this->assertSame('LOCATION', $device->custody_kind);
         $this->assertSame('ON_HAND', $device->stock_participation);
+        $this->assertSame('PENDING_QC', $device->lifecycle_state);
         $this->assertSame(202, (int) $device->product_id);
         $this->assertSame(303, (int) $device->variation_id);
         $this->assertSame(1, DB::table('recommerce_device_acquisitions')->count());
@@ -196,6 +200,36 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         ]));
         $this->expectException(AuthorizationException::class);
         $this->service($this->writer)->approve($this->user([TradeInService::PERMISSION_APPROVE]), $valuation, 'Above ceiling.');
+    }
+
+    public function test_v2_persists_declaration_laptop_inspection_and_negotiation_history(): void
+    {
+        $valuation = $this->service()->createValuation($this->user(), $this->valuationCommand($this->ruleSet()->id, [
+            'seller_declaration_text' => 'Seller owns the laptop and authorises evaluation.',
+            'seller_declaration_version' => 'V2',
+            'seller_declaration_accepted' => true,
+            'seller_identity_reference' => 'ID-REFERENCE-ONLY',
+            'laptop_inspection' => [
+                'brand' => 'Fixture', 'model' => 'L1', 'cpu' => 'Intel i5', 'ram' => '16 GB', 'storage' => '512 GB SSD',
+                'cosmetic_grade' => 'B', 'functional_checks' => ['DISPLAY' => 'PASS', 'USB_PORTS' => 'PASS'],
+                'battery_cycle_count' => 240, 'risk_flags' => ['MDM_MANAGED'],
+            ],
+        ]));
+
+        $this->assertSame('V2', $valuation->seller_declaration_version);
+        $this->assertNotNull($valuation->seller_declaration_accepted_at);
+        $this->assertSame('Fixture', $valuation->laptopInspection->brand);
+        $this->assertSame('PASS', $valuation->laptopInspection->functional_checks_json['USB_PORTS']);
+        $this->assertSame(2, $valuation->negotiationEvents()->count());
+    }
+
+    public function test_v2_refuses_a_missing_seller_declaration_acknowledgement(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Seller declaration acknowledgement is required');
+        $this->service()->createValuation($this->user(), $this->valuationCommand($this->ruleSet()->id, [
+            'seller_declaration_text' => 'Seller owns the laptop.', 'seller_declaration_accepted' => false,
+        ]));
     }
 
     public function test_rejected_trade_in_returns_customer_custody_and_creates_no_purchase(): void

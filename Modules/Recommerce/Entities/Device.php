@@ -78,6 +78,12 @@ class Device extends Model
         return $this->hasMany(DeviceEvent::class, 'device_id');
     }
 
+    /** Device Passport media is stored through UltimatePOS's existing media subsystem. */
+    public function media()
+    {
+        return $this->morphMany(\App\Media::class, 'model');
+    }
+
     public function repairJobs(): HasMany
     {
         return $this->hasMany(RepairJob::class, 'device_id');

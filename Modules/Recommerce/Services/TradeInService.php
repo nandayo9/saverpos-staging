@@ -11,6 +11,7 @@ use App\Variation;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use LogicException;
 use Modules\Recommerce\Entities\CustodyPeriod;
@@ -22,6 +23,8 @@ use Modules\Recommerce\Entities\OwnershipPeriod;
 use Modules\Recommerce\Entities\TradeInMarketEvidence;
 use Modules\Recommerce\Entities\TradeInRuleSet;
 use Modules\Recommerce\Entities\TradeInValuation;
+use Modules\Recommerce\Entities\TradeInLaptopInspection;
+use Modules\Recommerce\Entities\TradeInNegotiationEvent;
 use Modules\Recommerce\Support\AuthorizationGate;
 
 /**
@@ -42,7 +45,8 @@ class TradeInService
         protected AuthorizationGate $authorizationGate,
         protected TradeInPricingService $pricingService,
         protected UltimatePosPurchaseWriter $purchaseWriter,
-        protected DeviceEventRecorder $eventRecorder
+        protected DeviceEventRecorder $eventRecorder,
+        protected ?TradeInAuthorityService $authorityService = null
     ) {
     }
 
@@ -70,7 +74,7 @@ class TradeInService
             'variation_id' => $variationId,
         ]);
 
-        return DB::transaction(function () use ($user, $businessId, $ruleCode, $parameters): TradeInRuleSet {
+        return DB::transaction(function () use ($user, $businessId, $variationId, $ruleCode, $parameters, $command): TradeInRuleSet {
             DB::table('business')->where('id', $businessId)->lockForUpdate()->first();
             $existing = TradeInRuleSet::query()
                 ->where('business_id', $businessId)
@@ -90,7 +94,7 @@ class TradeInService
                 $rule->save();
             }
 
-            return TradeInRuleSet::create([
+            $attributes = [
                 'business_id' => $businessId,
                 'rule_code' => $ruleCode,
                 'version_number' => $version,
@@ -98,7 +102,13 @@ class TradeInService
                 'parameters_json' => $parameters,
                 'effective_at' => now(),
                 'created_by' => $user->getAuthIdentifier(),
-            ]);
+            ];
+            if (Schema::hasColumn('recommerce_trade_in_rule_sets', 'variation_id')) {
+                $attributes['variation_id'] = $variationId;
+                $attributes['category_code'] = isset($command['category_code']) ? strtoupper(trim((string) $command['category_code'])) : null;
+            }
+
+            return TradeInRuleSet::create($attributes);
         });
     }
 
@@ -158,7 +168,10 @@ class TradeInService
             $this->recordCustomerHandInIfNeeded($device, $normalized, (int) $user->getAuthIdentifier());
             $calculation = $this->pricingService->calculate($ruleSet, $normalized);
             $recommendation = $calculation['recommendation'];
-            $requiresApproval = $normalized['staff_proposed_amount'] > $recommendation['negotiation_ceiling_amount'];
+            $authority = ($this->authorityService ?: app(TradeInAuthorityService::class))
+                ->authorityFor($user, $normalized['location_id'], $normalized['staff_proposed_amount']);
+            $requiresApproval = $normalized['staff_proposed_amount'] > $recommendation['negotiation_ceiling_amount']
+                || $authority['requires_approval'];
             $version = ((int) TradeInValuation::query()
                 ->where('business_id', $normalized['business_id'])
                 ->where('device_id', $normalized['device_id'])
@@ -174,7 +187,7 @@ class TradeInService
                 'created_at' => now()->toISOString(),
             ];
 
-            $valuation = TradeInValuation::create([
+            $attributes = [
                 'valuation_uuid' => (string) Str::uuid(),
                 'command_uuid' => $normalized['command_uuid'],
                 'business_id' => $normalized['business_id'],
@@ -205,7 +218,20 @@ class TradeInService
                 'currency' => $normalized['currency'],
                 'approval_required' => $requiresApproval,
                 'created_by' => $user->getAuthIdentifier(),
-            ]);
+            ];
+            if (Schema::hasColumn('recommerce_trade_in_valuations', 'acquisition_type')) {
+                $attributes += [
+                    'acquisition_type' => $normalized['acquisition_type'],
+                    'authority_limit_amount' => $authority['limit'],
+                    'authority_approval_required' => $authority['requires_approval'],
+                    'seller_phone_snapshot' => $normalized['seller_phone_snapshot'],
+                    'seller_identity_reference_encrypted' => $normalized['seller_identity_reference'],
+                    'seller_declaration_text' => $normalized['seller_declaration_text'],
+                    'seller_declaration_version' => $normalized['seller_declaration_version'],
+                    'seller_declaration_accepted_at' => $normalized['seller_declaration_accepted'] ? now() : null,
+                ];
+            }
+            $valuation = TradeInValuation::create($attributes);
 
             foreach ($normalized['market_evidence'] as $evidence) {
                 TradeInMarketEvidence::create($evidence + [
@@ -215,6 +241,16 @@ class TradeInService
                     'recorded_by' => $user->getAuthIdentifier(),
                 ]);
             }
+
+            if ($normalized['laptop_inspection'] !== null && Schema::hasTable('recommerce_trade_in_laptop_inspections')) {
+                TradeInLaptopInspection::create($normalized['laptop_inspection'] + [
+                    'valuation_id' => $valuation->id,
+                    'business_id' => $valuation->business_id,
+                    'recorded_by' => $user->getAuthIdentifier(),
+                ]);
+            }
+            $this->recordNegotiation($valuation, TradeInNegotiationEvent::SYSTEM_RECOMMENDATION, 'SYSTEM', $recommendation['target_acquisition_amount'], $user->id, 'Deterministic recommendation created from the active pricing rule.');
+            $this->recordNegotiation($valuation, TradeInNegotiationEvent::STAFF_OFFER, 'STAFF', $normalized['staff_proposed_amount'], $user->id, 'Initial staff offer.');
 
             $this->eventRecorder->recordLifecycle($device->fresh(), 'TRADE_IN_VALUED', (int) $user->getAuthIdentifier(), null, [
                 'trade_in_valuation_id' => (int) $valuation->id,
@@ -259,6 +295,7 @@ class TradeInService
             $locked->approval_reason = mb_substr(trim($reason), 0, 2000);
             $locked->lock_version = (int) $locked->lock_version + 1;
             $locked->save();
+            $this->recordNegotiation($locked, TradeInNegotiationEvent::MANAGER_APPROVAL, 'MANAGER', (float) $locked->staff_proposed_amount, $user->id, $locked->approval_reason);
 
             return $locked;
         });
@@ -357,7 +394,7 @@ class TradeInService
                 'current_location_id' => $locked->location_id,
                 'product_id' => $locked->product_id,
                 'variation_id' => $locked->variation_id,
-                'lifecycle_state' => 'AVAILABLE',
+                'lifecycle_state' => 'PENDING_QC',
                 'stock_participation' => 'ON_HAND',
                 'acquired_at' => now(),
                 'updated_by' => $user->getAuthIdentifier(),
@@ -405,6 +442,7 @@ class TradeInService
             $locked->accepted_at = now();
             $locked->lock_version = (int) $locked->lock_version + 1;
             $locked->save();
+            $this->recordNegotiation($locked, TradeInNegotiationEvent::FINAL_ACCEPTED, 'STAFF', $amount, $user->id, 'Accepted; native purchase posted and Device is pending QC.');
             $this->eventRecorder->recordLifecycle($device->fresh(), 'ACQUISITION_POSTED', (int) $user->getAuthIdentifier(), $receipt['transaction_id'], [
                 'acquisition_id' => (int) $acquisition->id,
                 'trade_in_valuation_id' => (int) $locked->id,
@@ -416,7 +454,7 @@ class TradeInService
     }
 
     /** Reject an opportunity and return only physical custody to the customer. */
-    public function reject(User $user, TradeInValuation $valuation, string $reason): TradeInValuation
+    public function reject(User $user, TradeInValuation $valuation, string $reason, array $context = []): TradeInValuation
     {
         $this->assertActorBusiness($user, (int) $valuation->business_id);
         $this->assertWrite($user, self::PERMISSION_MANAGE, [
@@ -442,8 +480,19 @@ class TradeInService
             $locked->rejected_at = now();
             $locked->rejected_by = $user->getAuthIdentifier();
             $locked->rejection_reason = mb_substr(trim($reason), 0, 255);
+            if (Schema::hasColumn('recommerce_trade_in_valuations', 'rejection_reason_code')) {
+                $code = strtoupper(trim((string) ($context['reason_code'] ?? 'OTHER')));
+                if (! in_array($code, ['OFFER_TOO_LOW', 'CUSTOMER_EXPECTED_MORE', 'COMPETITOR_OFFERED_MORE', 'CUSTOMER_DECIDED_NOT_TO_SELL', 'FAILED_INSPECTION', 'OWNERSHIP_OR_FRAUD_CONCERN', 'NO_SUITABLE_UPGRADE', 'PRICE_CHECK_ONLY', 'INVENTORY_TOO_HIGH', 'OTHER'], true)) {
+                    throw new LogicException('Choose a supported lost-acquisition reason.');
+                }
+                $locked->rejection_reason_code = $code;
+                $locked->competitor_name = isset($context['competitor_name']) ? mb_substr(trim((string) $context['competitor_name']), 0, 160) : null;
+                $locked->competitor_offer_amount = isset($context['competitor_offer_amount']) && $context['competitor_offer_amount'] !== ''
+                    ? $this->money($context['competitor_offer_amount'], 'Competitor offer amount') : null;
+            }
             $locked->lock_version = (int) $locked->lock_version + 1;
             $locked->save();
+            $this->recordNegotiation($locked, TradeInNegotiationEvent::FINAL_REJECTED, 'STAFF', null, $user->id, $locked->rejection_reason);
             $this->eventRecorder->recordLifecycle($device->fresh(), 'TRADE_IN_REJECTED', (int) $user->getAuthIdentifier(), null, [
                 'trade_in_valuation_id' => (int) $locked->id,
             ]);
@@ -608,6 +657,12 @@ class TradeInService
             throw new LogicException('Market reference amount must be within the recorded evidence range.');
         }
 
+        $sellerDeclarationText = isset($command['seller_declaration_text']) ? mb_substr(trim((string) $command['seller_declaration_text']), 0, 4000) : null;
+        $sellerDeclarationAccepted = ($command['seller_declaration_accepted'] ?? false) === true || ($command['seller_declaration_accepted'] ?? null) === '1';
+        if ($sellerDeclarationText !== null && $sellerDeclarationText !== '' && ! $sellerDeclarationAccepted) {
+            throw new LogicException('Seller declaration acknowledgement is required before recording a trade-in.');
+        }
+
         return [
             'business_id' => (int) $command['business_id'],
             'location_id' => (int) $command['location_id'],
@@ -631,6 +686,13 @@ class TradeInService
             'customer_requested_amount' => array_key_exists('customer_requested_amount', $command) && $command['customer_requested_amount'] !== null && $command['customer_requested_amount'] !== ''
                 ? $this->money($command['customer_requested_amount'], 'Customer requested amount')
                 : null,
+            'acquisition_type' => $this->acquisitionType($command['acquisition_type'] ?? 'TRADE_IN'),
+            'seller_phone_snapshot' => isset($command['seller_phone_snapshot']) ? mb_substr(trim((string) $command['seller_phone_snapshot']), 0, 80) : null,
+            'seller_identity_reference' => isset($command['seller_identity_reference']) && trim((string) $command['seller_identity_reference']) !== '' ? mb_substr(trim((string) $command['seller_identity_reference']), 0, 255) : null,
+            'seller_declaration_text' => $sellerDeclarationText,
+            'seller_declaration_version' => isset($command['seller_declaration_version']) ? mb_substr(trim((string) $command['seller_declaration_version']), 0, 32) : null,
+            'seller_declaration_accepted' => $sellerDeclarationAccepted,
+            'laptop_inspection' => $this->normaliseLaptopInspection($command['laptop_inspection'] ?? null, $inspection),
         ];
     }
 
@@ -838,6 +900,77 @@ class TradeInService
             ->update(['open_period_key' => null, 'ends_at' => now(), 'recorded_by' => $actorId]);
         CustodyPeriod::query()->where('device_id', $device->id)->whereNotNull('open_period_key')
             ->update(['open_period_key' => null, 'ends_at' => now(), 'recorded_by' => $actorId]);
+    }
+
+    protected function acquisitionType($value): string
+    {
+        $type = strtoupper(trim((string) $value));
+        if (! in_array($type, ['SELL_TO_SAVERBRO', 'TRADE_IN', 'BUSINESS_OR_BULK_ACQUISITION'], true)) {
+            throw new LogicException('Trade-in acquisition type is invalid.');
+        }
+
+        return $type;
+    }
+
+    /** @return array<string, mixed>|null */
+    protected function normaliseLaptopInspection($inspection, array $legacyInspection): ?array
+    {
+        if ($inspection === null || $inspection === []) {
+            return null;
+        }
+        if (! is_array($inspection)) {
+            throw new LogicException('Laptop inspection must be structured data.');
+        }
+        $text = function ($key, int $limit, bool $required = false) use ($inspection) {
+            $value = trim((string) ($inspection[$key] ?? ''));
+            if ($required && $value === '') throw new LogicException('Laptop inspection requires '.$key.'.');
+            return $value === '' ? null : mb_substr($value, 0, $limit);
+        };
+        $checks = (array) ($inspection['functional_checks'] ?? []);
+        $allowed = ['DISPLAY', 'KEYBOARD', 'TRACKPAD', 'WIFI', 'BLUETOOTH', 'WEBCAM', 'MICROPHONE', 'SPEAKERS', 'USB_PORTS', 'HDMI_OUTPUT', 'CHARGING', 'POWER_ON', 'STORAGE_HEALTH'];
+        $normalisedChecks = [];
+        foreach ($checks as $key => $outcome) {
+            $key = strtoupper((string) $key); $outcome = strtoupper((string) $outcome);
+            if (! in_array($key, $allowed, true) || ! in_array($outcome, ['PASS', 'FAIL', 'CONDITIONAL', 'NOT_TESTED'], true)) {
+                throw new LogicException('Laptop functional checks contain an unsupported value.');
+            }
+            $normalisedChecks[$key] = $outcome;
+        }
+        $riskFlags = array_values(array_unique(array_filter(array_map(fn ($v) => strtoupper(trim((string) $v)), (array) ($inspection['risk_flags'] ?? [])))));
+        $allowedRisk = ['BIOS_PASSWORD', 'MDM_MANAGED', 'ACCOUNT_LOCK', 'COMPANY_ASSET_TAG', 'SUSPICIOUS_SERIAL', 'OWNERSHIP_CONCERN'];
+        if (array_diff($riskFlags, $allowedRisk)) throw new LogicException('Laptop risk flags contain an unsupported value.');
+
+        return [
+            'brand' => $text('brand', 100, true), 'model' => $text('model', 160, true), 'cpu' => $text('cpu', 160),
+            'ram' => $text('ram', 80), 'storage' => $text('storage', 120), 'gpu' => $text('gpu', 160),
+            'display_size' => $text('display_size', 40), 'operating_system' => $text('operating_system', 120),
+            'cosmetic_grade' => $legacyInspection['cosmetic_grade'], 'screen_condition' => $text('screen_condition', 24),
+            'body_condition' => $text('body_condition', 24), 'palm_rest_condition' => $text('palm_rest_condition', 24),
+            'keyboard_condition' => $text('keyboard_condition', 24), 'hinges_condition' => $text('hinges_condition', 24),
+            'functional_checks_json' => $normalisedChecks,
+            'battery_health_percent' => $legacyInspection['battery_health_percent'],
+            'battery_cycle_count' => isset($inspection['battery_cycle_count']) && $inspection['battery_cycle_count'] !== '' ? max(0, (int) $inspection['battery_cycle_count']) : null,
+            'battery_replacement_needed' => $legacyInspection['battery_replacement_needed'],
+            'battery_replacement_estimate_amount' => $legacyInspection['battery_replacement_estimate_amount'],
+            'accessories_json' => [
+                'charger_included' => (bool) ($inspection['charger_included'] ?? false),
+                'charger_type' => $text('charger_type', 80), 'box_included' => (bool) ($inspection['box_included'] ?? false),
+                'other' => $text('accessories_other', 1000),
+            ],
+            'risk_flags_json' => $riskFlags,
+        ];
+    }
+
+    protected function recordNegotiation(TradeInValuation $valuation, string $type, string $actorType, ?float $amount, int $actorId, ?string $note): void
+    {
+        if (! Schema::hasTable('recommerce_trade_in_negotiation_events')) {
+            return;
+        }
+        TradeInNegotiationEvent::create([
+            'event_uuid' => (string) Str::uuid(), 'valuation_id' => $valuation->id, 'business_id' => $valuation->business_id,
+            'event_type' => $type, 'actor_type' => $actorType, 'amount' => $amount, 'currency' => $valuation->currency,
+            'note' => $note === null ? null : mb_substr(trim($note), 0, 1000), 'recorded_by' => $actorId, 'occurred_at' => now(),
+        ]);
     }
 
     protected function assertActorBusiness(User $user, int $businessId): void

@@ -80,6 +80,9 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
     Route::post('/trade-ins/rules', 'TradeInController@createRule')
         ->middleware('throttle:10,1')
         ->name('recommerce.tradeins.rules.store');
+    Route::post('/trade-ins/authority-rules', 'TradeInController@configureAuthority')
+        ->middleware('throttle:10,1')
+        ->name('recommerce.tradeins.authority_rules.store');
     Route::post('/trade-ins/{valuationId}/approve', 'TradeInController@approve')
         ->whereNumber('valuationId')
         ->middleware('throttle:20,1')
@@ -92,6 +95,22 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->whereNumber('valuationId')
         ->middleware('throttle:20,1')
         ->name('recommerce.tradeins.reject');
+    Route::post('/trade-ins/{valuationId}/negotiation', 'TradeInController@negotiate')
+        ->whereNumber('valuationId')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.tradeins.negotiation');
+    Route::post('/trade-ins/{valuationId}/reverse', 'TradeInController@reverse')
+        ->whereNumber('valuationId')
+        ->middleware('throttle:10,1')
+        ->name('recommerce.tradeins.reverse');
+    Route::post('/trade-ins/{valuationId}/refurbishment', 'TradeInController@refurbishment')
+        ->whereNumber('valuationId')
+        ->middleware('throttle:10,1')
+        ->name('recommerce.tradeins.refurbishment');
+    Route::post('/trade-ins/{valuationId}/release-for-sale', 'TradeInController@releaseForSale')
+        ->whereNumber('valuationId')
+        ->middleware('throttle:10,1')
+        ->name('recommerce.tradeins.release_for_sale');
 
     Route::get('/transfers/{transferId}/exceptions', 'TransferExceptionController@show')
         ->whereNumber('transferId')

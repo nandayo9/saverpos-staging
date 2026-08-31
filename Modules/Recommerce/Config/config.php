@@ -20,6 +20,9 @@ return [
     // the warranty-service button.
     'public_warranty_service_url' => env('RECOMMERCE_PUBLIC_WARRANTY_SERVICE_URL'),
     'label_template_version' => 'alpha-1',
+    // Product/legal teams own the final wording. V2 records the displayed
+    // version and acknowledgement without exposing identity references in lists.
+    'tradein_seller_declaration' => env('RECOMMERCE_TRADEIN_SELLER_DECLARATION', 'Seller declares that they have the right to offer this device and that the information provided is accurate.'),
     'receive_batch_limit' => 50,
     'repair_intake_checklist' => [
         ['key' => 'powers_on', 'label' => 'Powers on'],

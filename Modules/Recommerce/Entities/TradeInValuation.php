@@ -40,11 +40,25 @@ class TradeInValuation extends Model
         'accepted_at' => 'datetime',
         'rejected_at' => 'datetime',
         'lock_version' => 'integer',
+        'authority_limit_amount' => 'decimal:4',
+        'authority_approval_required' => 'boolean',
+        'seller_identity_reference_encrypted' => 'encrypted',
+        'seller_declaration_accepted_at' => 'datetime',
     ];
 
     public function device(): BelongsTo
     {
         return $this->belongsTo(Device::class, 'device_id');
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(\App\Contact::class, 'customer_contact_id');
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(\App\User::class, 'created_by');
     }
 
     public function ruleSet(): BelongsTo
@@ -60,5 +74,15 @@ class TradeInValuation extends Model
     public function acquisition(): HasOne
     {
         return $this->hasOne(DeviceAcquisition::class, 'trade_in_valuation_id');
+    }
+
+    public function laptopInspection(): HasOne
+    {
+        return $this->hasOne(TradeInLaptopInspection::class, 'valuation_id');
+    }
+
+    public function negotiationEvents(): HasMany
+    {
+        return $this->hasMany(TradeInNegotiationEvent::class, 'valuation_id')->orderBy('occurred_at')->orderBy('id');
     }
 }
