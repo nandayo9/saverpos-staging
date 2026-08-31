@@ -53,8 +53,9 @@
                 </fieldset>
 
                 <fieldset id="tradein-step-4" class="tradein-step"><legend>4. Market evidence, recommendation, and first offer</legend>
-                    <div class="row">@foreach([1=>'External asking evidence',2=>'Competitor / other evidence'] as $number=>$label)<div class="col-md-6"><div class="well well-sm"><strong>{{ $label }}</strong><div class="form-group"><label>Source and model/spec comparison</label><input class="form-control" name="market_evidence_{{ $number }}_source" maxlength="320" aria-label="{{ $label }} source" required></div><div class="form-group"><label>Asking/reference price (MYR)</label><input class="form-control" name="market_evidence_{{ $number }}_amount" type="number" min="0" step="0.01" aria-label="{{ $label }} price" required></div><div class="form-group"><label>URL (optional)</label><input class="form-control" name="market_evidence_{{ $number }}_url" type="url" maxlength="1000" aria-label="{{ $label }} URL"></div></div></div>@endforeach</div>
-                    <div class="row">@foreach(['market_reference_amount'=>'Market reference','expected_resale_amount'=>'Expected selling price','expected_refurbishment_amount'=>'Estimated refurbishment cost','staff_proposed_amount'=>'Opening offer','customer_requested_amount'=>'Customer expected price'] as $name=>$label)<div class="col-xs-6 col-md"><div class="form-group"><label>{{ $label }} (MYR)</label><input class="form-control" name="{{ $name }}" type="number" min="0" step="0.01" aria-label="{{ $label }} amount" @if($name !== 'customer_requested_amount') required @endif value="{{ $name === 'expected_refurbishment_amount' ? 0 : '' }}"></div></div>@endforeach</div>
+                    <div class="row">@foreach([1=>'External asking evidence',2=>'Competitor / other evidence'] as $number=>$label)<div class="col-md-6"><div class="well well-sm"><strong>{{ $label }}</strong><div class="form-group"><label>Source and model/spec comparison</label><input class="form-control" name="market_evidence_{{ $number }}_source" maxlength="320" aria-label="{{ $label }} source" required value="{{ old('market_evidence_'.$number.'_source') }}"></div><div class="form-group"><label>Asking/reference price (MYR)</label><input class="form-control" name="market_evidence_{{ $number }}_amount" type="number" min="0" step="0.01" aria-label="{{ $label }} price" required value="{{ old('market_evidence_'.$number.'_amount') }}"></div><div class="form-group"><label>URL (optional)</label><input class="form-control" name="market_evidence_{{ $number }}_url" type="url" maxlength="1000" aria-label="{{ $label }} URL" value="{{ old('market_evidence_'.$number.'_url') }}"></div></div></div>@endforeach</div>
+                    <div class="row">@foreach(['market_reference_amount'=>'Market reference','expected_resale_amount'=>'Expected selling price','expected_refurbishment_amount'=>'Estimated refurbishment cost','staff_proposed_amount'=>'Opening offer','customer_requested_amount'=>'Customer expected price'] as $name=>$label)<div class="col-xs-6 col-md"><div class="form-group"><label>{{ $label }} (MYR)</label><input class="form-control" name="{{ $name }}" type="number" min="0" step="0.01" aria-label="{{ $label }} amount" @if($name !== 'customer_requested_amount') required @endif value="{{ old($name, $name === 'expected_refurbishment_amount' ? 0 : '') }}" @if($name === 'market_reference_amount') aria-describedby="market-reference-guidance" @endif></div></div>@endforeach</div>
+                    <div id="market-reference-guidance" class="alert alert-info" role="status" aria-live="polite"><strong>Market reference:</strong> enter both evidence prices to see the permitted range.</div>
                     <div class="alert alert-info"><strong>Offer ladder:</strong> the system saves opening offer, recommended buy, maximum without approval, and economic ceiling from the active rule. Approval is required for a ceiling or personal-authority exception.</div>
                 </fieldset>
 
@@ -144,6 +145,40 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     if (batteryReplacement) batteryReplacement.addEventListener('change', syncBatteryEstimate);
     syncBatteryEstimate();
+    var evidenceAmounts = ['market_evidence_1_amount', 'market_evidence_2_amount'].map(function (name) { return wizard.querySelector('[name="' + name + '"]'); });
+    var marketReference = wizard.querySelector('[name="market_reference_amount"]');
+    var marketReferenceGuidance = wizard.querySelector('#market-reference-guidance');
+    var money = function (value) { return 'RM ' + Number(value).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+    var syncMarketReference = function () {
+        if (!marketReference || !marketReferenceGuidance) return;
+        var values = evidenceAmounts.map(function (input) { return input && input.value !== '' ? Number(input.value) : NaN; });
+        if (values.some(function (value) { return !Number.isFinite(value) || value < 0; })) {
+            marketReference.min = '0';
+            marketReference.removeAttribute('max');
+            marketReference.setCustomValidity('');
+            marketReferenceGuidance.className = 'alert alert-info';
+            marketReferenceGuidance.innerHTML = '<strong>Market reference:</strong> enter both evidence prices to see the permitted range.';
+            return;
+        }
+        var low = Math.min.apply(Math, values);
+        var high = Math.max.apply(Math, values);
+        var reference = marketReference.value === '' ? NaN : Number(marketReference.value);
+        marketReference.min = String(low);
+        marketReference.max = String(high);
+        if (Number.isFinite(reference) && (reference < low || reference > high)) {
+            var error = 'Market reference must be between ' + money(low) + ' and ' + money(high) + '.';
+            marketReference.setCustomValidity(error);
+            marketReferenceGuidance.className = 'alert alert-warning';
+            marketReferenceGuidance.innerHTML = '<strong>Outside evidence range:</strong> use a market reference from ' + money(low) + ' to ' + money(high) + '.';
+            return;
+        }
+        marketReference.setCustomValidity('');
+        marketReferenceGuidance.className = 'alert alert-success';
+        marketReferenceGuidance.innerHTML = '<strong>Permitted market-reference range:</strong> ' + money(low) + ' to ' + money(high) + (Number.isFinite(reference) ? '. Your reference is within range.' : '.');
+    };
+    evidenceAmounts.forEach(function (input) { if (input) input.addEventListener('input', syncMarketReference); });
+    if (marketReference) marketReference.addEventListener('input', syncMarketReference);
+    syncMarketReference();
     var catalogueSelect = wizard.querySelector('#tradein-variation');
     var catalogueSuggestions = wizard.querySelector('#catalogue-suggestions');
     var catalogueInputs = ['laptop-brand', 'laptop-model'].map(function (id) { return wizard.querySelector('#' + id); })

@@ -653,8 +653,14 @@ class TradeInService
         $evidence = $this->normaliseEvidence($command['market_evidence'] ?? []);
         $marketReference = $this->money($command['market_reference_amount'] ?? null, 'Market reference amount');
         $evidenceAmounts = array_column($evidence, 'reference_amount');
-        if ($marketReference < min($evidenceAmounts) || $marketReference > max($evidenceAmounts)) {
-            throw new LogicException('Market reference amount must be within the recorded evidence range.');
+        $marketLow = min($evidenceAmounts);
+        $marketHigh = max($evidenceAmounts);
+        if ($marketReference < $marketLow || $marketReference > $marketHigh) {
+            throw new LogicException(sprintf(
+                'Market reference must be between RM %s and RM %s, based on the two evidence prices.',
+                number_format($marketLow, 2),
+                number_format($marketHigh, 2)
+            ));
         }
 
         $sellerDeclarationText = isset($command['seller_declaration_text']) ? mb_substr(trim((string) $command['seller_declaration_text']), 0, 4000) : null;
@@ -677,8 +683,8 @@ class TradeInService
             'currency' => $currency,
             'inspection' => $inspection,
             'market_evidence' => $evidence,
-            'market_low_amount' => min($evidenceAmounts),
-            'market_high_amount' => max($evidenceAmounts),
+            'market_low_amount' => $marketLow,
+            'market_high_amount' => $marketHigh,
             'market_reference_amount' => $marketReference,
             'expected_resale_amount' => $this->money($command['expected_resale_amount'] ?? null, 'Expected resale amount'),
             'expected_refurbishment_amount' => $this->money($command['expected_refurbishment_amount'] ?? 0, 'Expected refurbishment amount'),
