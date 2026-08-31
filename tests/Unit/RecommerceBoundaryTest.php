@@ -370,12 +370,14 @@ class RecommerceBoundaryTest extends TestCase
         $this->assertContains('web', $receivingIndexRoute->middleware());
         $this->assertContains('auth', $receivingIndexRoute->middleware());
         $this->assertContains('SetSessionData', $receivingIndexRoute->middleware());
+        $this->assertContains('AdminSidebarMenu', $receivingIndexRoute->middleware());
         $this->assertContains('throttle:30,1', $receivingIndexRoute->middleware());
         $this->assertNotNull($reconciliationRoute);
         $this->assertNotNull($reconciliationIndexRoute);
         $this->assertSame('recommerce/reconciliation', $reconciliationIndexRoute->uri());
         $this->assertNotNull($dashboardRoute);
         $this->assertSame('recommerce', $dashboardRoute->uri());
+        $this->assertContains('AdminSidebarMenu', $dashboardRoute->middleware());
         $this->assertNotNull($deviceIndexRoute);
         $this->assertSame('recommerce/devices', $deviceIndexRoute->uri());
         $this->assertNotNull($internalRepairRoute);
