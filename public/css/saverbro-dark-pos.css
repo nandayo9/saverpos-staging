@@ -280,6 +280,92 @@ body .theme-header-bg {
   background: rgba(56, 189, 248, .2) !important;
 }
 
+/* The account menu is rendered by the Tailwind dropdown partial, so keep it
+   on the same dark surface as the rest of the SaverPOS shell. */
+.sb-account-menu {
+  z-index: 1050;
+}
+
+.sb-account-menu > summary {
+  list-style: none;
+}
+
+.sb-account-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.sb-account-menu[open] > summary {
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, .32), 0 8px 24px rgba(0, 0, 0, .18) !important;
+}
+
+.sb-account-menu__panel {
+  width: min(18rem, calc(100vw - 2rem)) !important;
+  margin-top: .65rem !important;
+  padding: .55rem !important;
+  overflow: hidden;
+  background: linear-gradient(155deg, #162a40 0%, #0d192a 100%) !important;
+  border: 1px solid rgba(125, 211, 252, .38) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .42), 0 0 0 1px rgba(8, 21, 37, .8) !important;
+  color: var(--sb-text) !important;
+}
+
+.sb-account-menu__meta {
+  min-height: 4.15rem;
+  margin-bottom: .35rem;
+  padding: .75rem .7rem .8rem !important;
+  border-bottom: 1px solid rgba(147, 169, 193, .2);
+}
+
+.sb-account-menu__eyebrow {
+  margin: 0 0 .25rem;
+  color: var(--sb-muted) !important;
+  font-size: .72rem !important;
+  letter-spacing: .02em;
+}
+
+.sb-account-menu__name {
+  margin: 0;
+  color: var(--sb-text) !important;
+  font-size: .95rem !important;
+}
+
+.sb-account-menu__meta > svg,
+.sb-account-menu__profile-icon {
+  color: #a8d8f3 !important;
+}
+
+.sb-account-menu .sb-account-menu__item {
+  min-height: 2.75rem;
+  color: #d9e9f8 !important;
+  border: 1px solid transparent;
+  text-decoration: none !important;
+}
+
+.sb-account-menu .sb-account-menu__item:hover,
+.sb-account-menu .sb-account-menu__item:focus-visible {
+  background: rgba(56, 189, 248, .14) !important;
+  border-color: rgba(56, 189, 248, .25);
+  color: #f5fbff !important;
+  outline: none;
+}
+
+.sb-account-menu__icon {
+  flex: 0 0 auto;
+  color: #8edbff !important;
+}
+
+.sb-account-menu__item--danger:hover,
+.sb-account-menu__item--danger:focus-visible {
+  background: rgba(251, 113, 133, .12) !important;
+  border-color: rgba(251, 113, 133, .24);
+}
+
+.sb-account-menu__item--danger:hover .sb-account-menu__icon,
+.sb-account-menu__item--danger:focus-visible .sb-account-menu__icon {
+  color: #fda4af !important;
+}
+
 /* Surfaces, text and data density */
 .content-wrapper,
 .content,
@@ -1019,6 +1105,71 @@ table.dataTable tfoot > tr > td {
   font-size: .9rem;
 }
 
+.sb-dashboard-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 1rem 1.2rem 1.15rem;
+  border: 1px solid rgba(86, 116, 153, .28);
+  border-radius: 1rem;
+  background: linear-gradient(112deg, rgba(12, 31, 52, .82), rgba(7, 17, 30, .7));
+}
+
+.sb-dashboard-header-row .sb-dashboard-intro {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sb-dashboard-header-filters {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: .8rem;
+  flex: 0 1 42rem;
+  min-width: 0;
+}
+
+.sb-dashboard-filter-control {
+  flex: 1 1 15rem;
+  min-width: 12rem;
+}
+
+.sb-dashboard-filter-control--date {
+  flex: 0 0 13rem;
+}
+
+.sb-dashboard-filter-label {
+  display: block;
+  margin: 0 0 .35rem .1rem;
+  color: var(--sb-dashboard-muted);
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.sb-dashboard-filter-control .select2-container,
+.sb-dashboard-filter-control #dashboard_location {
+  width: 100% !important;
+}
+
+.sb-dashboard-filter-button {
+  width: 100% !important;
+  min-height: 2.75rem;
+  border: 1px solid rgba(125, 211, 252, .2) !important;
+  background: rgba(8, 17, 31, .7) !important;
+  color: var(--sb-dashboard-copy) !important;
+  box-shadow: none !important;
+}
+
+.sb-dashboard-filter-button:hover,
+.sb-dashboard-filter-button:focus {
+  border-color: rgba(56, 189, 248, .58) !important;
+  background: rgba(14, 55, 87, .72) !important;
+}
+
 .saverbro-dashboard #dashboard_location,
 .saverbro-dashboard #dashboard_date_filter {
   min-height: 2.75rem;
@@ -1160,6 +1311,30 @@ table.dataTable tfoot > tr > td {
   background: linear-gradient(140deg, rgba(12, 59, 100, .96), rgba(12, 31, 59, .98));
 }
 
+.sb-dashboard-kpi--transactions {
+  background: linear-gradient(140deg, rgba(6, 74, 91, .96), rgba(10, 36, 57, .98));
+}
+
+.sb-dashboard-kpi--expenses {
+  background: linear-gradient(140deg, rgba(25, 69, 84, .96), rgba(18, 35, 52, .98));
+}
+
+.sb-dashboard-kpi--returns {
+  background: linear-gradient(140deg, rgba(106, 39, 65, .96), rgba(50, 25, 45, .98));
+}
+
+.sb-dashboard-kpi--adjustments {
+  background: linear-gradient(140deg, rgba(71, 59, 19, .96), rgba(43, 34, 19, .98));
+}
+
+.sb-dashboard-kpi--returns .sb-dashboard-kpi__icon {
+  color: #fecdd3;
+}
+
+.sb-dashboard-kpi--adjustments .sb-dashboard-kpi__icon {
+  color: #fde68a;
+}
+
 .sb-dashboard-kpi__icon {
   position: relative;
   z-index: 1;
@@ -1191,6 +1366,7 @@ table.dataTable tfoot > tr > td {
 .sb-dashboard-kpi__content {
   position: relative;
   z-index: 1;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -1205,6 +1381,8 @@ table.dataTable tfoot > tr > td {
   font-size: .7rem;
   font-weight: 700;
   letter-spacing: .08em;
+  line-height: 1.25;
+  min-height: 1.75rem;
   text-transform: uppercase;
 }
 
@@ -1220,11 +1398,10 @@ table.dataTable tfoot > tr > td {
 
 .sb-dashboard-kpi__hint {
   margin-top: .45rem;
-  overflow: hidden;
   color: rgba(207, 224, 241, .72);
   font-size: .75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  min-height: 2.05rem;
 }
 
 .sb-walk-in-card {
@@ -1309,6 +1486,27 @@ table.dataTable tfoot > tr > td {
 
   .sb-dashboard-welcome {
     margin-bottom: 1rem;
+  }
+
+  .sb-dashboard-header-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1rem;
+  }
+
+  .sb-dashboard-header-filters {
+    align-items: stretch;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: .85rem;
+  }
+
+  .sb-dashboard-filter-control,
+  .sb-dashboard-filter-control--date {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
   }
 
   .sb-dashboard-kpi-grid {

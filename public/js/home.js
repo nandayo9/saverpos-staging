@@ -27,87 +27,103 @@ $(document).ready(function() {
         update_statistics(start, end);
     });
 
-    //atock alert datatables
-    var stock_alert_table = $('#stock_alert_table').DataTable({
+    //Most available models datatable
+    var most_available_models_table = $('#most_available_models_table').DataTable({
         processing: true,
         serverSide: true,
         ordering: false,
         searching: false,
-        scrollY:        "75vh",
         scrollX:        true,
-        scrollCollapse: true,
         fixedHeader: false,
         dom: 'Btirp',
+        pageLength: 5,
+        columns: [
+            { data: 'model', name: 'p.name' },
+            { data: 'available', name: 'available' },
+            { data: 'avg_age', name: 'avg_age' },
+            { data: 'avg_cost', name: 'avg_cost' },
+            { data: 'stock_value', name: 'stock_value' },
+        ],
         ajax: {
-            "url": '/home/product-stock-alert',
+            "url": '/home/most-available-models',
             "data": function ( d ) {
-                if ($('#stock_alert_location').length > 0) {
-                    d.location_id = $('#stock_alert_location').val();
+                if ($('#most_available_models_location').length > 0) {
+                    d.location_id = $('#most_available_models_location').val();
                 }
             }
         },
         fnDrawCallback: function(oSettings) {
-            __currency_convert_recursively($('#stock_alert_table'));
+            __currency_convert_recursively($('#most_available_models_table'));
         },
     });
 
-    $('#stock_alert_location').change( function(){
-        stock_alert_table.ajax.reload();
+    $('#most_available_models_location').change( function(){
+        most_available_models_table.ajax.reload();
     });
-    //payment dues datatables
-    purchase_payment_dues_table = $('#purchase_payment_dues_table').DataTable({
+    //Recent sales transactions datatable
+    recent_sell_transactions_table = $('#recent_sell_transactions_table').DataTable({
         processing: true,
         serverSide: true,
         ordering: false,
         searching: false,
-        scrollY:        "75vh",
         scrollX:        true,
-        scrollCollapse: true,
         fixedHeader: false,
         dom: 'Btirp',
+        pageLength: 5,
+        columns: [
+            { data: 'transaction_date', name: 'transactions.transaction_date' },
+            { data: 'customer', name: 'c.name' },
+            { data: 'invoice_no', name: 'transactions.invoice_no' },
+            { data: 'final_total', name: 'transactions.final_total' },
+            { data: 'payment_status', name: 'transactions.payment_status' },
+        ],
         ajax: {
-            "url": '/home/purchase-payment-dues',
+            "url": '/home/recent-sell-transactions',
             "data": function ( d ) {
-                if ($('#purchase_payment_dues_location').length > 0) {
-                    d.location_id = $('#purchase_payment_dues_location').val();
+                if ($('#recent_sell_transactions_location').length > 0) {
+                    d.location_id = $('#recent_sell_transactions_location').val();
                 }
             }
         },
         fnDrawCallback: function(oSettings) {
-            __currency_convert_recursively($('#purchase_payment_dues_table'));
+            __currency_convert_recursively($('#recent_sell_transactions_table'));
         },
     });
 
-    $('#purchase_payment_dues_location').change( function(){
-        purchase_payment_dues_table.ajax.reload();
+    $('#recent_sell_transactions_location').change( function(){
+        recent_sell_transactions_table.ajax.reload();
     });
 
-    //Sales dues datatables
-    sales_payment_dues_table = $('#sales_payment_dues_table').DataTable({
+    //Top selling products datatable
+    top_selling_products_table = $('#top_selling_products_table').DataTable({
         processing: true,
         serverSide: true,
         ordering: false,
         searching: false,
-        scrollY:        "75vh",
         scrollX:        true,
-        scrollCollapse: true,
         fixedHeader: false,
         dom: 'Btirp',
+        pageLength: 5,
+        columns: [
+            { data: 'product', name: 'p.name' },
+            { data: 'quantity_sold', name: 'quantity_sold' },
+            { data: 'sales_total', name: 'sales_total' },
+        ],
         ajax: {
-            "url": '/home/sales-payment-dues',
+            "url": '/home/top-selling-products',
             "data": function ( d ) {
-                if ($('#sales_payment_dues_location').length > 0) {
-                    d.location_id = $('#sales_payment_dues_location').val();
+                if ($('#top_selling_products_location').length > 0) {
+                    d.location_id = $('#top_selling_products_location').val();
                 }
             }
         },
         fnDrawCallback: function(oSettings) {
-            __currency_convert_recursively($('#sales_payment_dues_table'));
+            __currency_convert_recursively($('#top_selling_products_table'));
         },
     });
 
-    $('#sales_payment_dues_location').change( function(){
-        sales_payment_dues_table.ajax.reload();
+    $('#top_selling_products_location').change( function(){
+        top_selling_products_table.ajax.reload();
     });
 
     //Stock expiry report table
@@ -192,6 +208,11 @@ function update_statistics(start, end) {
             //sell details
             $('.total_sell').html(__currency_trans_from_en(data.total_sell || 0, true));
             $('.invoice_due').html(__currency_trans_from_en(data.invoice_due || 0, true));
+            $('.walk_in_total').text(data.walk_ins || 0);
+            $('.total_sell_transactions').text(data.total_sell_transactions || 0);
+            $('.total_expense_kpi').html(__currency_trans_from_en(data.total_expense || 0, true));
+            $('.total_sell_return_total').html(__currency_trans_from_en(data.total_sell_return_total || 0, true));
+            $('.total_stock_adjustment').html(__currency_trans_from_en(data.total_adjustment || 0, true));
             //expense details
             $('.total_expense').html(__currency_trans_from_en(data.total_expense, true));
             var total_purchase_return = data.total_purchase_return - data.total_purchase_return_paid;
@@ -206,17 +227,18 @@ function update_statistics(start, end) {
 
             // assign tooltip total_sell_return 
             var lang = $('#total_srp').data('value');
-            var splitlang = lang.split('-');
-            
-            var newContent = "<p class='mb-0 text-muted fs-10 mt-5'>" + splitlang[0] + ": <span class=''>" + __currency_trans_from_en(data.total_sell_return, true) + "</span><br>" + splitlang[1] + ": <span class=''>" + __currency_trans_from_en(data.total_sell_return_paid, true) + "</span></p>";
-            $('#total_srp').attr('data-content', newContent)
+            if (lang) {
+                var splitlang = lang.split('-');
+                var newContent = "<p class='mb-0 text-muted fs-10 mt-5'>" + splitlang[0] + ": <span class=''>" + __currency_trans_from_en(data.total_sell_return, true) + "</span><br>" + splitlang[1] + ": <span class=''>" + __currency_trans_from_en(data.total_sell_return_paid, true) + "</span></p>";
+                $('#total_srp').attr('data-content', newContent)
+            }
             // assign tooltip total_purchase_return 
             var lang = $('#total_prp').data('value');
-            var splitlang = lang.split('-');
-            
-            var newContent = "<p class='mb-0 text-muted fs-10 mt-5'>" + splitlang[0] + ": <span class=''>" + __currency_trans_from_en(data.total_purchase_return, true) + "</span><br>" + splitlang[1] + ": <span class=''>" + __currency_trans_from_en(data.total_purchase_return_paid, true) + "</span></p>";
-            
-            $('#total_prp').attr('data-content', newContent);
+            if (lang) {
+                var splitlang = lang.split('-');
+                var newContent = "<p class='mb-0 text-muted fs-10 mt-5'>" + splitlang[0] + ": <span class=''>" + __currency_trans_from_en(data.total_purchase_return, true) + "</span><br>" + splitlang[1] + ": <span class=''>" + __currency_trans_from_en(data.total_purchase_return_paid, true) + "</span></p>";
+                $('#total_prp').attr('data-content', newContent);
+            }
 
         },
     });

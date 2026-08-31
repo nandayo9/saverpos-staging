@@ -10,8 +10,8 @@
                     {{ __('home.welcome_message', ['name' => Session::get('user.first_name')]) }}
                 </h1>
             </div> --}}
-                    <div class="sm:tw-flex sm:tw-items-center sm:tw-justify-between sm:tw-gap-12">
-                        <div class="sb-dashboard-intro tw-mt-2 sm:tw-w-1/2 md:tw-w-1/2">
+                    <div class="sb-dashboard-header-row tw-mt-2">
+                        <div class="sb-dashboard-intro">
                             <p class="sb-dashboard-eyebrow">SAVERPOS Command Center</p>
                             <h1 class="tw-text-2xl md:tw-text-4xl tw-tracking-tight tw-font-semibold text-white">
                                 @lang('home.dashboard')
@@ -22,59 +22,54 @@
                         </div>
     
                         @if (auth()->user()->can('dashboard.data'))
-                            @if ($is_admin)
-                                <div class="tw-mt-2 sm:tw-w-1/3 md:tw-w-1/4 ">
-                                    @if (count($all_locations) > 1)
+                            <div class="sb-dashboard-header-filters">
+                                @if (count($all_locations) > 1)
+                                    <div class="sb-dashboard-filter-control">
+                                        <label class="sb-dashboard-filter-label" for="dashboard_location">
+                                            @lang('business.location')
+                                        </label>
                                         {!! Form::select('dashboard_location', $all_locations, null, [
                                             'class' => 'form-control select2',
                                             'placeholder' => __('lang_v1.select_location'),
                                             'id' => 'dashboard_location',
                                         ]) !!}
-                                    @endif
+                                    </div>
+                                @endif
+                                <div class="sb-dashboard-filter-control sb-dashboard-filter-control--date">
+                                    <span class="sb-dashboard-filter-label">Date range</span>
+                                    <button type="button" id="dashboard_date_filter"
+                                        class="sb-dashboard-filter-button tw-inline-flex tw-items-center tw-justify-center tw-w-full tw-gap-1 tw-px-3 tw-py-2 tw-text-sm tw-font-medium tw-transition-all tw-duration-200 tw-rounded-lg">
+                                        <svg aria-hidden="true" class="tw-size-5" xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none"
+                                            stroke-linecap="round" stroke-linejoin="round">
+                                            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                            <path
+                                                d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" />
+                                            <path d="M16 3v4" />
+                                            <path d="M8 3v4" />
+                                            <path d="M4 11h16" />
+                                            <path d="M7 14h.013" />
+                                            <path d="M10.01 14h.005" />
+                                            <path d="M13.01 14h.005" />
+                                            <path d="M16.015 14h.005" />
+                                            <path d="M13.015 17h.005" />
+                                            <path d="M7.01 17h.005" />
+                                            <path d="M10.01 17h.005" />
+                                        </svg>
+                                        <span>
+                                            {{ __('messages.filter_by_date') }}
+                                        </span>
+                                        <svg aria-hidden="true" class="tw-size-4" xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"
+                                            stroke-linecap="round" stroke-linejoin="round">
+                                            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                            <path d="M6 9l6 6l6 -6" />
+                                        </svg>
+                                    </button>
                                 </div>
-            
-                                <div class="tw-mt-2 sm:tw-w-1/3 md:tw-w-1/4 tw-text-right">
-                                    @if ($is_admin)
-                                        <button type="button" id="dashboard_date_filter"
-                                            class="tw-inline-flex tw-items-center tw-justify-center tw-w-full tw-gap-1 tw-px-3 tw-py-2 tw-text-sm tw-font-medium tw-text-gray-900 tw-transition-all tw-duration-200 tw-bg-white tw-rounded-lg sm:tw-w-auto hover:tw-bg-primary-50">
-                                            <svg aria-hidden="true" class="tw-size-5" xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none"
-                                                stroke-linecap="round" stroke-linejoin="round">
-                                                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                                                <path
-                                                    d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" />
-                                                <path d="M16 3v4" />
-                                                <path d="M8 3v4" />
-                                                <path d="M4 11h16" />
-                                                <path d="M7 14h.013" />
-                                                <path d="M10.01 14h.005" />
-                                                <path d="M13.01 14h.005" />
-                                                <path d="M16.015 14h.005" />
-                                                <path d="M13.015 17h.005" />
-                                                <path d="M7.01 17h.005" />
-                                                <path d="M10.01 17h.005" />
-                                            </svg>
-                                            <span>
-                                                {{ __('messages.filter_by_date') }}
-                                            </span>
-                                            <svg aria-hidden="true" class="tw-size-4" xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"
-                                                stroke-linecap="round" stroke-linejoin="round">
-                                                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                                                <path d="M6 9l6 6l6 -6" />
-                                            </svg>
-                                        </button>
-                                    @endif
-                                </div>
-                            @endif
+                            </div>
                         @endif
                     </div>
-                    @if(!empty($walkInSummary))
-                        <a href="{{ route('walk-ins.index') }}" class="sb-walk-in-card tw-block tw-mt-5 tw-p-4 tw-bg-white tw-rounded-xl tw-shadow-sm tw-ring-1 tw-ring-gray-200 hover:tw-shadow-md">
-                            <div class="tw-flex tw-items-center tw-justify-between tw-gap-4"><div><p class="tw-text-sm tw-font-medium tw-text-gray-500">Walk-In Intelligence · Today</p><p class="tw-text-xs tw-text-gray-400">Open records are not silently counted as no sale.</p></div><span class="tw-text-sm tw-font-semibold tw-text-primary-600">Open dashboard →</span></div>
-                            <div class="sb-walk-in-card__stats tw-grid tw-grid-cols-2 sm:tw-grid-cols-6 tw-gap-3 tw-mt-3 tw-text-center"><div><strong>{{ $walkInSummary['walk_ins'] }}</strong><br><small>Walk-ins</small></div><div><strong>{{ $walkInSummary['converted'] }}</strong><br><small>Converted</small></div><div><strong>{{ $walkInSummary['no_sale'] }}</strong><br><small>No sale</small></div><div><strong>{{ $walkInSummary['open'] }}</strong><br><small>Open</small></div><div><strong>{{ number_format($walkInSummary['conversion_rate'], 1) }}%</strong><br><small>Conversion</small></div><div><strong>@format_currency($walkInSummary['revenue'])</strong><br><small>Revenue</small></div></div>
-                        </a>
-                    @endif
                     @if (auth()->user()->can('dashboard.data'))
                         @if ($is_admin)
                             <div class="sb-dashboard-metrics tw-grid tw-grid-cols-1 tw-gap-4 tw-mt-6 sm:tw-grid-cols-2 xl:tw-grid-cols-4 sm:tw-gap-5">
@@ -380,18 +375,18 @@
                 <article class="sb-dashboard-kpi sb-dashboard-kpi--revenue">
                     <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-wallet"></i></span>
                     <div class="sb-dashboard-kpi__content">
-                        <p class="sb-dashboard-kpi__label">Today sale</p>
+                        <p class="sb-dashboard-kpi__label">Total Sale</p>
                         <p class="sb-dashboard-kpi__value total_sell">@format_currency(0)</p>
-                        <p class="sb-dashboard-kpi__hint">Selected dashboard period</p>
+                        <p class="sb-dashboard-kpi__hint">Sales in selected range</p>
                     </div>
                 </article>
 
                 <article class="sb-dashboard-kpi sb-dashboard-kpi--purchase">
                     <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-shopping-cart"></i></span>
                     <div class="sb-dashboard-kpi__content">
-                        <p class="sb-dashboard-kpi__label">Today purchase due</p>
+                        <p class="sb-dashboard-kpi__label">Total Purchase</p>
                         <p class="sb-dashboard-kpi__value purchase_due">@format_currency(0)</p>
-                        <p class="sb-dashboard-kpi__hint">Amount due on purchases</p>
+                        <p class="sb-dashboard-kpi__hint">Due in selected range</p>
                     </div>
                 </article>
 
@@ -400,24 +395,69 @@
                     <div class="sb-dashboard-kpi__content">
                         <p class="sb-dashboard-kpi__label">Outstanding invoices</p>
                         <p class="sb-dashboard-kpi__value invoice_due">@format_currency(0)</p>
-                        <p class="sb-dashboard-kpi__hint">Amount still due</p>
+                        <p class="sb-dashboard-kpi__hint">Unpaid invoice balance</p>
                     </div>
                 </article>
 
                 <article class="sb-dashboard-kpi sb-dashboard-kpi--visits">
                     <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-users"></i></span>
                     <div class="sb-dashboard-kpi__content">
-                        <p class="sb-dashboard-kpi__label">Total visits this month</p>
-                        @if (!empty($walkInMonthSummary))
-                            <p class="sb-dashboard-kpi__value">{{ $walkInMonthSummary['walk_ins'] }}</p>
-                            <p class="sb-dashboard-kpi__hint">Walk-In Intelligence · Month to date</p>
+                        <p class="sb-dashboard-kpi__label">Total Visits today</p>
+                        @if (!empty($walkInSummary))
+                            <p class="sb-dashboard-kpi__value walk_in_total">{{ $walkInSummary['walk_ins'] }}</p>
+                            <p class="sb-dashboard-kpi__hint">Visits in selected range</p>
                         @else
-                            <p class="sb-dashboard-kpi__value" aria-label="Visits unavailable">—</p>
-                            <p class="sb-dashboard-kpi__hint">Monthly walk-in data unavailable</p>
+                            <p class="sb-dashboard-kpi__value walk_in_total">0</p>
+                            <p class="sb-dashboard-kpi__hint">Visits in selected range</p>
                         @endif
                     </div>
                 </article>
             </section>
+
+            <section class="sb-dashboard-kpi-grid sb-dashboard-kpi-grid--secondary" aria-label="Additional dashboard summary">
+                <article class="sb-dashboard-kpi sb-dashboard-kpi--transactions">
+                    <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-receipt"></i></span>
+                    <div class="sb-dashboard-kpi__content">
+                        <p class="sb-dashboard-kpi__label">Total Sell Transaction</p>
+                        <p class="sb-dashboard-kpi__value total_sell_transactions">0</p>
+                        <p class="sb-dashboard-kpi__hint">Finalized sales count</p>
+                    </div>
+                </article>
+
+                <article class="sb-dashboard-kpi sb-dashboard-kpi--expenses">
+                    <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-wallet"></i></span>
+                    <div class="sb-dashboard-kpi__content">
+                        <p class="sb-dashboard-kpi__label">Total Expenses</p>
+                        <p class="sb-dashboard-kpi__value total_expense_kpi">@format_currency(0)</p>
+                        <p class="sb-dashboard-kpi__hint">Expenses in selected range</p>
+                    </div>
+                </article>
+
+                <article class="sb-dashboard-kpi sb-dashboard-kpi--returns">
+                    <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-undo"></i></span>
+                    <div class="sb-dashboard-kpi__content">
+                        <p class="sb-dashboard-kpi__label">Total Sell Return</p>
+                        <p class="sb-dashboard-kpi__value total_sell_return_total">@format_currency(0)</p>
+                        <p class="sb-dashboard-kpi__hint">Returned sales value</p>
+                    </div>
+                </article>
+
+                <article class="sb-dashboard-kpi sb-dashboard-kpi--adjustments">
+                    <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-sliders-h"></i></span>
+                    <div class="sb-dashboard-kpi__content">
+                        <p class="sb-dashboard-kpi__label">Total Stock Adjustment</p>
+                        <p class="sb-dashboard-kpi__value total_stock_adjustment">@format_currency(0)</p>
+                        <p class="sb-dashboard-kpi__hint">Stock adjustments value</p>
+                    </div>
+                </article>
+            </section>
+
+            @if (!empty($walkInSummary))
+                <a href="{{ route('walk-ins.index') }}" class="sb-walk-in-card tw-block tw-mt-5 tw-p-4 tw-bg-white tw-rounded-xl tw-shadow-sm tw-ring-1 tw-ring-gray-200 hover:tw-shadow-md">
+                    <div class="tw-flex tw-items-center tw-justify-between tw-gap-4"><div><p class="tw-text-sm tw-font-medium tw-text-gray-500">Walk-In Intelligence · Today</p><p class="tw-text-xs tw-text-gray-400">Open records are not silently counted as no sale.</p></div><span class="tw-text-sm tw-font-semibold tw-text-primary-600">Open dashboard →</span></div>
+                    <div class="sb-walk-in-card__stats tw-grid tw-grid-cols-2 sm:tw-grid-cols-6 tw-gap-3 tw-mt-3 tw-text-center"><div><strong>{{ $walkInSummary['walk_ins'] }}</strong><br><small>Walk-ins</small></div><div><strong>{{ $walkInSummary['converted'] }}</strong><br><small>Converted</small></div><div><strong>{{ $walkInSummary['no_sale'] }}</strong><br><small>No sale</small></div><div><strong>{{ $walkInSummary['open'] }}</strong><br><small>Open</small></div><div><strong>{{ number_format($walkInSummary['conversion_rate'], 1) }}%</strong><br><small>Conversion</small></div><div><strong>@format_currency($walkInSummary['revenue'])</strong><br><small>Revenue</small></div></div>
+                </a>
+            @endif
 
             <div class="tw-grid tw-grid-cols-1 tw-gap-4 sm:tw-gap-5 lg:tw-grid-cols-2">
                 @if (auth()->user()->can('sell.view') || auth()->user()->can('direct_sell.view'))
@@ -502,35 +542,31 @@
                 @endif --}}
                 @if (auth()->user()->can('sell.view') || auth()->user()->can('direct_sell.view'))
                     <div
-                        class="tw-transition-all lg:tw-col-span-1 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
+                        class="sb-dashboard-recent-sales tw-transition-all lg:tw-col-span-1 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                         <div class="tw-p-4 sm:tw-p-5">
                             <div class="tw-flex tw-items-center tw-gap-2.5">
                                 <div
                                     class="tw-border-2 tw-flex tw-items-center tw-justify-center tw-rounded-full tw-w-10 tw-h-10">
-                                    <svg aria-hidden="true" class="tw-text-yellow-500 tw-size-5 tw-shrink-0"
+                                    <svg aria-hidden="true" class="tw-text-sky-400 tw-size-5 tw-shrink-0"
                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2"
                                         stroke="currentColor" fill="none" stroke-linecap="round"
                                         stroke-linejoin="round">
                                         <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                                        <path d="M12 9v4"></path>
-                                        <path
-                                            d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z">
-                                        </path>
-                                        <path d="M12 16h.01"></path>
+                                        <circle cx="12" cy="12" r="9"></circle>
+                                        <polyline points="12 7 12 12 15 15"></polyline>
                                     </svg>
                                 </div>
                                 <div class="tw-flex tw-items-center tw-flex-1 tw-min-w-0 tw-gap-1">
                                     <div class="tw-w-full sm:tw-w-1/2 md:tw-w-1/2">
                                         <h3 class="tw-font-bold tw-text-base lg:tw-text-xl">
-                                            {{ __('lang_v1.sales_payment_dues') }}
-                                            @show_tooltip(__('lang_v1.tooltip_sales_payment_dues'))
+                                            Recent Sales Transaction
                                         </h3>
                                     </div>
                                     <div class="tw-w-full sm:tw-w-1/2 md:tw-w-1/2">
-                                        {!! Form::select('sales_payment_dues_location', $all_locations, null, [
+                                        {!! Form::select('recent_sell_transactions_location', $all_locations, null, [
                                             'class' => 'form-control select2',
                                             'placeholder' => __('lang_v1.select_location'),
-                                            'id' => 'sales_payment_dues_location',
+                                            'id' => 'recent_sell_transactions_location',
                                         ]) !!}
                                     </div>
                                 </div>
@@ -540,14 +576,15 @@
                             <div class="tw-flow-root tw-mt-5  tw-border-gray-200">
                                 <div class="tw--mx-4 tw--my-2 tw-overflow-x-auto sm:tw--mx-5">
                                     <div class="tw-inline-block tw-min-w-full tw-py-2 tw-align-middle sm:tw-px-5">
-                                        <table class="table table-bordered table-striped" id="sales_payment_dues_table"
+                                        <table class="table table-bordered table-striped" id="recent_sell_transactions_table"
                                             style="width: 100%;">
                                             <thead>
                                                 <tr>
+                                                    <th>@lang('messages.date')</th>
                                                     <th>@lang('contact.customer')</th>
                                                     <th>@lang('sale.invoice_no')</th>
-                                                    <th>@lang('home.due_amount')</th>
-                                                    <th class="not-export">@lang('messages.action')</th>
+                                                    <th>@lang('sale.total_amount')</th>
+                                                    <th>@lang('sale.payment_status')</th>
                                                 </tr>
                                             </thead>
                                         </table>
@@ -559,52 +596,49 @@
                 @endif
                 @can('purchase.view')
                     <div
-                        class="tw-transition-all lg:tw-col-span-1 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
+                        class="sb-dashboard-top-products tw-transition-all lg:tw-col-span-1 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                         <div class="tw-p-4 sm:tw-p-5">
                             <div class="tw-flex tw-items-center tw-gap-2.5">
                                 <div
                                     class="tw-border-2 tw-flex tw-items-center tw-justify-center tw-rounded-full tw-w-10 tw-h-10">
-                                    <svg aria-hidden="true" class="tw-text-yellow-500 tw-size-5 tw-shrink-0"
+                                    <svg aria-hidden="true" class="tw-text-amber-400 tw-size-5 tw-shrink-0"
                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2"
-                                        stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                        stroke="currentColor" fill="none" stroke-linecap="round"
+                                        stroke-linejoin="round">
                                         <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                                        <path d="M12 9v4"></path>
-                                        <path
-                                            d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z">
-                                        </path>
-                                        <path d="M12 16h.01"></path>
+                                        <path d="M8 21h8"></path>
+                                        <path d="M12 17v4"></path>
+                                        <path d="M7 4h10l-1 4a4 4 0 0 1 -8 0l-1 -4z"></path>
+                                        <path d="M5 4h14"></path>
+                                        <path d="M5 4v2a3 3 0 0 0 3 3"></path>
+                                        <path d="M19 4v2a3 3 0 0 1 -3 3"></path>
                                     </svg>
                                 </div>
                                 <div class="tw-flex tw-items-center tw-flex-1 tw-min-w-0 tw-gap-1">
                                     <div class="tw-w-full sm:tw-w-1/2 md:tw-w-1/2">
                                         <h3 class="tw-font-bold tw-text-base lg:tw-text-xl">
-                                            {{ __('lang_v1.purchase_payment_dues') }}
-                                            @show_tooltip(__('tooltip.payment_dues'))
+                                            Top Selling Products
                                         </h3>
                                     </div>
                                     <div class="tw-w-full sm:tw-w-1/2 md:tw-w-1/2">
-                                        @if (count($all_locations) > 1)
-                                            {!! Form::select('purchase_payment_dues_location', $all_locations, null, [
-                                                'class' => 'form-control select2 ',
-                                                'placeholder' => __('lang_v1.select_location'),
-                                                'id' => 'purchase_payment_dues_location',
-                                            ]) !!}
-                                        @endif
+                                        {!! Form::select('top_selling_products_location', $all_locations, null, [
+                                            'class' => 'form-control select2',
+                                            'placeholder' => __('lang_v1.select_location'),
+                                            'id' => 'top_selling_products_location',
+                                        ]) !!}
                                     </div>
                                 </div>
-
                             </div>
-                            <div class="tw-flow-root tw-mt-5  tw-border-gray-200">
+                            <div class="tw-flow-root tw-mt-5 tw-border-gray-200">
                                 <div class="tw--mx-4 tw--my-2 tw-overflow-x-auto sm:tw--mx-5">
                                     <div class="tw-inline-block tw-min-w-full tw-py-2 tw-align-middle sm:tw-px-5">
-                                        <table class="table table-bordered table-striped" id="purchase_payment_dues_table"
+                                        <table class="table table-bordered table-striped" id="top_selling_products_table"
                                             style="width: 100%;">
                                             <thead>
                                                 <tr>
-                                                    <th>@lang('purchase.supplier')</th>
-                                                    <th>@lang('purchase.ref_no')</th>
-                                                    <th>@lang('home.due_amount')</th>
-                                                    <th class="not-export">@lang('messages.action')</th>
+                                                    <th>@lang('sale.product')</th>
+                                                    <th>Quantity Sold</th>
+                                                    <th>Sales Value</th>
                                                 </tr>
                                             </thead>
                                         </table>
@@ -616,33 +650,32 @@
                 @endcan
                 @can('stock_report.view')
                     <div
-                        class="tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
+                            class="sb-dashboard-most-available tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                         <div class="tw-p-4 sm:tw-p-5">
                             <div class="tw-flex tw-items-center tw-gap-2.5">
                                 <div
                                     class="tw-border-2 tw-flex tw-items-center tw-justify-center tw-rounded-full tw-w-10 tw-h-10">
-                                    <svg aria-hidden="true" class="tw-text-yellow-500 tw-size-5 tw-shrink-0"
+                                    <svg aria-hidden="true" class="tw-text-emerald-400 tw-size-5 tw-shrink-0"
                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2"
                                         stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
                                         <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                                        <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"></path>
-                                        <path d="M12 8v4"></path>
-                                        <path d="M12 16h.01"></path>
+                                        <path d="M4 7.5l8-4l8 4l-8 4l-8-4"></path>
+                                        <path d="M4 7.5v9l8 4l8-4v-9"></path>
+                                        <path d="M12 11.5v9"></path>
                                     </svg>
                                 </div>
                                 <div class="tw-flex tw-items-center tw-flex-1 tw-min-w-0 tw-gap-1">
                                     <div class="tw-w-full sm:tw-w-1/2 md:tw-w-1/2">
                                         <h3 class="tw-font-bold tw-text-base lg:tw-text-xl">
-                                            {{ __('home.product_stock_alert') }}
-                                            @show_tooltip(__('tooltip.product_stock_alert'))
+                                            Most Available Model
                                         </h3>
                                     </div>
                                     <div class="tw-w-full sm:tw-w-1/2 md:tw-w-1/2">
                                         @if (count($all_locations) > 1)
-                                            {!! Form::select('stock_alert_location', $all_locations, null, [
+                                            {!! Form::select('most_available_models_location', $all_locations, null, [
                                                 'class' => 'form-control select2',
                                                 'placeholder' => __('lang_v1.select_location'),
-                                                'id' => 'stock_alert_location',
+                                                'id' => 'most_available_models_location',
                                             ]) !!}
                                         @endif
                                     </div>
@@ -651,13 +684,15 @@
                             <div class="tw-flow-root tw-mt-5  tw-border-gray-200">
                                 <div class="tw--mx-4 tw--my-2 tw-overflow-x-auto sm:tw--mx-5">
                                     <div class="tw-inline-block tw-min-w-full tw-py-2 tw-align-middle sm:tw-px-5">
-                                        <table class="table table-bordered table-striped" id="stock_alert_table"
+                                        <table class="table table-bordered table-striped" id="most_available_models_table"
                                             style="width: 100%;">
                                             <thead>
                                                 <tr>
-                                                    <th>@lang('sale.product')</th>
-                                                    <th>@lang('business.location')</th>
-                                                    <th>@lang('report.current_stock')</th>
+                                                    <th>Model</th>
+                                                    <th>Available</th>
+                                                    <th>Avg Age</th>
+                                                    <th>Avg Cost</th>
+                                                    <th>Stock Value</th>
                                                 </tr>
                                             </thead>
                                         </table>
@@ -908,83 +943,57 @@
                     </div>
 
                 @endif
-                @if (auth()->user()->can('access_pending_shipments_only') ||
-                        auth()->user()->can('access_shipping') ||
-                        auth()->user()->can('access_own_shipping'))
+                @if (auth()->user()->can('dashboard.data'))
                     <div
                         class="tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                         <div class="tw-p-4 sm:tw-p-5">
                             <div class="tw-flex tw-items-center tw-gap-2.5">
                                 <div
                                     class="tw-border-2 tw-flex tw-items-center tw-justify-center tw-rounded-full tw-w-10 tw-h-10">
-                                    <svg aria-hidden="true" class="tw-text-yellow-500 tw-size-5 tw-shrink-0"
+                                    <svg aria-hidden="true" class="tw-text-emerald-400 tw-size-5 tw-shrink-0"
                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2"
                                         stroke="currentColor" fill="none" stroke-linecap="round"
                                         stroke-linejoin="round">
                                         <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                                        <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"></path>
-                                        <path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"></path>
-                                        <path d="M5 17h-2v-4m-1 -8h11v12m-4 0h6m4 0h2v-6h-8m0 -5h5l3 5"></path>
-                                        <path d="M3 9l4 0"></path>
+                                        <path d="M4 19v-10"></path>
+                                        <path d="M10 19v-6"></path>
+                                        <path d="M16 19v-14"></path>
+                                        <path d="M22 19v-9"></path>
+                                        <path d="M3 6l6 -3l6 3l6 -3"></path>
                                     </svg>
                                 </div>
                                 <div class="tw-flex tw-items-center tw-flex-1 tw-min-w-0 tw-gap-1">
                                     <div class="tw-w-full sm:tw-w-1/2 md:tw-w-1/2">
                                         <h3 class="tw-font-bold tw-text-base lg:tw-text-xl">
-                                            @lang('lang_v1.pending_shipments')
+                                            Branch Performance This Month
                                         </h3>
                                     </div>
                                     <div class="tw-w-full sm:tw-w-1/2 md:tw-w-1/2">
-                                        @if (count($all_locations) > 1)
-                                            {!! Form::select('pending_shipments_location', $all_locations, null, [
-                                                'class' => 'form-control select2 ',
-                                                'placeholder' => __('lang_v1.select_location'),
-                                                'id' => 'pending_shipments_location',
-                                            ]) !!}
-                                        @endif
+                                        {!! Form::select('branch_performance_period', [
+                                            '30' => '30 Days',
+                                            'today' => 'Today',
+                                            'yesterday' => 'Yesterday',
+                                            '7' => '7 Days',
+                                        ], '30', [
+                                            'class' => 'form-control select2',
+                                            'id' => 'branch_performance_period',
+                                        ]) !!}
                                     </div>
                                 </div>
                             </div>
                             <div class="tw-flow-root tw-mt-5  tw-border-gray-200">
                                 <div class="tw--mx-4 tw--my-2 tw-overflow-x-auto sm:tw--mx-5">
                                     <div class="tw-inline-block tw-min-w-full tw-py-2 tw-align-middle sm:tw-px-5">
-                                        <table class="table table-bordered table-striped ajax_view" id="shipments_table">
+                                        <table class="table table-bordered table-striped" id="branch_performance_table"
+                                            style="width: 100%;">
                                             <thead>
                                                 <tr>
-                                                    <th class="not-export">@lang('messages.action')</th>
-                                                    <th>@lang('messages.date')</th>
-                                                    <th>@lang('sale.invoice_no')</th>
-                                                    <th>@lang('sale.customer_name')</th>
-                                                    <th>@lang('lang_v1.contact_no')</th>
-                                                    <th>@lang('sale.location')</th>
-                                                    <th>@lang('lang_v1.shipping_status')</th>
-                                                    @if (!empty($custom_labels['shipping']['custom_field_1']))
-                                                        <th>
-                                                            {{ $custom_labels['shipping']['custom_field_1'] }}
-                                                        </th>
-                                                    @endif
-                                                    @if (!empty($custom_labels['shipping']['custom_field_2']))
-                                                        <th>
-                                                            {{ $custom_labels['shipping']['custom_field_2'] }}
-                                                        </th>
-                                                    @endif
-                                                    @if (!empty($custom_labels['shipping']['custom_field_3']))
-                                                        <th>
-                                                            {{ $custom_labels['shipping']['custom_field_3'] }}
-                                                        </th>
-                                                    @endif
-                                                    @if (!empty($custom_labels['shipping']['custom_field_4']))
-                                                        <th>
-                                                            {{ $custom_labels['shipping']['custom_field_4'] }}
-                                                        </th>
-                                                    @endif
-                                                    @if (!empty($custom_labels['shipping']['custom_field_5']))
-                                                        <th>
-                                                            {{ $custom_labels['shipping']['custom_field_5'] }}
-                                                        </th>
-                                                    @endif
-                                                    <th>@lang('sale.payment_status')</th>
-                                                    <th>@lang('restaurant.service_staff')</th>
+                                                    <th>Branch</th>
+                                                    <th>Sales</th>
+                                                    <th>Walk-ins</th>
+                                                    <th>Sold</th>
+                                                    <th>Conversion</th>
+                                                    <th>Gross Profit</th>
                                                 </tr>
                                             </thead>
                                         </table>
@@ -1080,7 +1089,7 @@
 @endsection
 
 @section('javascript')
-    <script src="{{ asset('js/home.js?v=' . $asset_v) }}"></script>
+    <script src="{{ asset('js/home.js?v=' . $asset_v . '&mtime=' . filemtime(public_path('js/home.js'))) }}"></script>
     <script src="{{ asset('js/payment.js?v=' . $asset_v) }}"></script>
     @includeIf('sales_order.common_js')
     @includeIf('purchase_order.common_js')
@@ -1379,106 +1388,35 @@
                 });
             @endif
 
-            sell_table = $('#shipments_table').DataTable({
+            branch_performance_table = $('#branch_performance_table').DataTable({
                 processing: true,
                 serverSide: true,
-                fixedHeader:false,
-                aaSorting: [
-                    [1, 'desc']
-                ],
-                scrollY: "75vh",
+                ordering: false,
+                searching: false,
                 scrollX: true,
-                scrollCollapse: true,
+                pageLength: 5,
+                dom: 'Btirp',
                 "ajax": {
-                    "url": '{{ action([\App\Http\Controllers\SellController::class, 'index']) }}',
+                    "url": '/home/branch-performance',
                     "data": function(d) {
-                        d.only_pending_shipments = true;
-                        if ($('#pending_shipments_location').length > 0) {
-                            d.location_id = $('#pending_shipments_location').val();
-                        }
+                        d.period = $('#branch_performance_period').val();
                     }
                 },
-                columns: [{
-                        data: 'action',
-                        name: 'action',
-                        searchable: false,
-                        orderable: false
-                    },
-                    {
-                        data: 'transaction_date',
-                        name: 'transaction_date'
-                    },
-                    {
-                        data: 'invoice_no',
-                        name: 'invoice_no'
-                    },
-                    {
-                        data: 'conatct_name',
-                        name: 'conatct_name'
-                    },
-                    {
-                        data: 'mobile',
-                        name: 'contacts.mobile'
-                    },
-                    {
-                        data: 'business_location',
-                        name: 'bl.name'
-                    },
-                    {
-                        data: 'shipping_status',
-                        name: 'shipping_status'
-                    },
-                    @if (!empty($custom_labels['shipping']['custom_field_1']))
-                        {
-                            data: 'shipping_custom_field_1',
-                            name: 'shipping_custom_field_1'
-                        },
-                    @endif
-                    @if (!empty($custom_labels['shipping']['custom_field_2']))
-                        {
-                            data: 'shipping_custom_field_2',
-                            name: 'shipping_custom_field_2'
-                        },
-                    @endif
-                    @if (!empty($custom_labels['shipping']['custom_field_3']))
-                        {
-                            data: 'shipping_custom_field_3',
-                            name: 'shipping_custom_field_3'
-                        },
-                    @endif
-                    @if (!empty($custom_labels['shipping']['custom_field_4']))
-                        {
-                            data: 'shipping_custom_field_4',
-                            name: 'shipping_custom_field_4'
-                        },
-                    @endif
-                    @if (!empty($custom_labels['shipping']['custom_field_5']))
-                        {
-                            data: 'shipping_custom_field_5',
-                            name: 'shipping_custom_field_5'
-                        },
-                    @endif {
-                        data: 'payment_status',
-                        name: 'payment_status'
-                    },
-                    {
-                        data: 'waiter',
-                        name: 'ss.first_name',
-                        @if (empty($is_service_staff_enabled))
-                            visible: false
-                        @endif
-                    }
+                columns: [
+                    { data: 'branch', name: 'branch' },
+                    { data: 'sales', name: 'sales' },
+                    { data: 'walk_ins', name: 'walk_ins' },
+                    { data: 'sold', name: 'sold' },
+                    { data: 'conversion', name: 'conversion' },
+                    { data: 'gross_profit', name: 'gross_profit' },
                 ],
                 "fnDrawCallback": function(oSettings) {
-                    __currency_convert_recursively($('#sell_table'));
-                },
-                createdRow: function(row, data, dataIndex) {
-                    $(row).find('td:eq(4)').attr('class', 'clickable_td');
+                    __currency_convert_recursively($('#branch_performance_table'));
                 }
             });
 
-            $('#pending_shipments_location').change(function() {
-                sell_table.ajax.reload();
+            $('#branch_performance_period').change(function() {
+                branch_performance_table.ajax.reload();
             });
         });
     </script>

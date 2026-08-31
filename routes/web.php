@@ -134,8 +134,12 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::get('/home', [HomeController::class, 'index'])->name('home');
     Route::get('/home/get-totals', [HomeController::class, 'getTotals']);
     Route::get('/home/product-stock-alert', [HomeController::class, 'getProductStockAlert']);
+    Route::get('/home/most-available-models', [HomeController::class, 'getMostAvailableModels']);
+    Route::get('/home/branch-performance', [HomeController::class, 'getBranchPerformance']);
     Route::get('/home/purchase-payment-dues', [HomeController::class, 'getPurchasePaymentDues']);
     Route::get('/home/sales-payment-dues', [HomeController::class, 'getSalesPaymentDues']);
+    Route::get('/home/recent-sell-transactions', [HomeController::class, 'getRecentSellTransactions']);
+    Route::get('/home/top-selling-products', [HomeController::class, 'getTopSellingProducts']);
     Route::get('/walk-ins', [WalkInController::class, 'index'])->name('walk-ins.index');
     Route::get('/walk-ins/open', [WalkInController::class, 'open'])->name('walk-ins.open');
     Route::post('/walk-ins', [WalkInController::class, 'store'])->name('walk-ins.store');

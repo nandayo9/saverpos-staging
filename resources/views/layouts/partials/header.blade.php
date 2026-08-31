@@ -198,7 +198,7 @@
 
 
 
-                <details class="tw-dw-dropdown tw-relative tw-inline-block tw-text-left">
+                <details class="sb-account-menu tw-dw-dropdown tw-relative tw-inline-block tw-text-left">
                     <summary data-toggle="popover"
                         class="tw-dw-m-1 tw-inline-flex tw-transition-all tw-ring-1 tw-ring-white/10 tw-cursor-pointer tw-duration-200 theme-btn-bg tw-py-1.5 tw-px-3 tw-rounded-lg tw-items-center tw-justify-center tw-text-sm tw-font-medium tw-text-white hover:tw-text-white tw-gap-1">
                         <span class="tw-hidden md:tw-block">{{ Auth::User()->first_name }} {{ Auth::User()->last_name }}</span>
@@ -216,14 +216,14 @@
                         
                     </summary>
 
-                    <ul class="tw-p-2 tw-w-48 tw-absolute {{ $is_rtl ? 'tw-left-0' : 'tw-right-0' }} tw-z-10 tw-mt-2 tw-origin-top-right tw-bg-white tw-rounded-lg tw-shadow-lg tw-ring-1 tw-ring-gray-200 focus:tw-outline-none"
+                    <ul class="sb-account-menu__panel tw-p-2 tw-w-48 tw-absolute {{ $is_rtl ? 'tw-left-0' : 'tw-right-0' }} tw-z-10 tw-mt-2 tw-origin-top-right tw-bg-white tw-rounded-lg tw-shadow-lg tw-ring-1 tw-ring-gray-200 focus:tw-outline-none"
                         role="menu" tabindex="-1">
-                        <div class="tw-px-4 tw-pt-3 tw-pb-1 tw-flex tw-items-center tw-justify-between tw-gap-2" role="none">
+                        <div class="sb-account-menu__meta tw-px-4 tw-pt-3 tw-pb-1 tw-flex tw-items-center tw-justify-between tw-gap-2" role="none">
                             <div class="tw-min-w-0" role="none">
-                                <p class="tw-text-sm" role="none">
+                                <p class="sb-account-menu__eyebrow tw-text-sm" role="none">
                                     @lang('lang_v1.signed_in_as')
                                 </p>
-                                <p class="tw-text-sm tw-font-medium tw-text-gray-900 tw-truncate" role="none">
+                                <p class="sb-account-menu__name tw-text-sm tw-font-medium tw-text-gray-900 tw-truncate" role="none">
                                     {{ Auth::User()->first_name }} {{ Auth::User()->last_name }}
                                 </p>
                             </div>
@@ -238,9 +238,9 @@
 
                         <li>
                             <a href="{{ action([\App\Http\Controllers\UserController::class, 'getProfile']) }}"
-                                class="tw-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-text-sm tw-font-medium tw-text-gray-600 tw-transition-all tw-duration-200 tw-rounded-lg hover:tw-text-gray-900 hover:tw-bg-gray-100"
+                                class="sb-account-menu__item tw-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-text-sm tw-font-medium tw-text-gray-600 tw-transition-all tw-duration-200 tw-rounded-lg hover:tw-text-gray-900 hover:tw-bg-gray-100"
                                 role="menuitem" tabindex="-1">
-                                <svg aria-hidden="true" class="tw-w-5 tw-h-5" xmlns="http://www.w3.org/2000/svg"
+                                <svg aria-hidden="true" class="sb-account-menu__icon tw-w-5 tw-h-5" xmlns="http://www.w3.org/2000/svg"
                                     viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" fill="none"
                                     stroke-linecap="round" stroke-linejoin="round">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -253,9 +253,9 @@
                         </li>
                         <li>
                             <a href="{{ action([\App\Http\Controllers\Auth\LoginController::class, 'logout']) }}"
-                                class="tw-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-text-sm tw-font-medium tw-text-gray-600 tw-transition-all tw-duration-200 tw-rounded-lg hover:tw-text-gray-900 hover:tw-bg-gray-100"
+                                class="sb-account-menu__item sb-account-menu__item--danger tw-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-text-sm tw-font-medium tw-text-gray-600 tw-transition-all tw-duration-200 tw-rounded-lg hover:tw-text-gray-900 hover:tw-bg-gray-100"
                                 role="menuitem" tabindex="-1">
-                                <svg aria-hidden="true" class="tw-w-5 tw-h-5" xmlns="http://www.w3.org/2000/svg"
+                                <svg aria-hidden="true" class="sb-account-menu__icon tw-w-5 tw-h-5" xmlns="http://www.w3.org/2000/svg"
                                     viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" fill="none"
                                     stroke-linecap="round" stroke-linejoin="round">
                                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />

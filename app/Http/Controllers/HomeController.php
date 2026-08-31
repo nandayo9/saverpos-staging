@@ -292,7 +292,7 @@ class HomeController extends Controller
             $purchase_details['purchase_due'] = $purchase_details['purchase_due'] - $total_ledger_discount['total_purchase_discount'];
 
             $transaction_types = [
-                'purchase_return', 'sell_return', 'expense',
+                'purchase_return', 'sell_return', 'expense', 'stock_adjustment',
             ];
 
             $transaction_totals = $this->transactionUtil->getTransactionTotals(
@@ -318,9 +318,41 @@ class HomeController extends Controller
 
             $output['total_sell'] = $total_sell_inc_tax;
             $output['total_sell_return'] = $total_sell_return_inc_tax;
+            $output['total_sell_return_total'] = $total_sell_return_inc_tax;
 
             $output['invoice_due'] = $sell_details['invoice_due'] - $total_ledger_discount['total_sell_discount'];
             $output['total_expense'] = $transaction_totals['total_expense'];
+            $output['total_adjustment'] = $transaction_totals['total_adjustment'];
+
+            $sellTransactionQuery = Transaction::query()
+                ->where('business_id', $business_id)
+                ->where('type', 'sell')
+                ->where('status', 'final');
+            if (! empty($start) && ! empty($end)) {
+                $sellTransactionQuery->whereDate('transaction_date', '>=', $start)
+                    ->whereDate('transaction_date', '<=', $end);
+            }
+            if (! empty($location_id)) {
+                $sellTransactionQuery->where('location_id', $location_id);
+            }
+            $output['total_sell_transactions'] = (int) $sellTransactionQuery->count();
+
+            // Keep the visits KPI aligned with the same selected date range and location.
+            $output['walk_ins'] = 0;
+            $user = auth()->user();
+            if ($user->can('walkin.view') || $user->can('walkin.view_all')) {
+                $walkInLocationId = $user->can('walkin.view_all')
+                    ? $location_id
+                    : BusinessLocation::forDropdown($business_id, false)->keys()->first();
+                if ($walkInLocationId !== null || $user->can('walkin.view_all')) {
+                    $output['walk_ins'] = $this->walkInService->summary(
+                        $business_id,
+                        $walkInLocationId,
+                        $start,
+                        $end
+                    )['walk_ins'];
+                }
+            }
 
             //NET = TOTAL SALES - INVOICE DUE - EXPENSE
             $output['net'] = $output['total_sell'] - $output['invoice_due'] - $output['total_expense'];
@@ -362,6 +394,209 @@ class HomeController extends Controller
                 ->removeColumn('variation')
                 ->rawColumns([2])
                 ->make(false);
+        }
+    }
+
+    /**
+     * Retrieves the models with the most available stock.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getMostAvailableModels()
+    {
+        if (request()->ajax()) {
+            $business_id = request()->session()->get('user.business_id');
+            $remaining_quantity = 'GREATEST(COALESCE(pl.quantity, 0) - COALESCE(pl.quantity_sold, 0) - COALESCE(pl.quantity_adjusted, 0) - COALESCE(pl.quantity_returned, 0), 0)';
+
+            $purchase_metrics = DB::table('purchase_lines as pl')
+                ->join('transactions as pt', 'pl.transaction_id', '=', 'pt.id')
+                ->where('pt.business_id', $business_id)
+                ->where(function ($query) {
+                    $query->where('pt.type', 'opening_stock')
+                        ->orWhere(function ($query) {
+                            $query->whereIn('pt.type', ['purchase', 'production_purchase'])
+                                ->where('pt.status', 'received');
+                        });
+                })
+                ->select([
+                    'pl.variation_id',
+                    'pt.location_id',
+                    DB::raw('SUM('.$remaining_quantity.') as remaining_quantity'),
+                    DB::raw('SUM('.$remaining_quantity.' * COALESCE(pl.purchase_price_inc_tax, 0)) / NULLIF(SUM('.$remaining_quantity.'), 0) as avg_cost'),
+                    DB::raw('SUM('.$remaining_quantity.' * DATEDIFF(CURDATE(), DATE(pt.transaction_date))) / NULLIF(SUM('.$remaining_quantity.'), 0) as avg_age'),
+                ])
+                ->groupBy('pl.variation_id', 'pt.location_id');
+
+            $query = DB::table('variation_location_details as vld')
+                ->join('products as p', 'vld.product_id', '=', 'p.id')
+                ->join('variations as v', 'vld.variation_id', '=', 'v.id')
+                ->leftJoin('units as u', 'p.unit_id', '=', 'u.id')
+                ->leftJoinSub($purchase_metrics, 'pm', function ($join) {
+                    $join->on('pm.variation_id', '=', 'vld.variation_id')
+                        ->on('pm.location_id', '=', 'vld.location_id');
+                })
+                ->where('p.business_id', $business_id)
+                ->where('p.enable_stock', 1)
+                ->where('p.is_inactive', 0)
+                ->whereNull('v.deleted_at');
+
+            $permitted_locations = auth()->user()->permitted_locations();
+            if ($permitted_locations != 'all') {
+                $query->whereIn('vld.location_id', $permitted_locations);
+            }
+
+            if (! empty(request()->input('location_id'))) {
+                $query->where('vld.location_id', request()->input('location_id'));
+            }
+
+            $models = $query->select([
+                'p.id as product_id',
+                'p.name as model',
+                'u.short_name as unit',
+                DB::raw('SUM(vld.qty_available) as available'),
+                DB::raw('COALESCE(SUM(vld.qty_available * COALESCE(pm.avg_age, 0)) / NULLIF(SUM(vld.qty_available), 0), 0) as avg_age'),
+                DB::raw('COALESCE(SUM(vld.qty_available * COALESCE(pm.avg_cost, v.dpp_inc_tax)) / NULLIF(SUM(vld.qty_available), 0), 0) as avg_cost'),
+                DB::raw('SUM(vld.qty_available * COALESCE(pm.avg_cost, v.dpp_inc_tax)) as stock_value'),
+            ])
+                ->groupBy('p.id', 'p.name', 'u.short_name')
+                ->havingRaw('SUM(vld.qty_available) > 0')
+                ->orderByDesc('available');
+
+            return Datatables::of($models)
+                ->editColumn('model', function ($row) {
+                    return e($row->model);
+                })
+                ->editColumn('available', function ($row) {
+                    $available = (float) $row->available;
+
+                    return '<span data-is_quantity="true" class="display_currency" data-currency_symbol="false" data-orig-value="'.$available.'">'.$available.'</span>'.(! empty($row->unit) ? ' '.e($row->unit) : '');
+                })
+                ->editColumn('avg_age', function ($row) {
+                    $age = max(0, (int) round((float) $row->avg_age));
+                    $warning = $age >= 60 ? ' <span title="Aged stock" aria-label="Aged stock">⚠️</span>' : '';
+
+                    return $age.' day'.($age === 1 ? '' : 's').$warning;
+                })
+                ->editColumn('avg_cost', '<span class="display_currency" data-currency_symbol="true">@format_currency($avg_cost)</span>')
+                ->editColumn('stock_value', '<span class="display_currency" data-currency_symbol="true">@format_currency($stock_value)</span>')
+                ->removeColumn('product_id')
+                ->rawColumns(['available', 'avg_age', 'avg_cost', 'stock_value'])
+                ->make(true);
+        }
+    }
+
+    /**
+     * Retrieves branch-level sales and walk-in performance for a selected period.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getBranchPerformance()
+    {
+        if (request()->ajax()) {
+            $business_id = request()->session()->get('user.business_id');
+            $period = request()->input('period', '30');
+            $periods = ['today', 'yesterday', '7', '30'];
+            if (! in_array($period, $periods, true)) {
+                $period = '30';
+            }
+
+            $now = now();
+            if ($period === 'today') {
+                $start = $now->copy()->startOfDay();
+                $end = $now->copy()->endOfDay();
+            } elseif ($period === 'yesterday') {
+                $start = $now->copy()->subDay()->startOfDay();
+                $end = $now->copy()->subDay()->endOfDay();
+            } elseif ($period === '7') {
+                $start = $now->copy()->subDays(6)->startOfDay();
+                $end = $now->copy()->endOfDay();
+            } else {
+                $start = $now->copy()->subDays(29)->startOfDay();
+                $end = $now->copy()->endOfDay();
+            }
+
+            $permitted_locations = auth()->user()->permitted_locations();
+            $locations = BusinessLocation::forDropdown($business_id, false);
+
+            $sales = DB::table('transactions as t')
+                ->where('t.business_id', $business_id)
+                ->where('t.type', 'sell')
+                ->where('t.status', 'final')
+                ->whereBetween('t.transaction_date', [$start, $end])
+                ->when($permitted_locations != 'all', function ($query) use ($permitted_locations) {
+                    $query->whereIn('t.location_id', $permitted_locations);
+                })
+                ->select('t.location_id', DB::raw('SUM(t.final_total) as sales'))
+                ->groupBy('t.location_id')
+                ->get()
+                ->keyBy('location_id');
+
+            $allocated_quantity = 'COALESCE(tspl.quantity, tsl.quantity, 0) - COALESCE(tspl.qty_returned, tsl.quantity_returned, 0)';
+            $unit_cost = 'COALESCE(pl.purchase_price_inc_tax, v.dpp_inc_tax, 0)';
+            $gross_profit = DB::table('transaction_sell_lines as tsl')
+                ->join('transactions as t', 'tsl.transaction_id', '=', 't.id')
+                ->leftJoin('transaction_sell_lines_purchase_lines as tspl', 'tspl.sell_line_id', '=', 'tsl.id')
+                ->leftJoin('purchase_lines as pl', 'pl.id', '=', 'tspl.purchase_line_id')
+                ->leftJoin('variations as v', 'v.id', '=', 'tsl.variation_id')
+                ->where('t.business_id', $business_id)
+                ->where('t.type', 'sell')
+                ->where('t.status', 'final')
+                ->whereBetween('t.transaction_date', [$start, $end])
+                ->when($permitted_locations != 'all', function ($query) use ($permitted_locations) {
+                    $query->whereIn('t.location_id', $permitted_locations);
+                })
+                ->select(
+                    't.location_id',
+                    DB::raw('SUM(('.$allocated_quantity.') * (COALESCE(tsl.unit_price_inc_tax, 0) - '.$unit_cost.')) as gross_profit')
+                )
+                ->groupBy('t.location_id')
+                ->get()
+                ->keyBy('location_id');
+
+            $walk_ins = DB::table('walk_ins as wi')
+                ->where('wi.business_id', $business_id)
+                ->whereBetween('wi.arrived_at', [$start, $end])
+                ->when($permitted_locations != 'all', function ($query) use ($permitted_locations) {
+                    $query->whereIn('wi.location_id', $permitted_locations);
+                })
+                ->select(
+                    'wi.location_id',
+                    DB::raw('COUNT(*) as walk_ins'),
+                    DB::raw("SUM(CASE WHEN wi.status = 'CONVERTED' THEN 1 ELSE 0 END) as sold")
+                )
+                ->groupBy('wi.location_id')
+                ->get()
+                ->keyBy('location_id');
+
+            $branches = $locations->map(function ($name, $location_id) use ($sales, $gross_profit, $walk_ins) {
+                $sales_total = (float) ($sales->get($location_id)->sales ?? 0);
+                $walk_in_total = (int) ($walk_ins->get($location_id)->walk_ins ?? 0);
+                $sold_total = (int) ($walk_ins->get($location_id)->sold ?? 0);
+                $conversion = $walk_in_total === 0 ? 0 : round(($sold_total / $walk_in_total) * 100, 1);
+
+                return (object) [
+                    'branch' => $name,
+                    'sales' => $sales_total,
+                    'walk_ins' => $walk_in_total,
+                    'sold' => $sold_total,
+                    'conversion' => $conversion,
+                    'gross_profit' => (float) ($gross_profit->get($location_id)->gross_profit ?? 0),
+                ];
+            })->sortByDesc('sales')->values();
+
+            return Datatables::of($branches)
+                ->editColumn('branch', function ($row) {
+                    return e($row->branch);
+                })
+                ->editColumn('sales', '<span class="display_currency" data-currency_symbol="true">@format_currency($sales)</span>')
+                ->editColumn('conversion', function ($row) {
+                    $warning = $row->conversion < 30 ? ' <span title="Low walk-in conversion" aria-label="Low walk-in conversion">⚠</span>' : '';
+
+                    return number_format($row->conversion, 1).'%'.$warning;
+                })
+                ->editColumn('gross_profit', '<span class="display_currency" data-currency_symbol="true">@format_currency($gross_profit)</span>')
+                ->rawColumns(['sales', 'conversion', 'gross_profit'])
+                ->make(true);
         }
     }
 
@@ -514,6 +749,128 @@ class HomeController extends Controller
                 ->removeColumn('total_paid')
                 ->rawColumns([0, 1, 2, 3])
                 ->make(false);
+        }
+    }
+
+    /**
+     * Retrieves recent finalized sales transactions.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getRecentSellTransactions()
+    {
+        if (request()->ajax()) {
+            $business_id = request()->session()->get('user.business_id');
+
+            $query = Transaction::leftJoin('contacts as c', 'transactions.contact_id', '=', 'c.id')
+                ->where('transactions.business_id', $business_id)
+                ->where('transactions.type', 'sell')
+                ->where('transactions.status', 'final');
+
+            $permitted_locations = auth()->user()->permitted_locations();
+            if ($permitted_locations != 'all') {
+                $query->whereIn('transactions.location_id', $permitted_locations);
+            }
+
+            if (! empty(request()->input('location_id'))) {
+                $query->where('transactions.location_id', request()->input('location_id'));
+            }
+
+            $transactions = $query->select([
+                'transactions.id',
+                'transactions.transaction_date',
+                'transactions.invoice_no',
+                'transactions.final_total',
+                'transactions.payment_status',
+                'c.name as customer',
+                'c.supplier_business_name',
+            ])->orderByDesc('transactions.transaction_date');
+
+            return Datatables::of($transactions)
+                ->editColumn('transaction_date', '{{@format_datetime($transaction_date)}}')
+                ->editColumn('customer', function ($row) {
+                    $customer = $row->customer;
+                    if (! empty($row->supplier_business_name)) {
+                        $customer = $row->supplier_business_name.', '.$customer;
+                    }
+
+                    return e($customer ?: 'Walk-in customer');
+                })
+                ->editColumn('invoice_no', function ($row) {
+                    if (auth()->user()->can('sell.view') || auth()->user()->can('view_own_sell_only')) {
+                        return '<a href="#" data-href="'.action([\App\Http\Controllers\SellController::class, 'show'], [$row->id]).'" class="btn-modal" data-container=".view_modal">'.e($row->invoice_no).'</a>';
+                    }
+
+                    return e($row->invoice_no);
+                })
+                ->editColumn('final_total', '<span class="display_currency" data-currency_symbol="true">@format_currency($final_total)</span>')
+                ->editColumn('payment_status', function ($row) {
+                    return (string) view('sell.partials.payment_status', [
+                        'payment_status' => $row->payment_status,
+                        'id' => $row->id,
+                    ]);
+                })
+                ->removeColumn('id')
+                ->removeColumn('supplier_business_name')
+                ->rawColumns(['transaction_date', 'invoice_no', 'final_total', 'payment_status'])
+                ->make(true);
+        }
+    }
+
+    /**
+     * Retrieves the top-selling products for the current calendar month.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getTopSellingProducts()
+    {
+        if (request()->ajax()) {
+            $business_id = request()->session()->get('user.business_id');
+            $month_start = now()->startOfMonth()->toDateTimeString();
+            $month_end = now()->endOfMonth()->toDateTimeString();
+            $quantity_sold = 'SUM(COALESCE(transaction_sell_lines.quantity, 0) - COALESCE(transaction_sell_lines.quantity_returned, 0))';
+            $sales_total = 'SUM((COALESCE(transaction_sell_lines.quantity, 0) - COALESCE(transaction_sell_lines.quantity_returned, 0)) * COALESCE(transaction_sell_lines.unit_price_inc_tax, 0))';
+
+            $query = DB::table('transaction_sell_lines')
+                ->join('transactions as t', 'transaction_sell_lines.transaction_id', '=', 't.id')
+                ->join('products as p', 'transaction_sell_lines.product_id', '=', 'p.id')
+                ->leftJoin('units as u', 'p.unit_id', '=', 'u.id')
+                ->where('t.business_id', $business_id)
+                ->where('t.type', 'sell')
+                ->where('t.status', 'final')
+                ->whereBetween('t.transaction_date', [$month_start, $month_end]);
+
+            $permitted_locations = auth()->user()->permitted_locations();
+            if ($permitted_locations != 'all') {
+                $query->whereIn('t.location_id', $permitted_locations);
+            }
+
+            if (! empty(request()->input('location_id'))) {
+                $query->where('t.location_id', request()->input('location_id'));
+            }
+
+            $products = $query->select([
+                'p.id as product_id',
+                'p.name as product',
+                'u.short_name as unit',
+                DB::raw($quantity_sold.' as quantity_sold'),
+                DB::raw($sales_total.' as sales_total'),
+            ])
+                ->groupBy('p.id', 'p.name', 'u.short_name')
+                ->havingRaw($quantity_sold.' > 0')
+                ->orderByDesc('quantity_sold');
+
+            return Datatables::of($products)
+                ->editColumn('product', function ($row) {
+                    return e($row->product);
+                })
+                ->editColumn('quantity_sold', function ($row) {
+                    return '<span data-is_quantity="true" class="display_currency" data-currency_symbol="false" data-orig-value="'.(float) $row->quantity_sold.'" data-unit="'.e($row->unit ?: '').'">'.(float) $row->quantity_sold.'</span>'.(! empty($row->unit) ? ' '.e($row->unit) : '');
+                })
+                ->editColumn('sales_total', '<span class="display_currency" data-currency_symbol="true">@format_currency($sales_total)</span>')
+                ->removeColumn('product_id')
+                ->rawColumns(['quantity_sold', 'sales_total'])
+                ->make(true);
         }
     }
 
