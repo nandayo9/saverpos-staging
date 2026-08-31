@@ -209,6 +209,52 @@ class SaverposDemoRuntimeSeeder extends Seeder
                     ]);
                 }
             }
+
+            // An intentional holding variation for an unlisted customer
+            // laptop. It supports a recorded acquisition without pretending
+            // that the final resale catalogue item is already known. It is
+            // deliberately unavailable to normal POS selling until staff
+            // reclassify the Device Passport to an approved catalogue item.
+            $unlistedLaptopProductId = $this->insert('products', [
+                'name' => 'Recommerce — Unlisted Laptop', 'business_id' => $businessId, 'type' => 'single', 'unit_id' => $unitId,
+                'tax_type' => 'inclusive', 'enable_stock' => 1, 'alert_quantity' => 0,
+                'sku' => 'SAVERPOS-UNLISTED-LAPTOP', 'barcode_type' => 'C128', 'not_for_selling' => 1,
+                'product_description' => 'Holding product for trade-in laptops awaiting catalogue classification.',
+                'created_by' => $userId, 'created_at' => $now, 'updated_at' => $now,
+            ]);
+            $unlistedLaptopTemplateId = $this->insert('product_variations', [
+                'name' => 'Catalogue Review', 'product_id' => $unlistedLaptopProductId, 'is_dummy' => 1,
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+            $unlistedLaptopVariationId = $this->insert('variations', [
+                'name' => 'Catalogue Review', 'product_id' => $unlistedLaptopProductId, 'product_variation_id' => $unlistedLaptopTemplateId,
+                'sub_sku' => 'SAVERPOS-UNLISTED-LAPTOP', 'default_purchase_price' => 0, 'dpp_inc_tax' => 0,
+                'profit_percent' => 0, 'default_sell_price' => 0, 'sell_price_inc_tax' => 0,
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+            DB::table('product_locations')->insert([
+                ['product_id' => $unlistedLaptopProductId, 'location_id' => $branchA],
+                ['product_id' => $unlistedLaptopProductId, 'location_id' => $branchB],
+            ]);
+            $this->insert('recommerce_serialization_profiles', [
+                'business_id' => $businessId, 'product_id' => $unlistedLaptopProductId, 'variation_id' => $unlistedLaptopVariationId,
+                'mode' => 'TRACKED_REQUIRED', 'configured_by' => $userId,
+                'approval_reference' => 'SAVERPOS-DEMO-UNLISTED-LAPTOP', 'effective_at' => $now,
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+            if (Schema::hasTable('recommerce_trade_in_rule_sets')) {
+                $this->insert('recommerce_trade_in_rule_sets', [
+                    'business_id' => $businessId, 'variation_id' => $unlistedLaptopVariationId, 'category_code' => 'LAPTOP',
+                    'rule_code' => 'DEMO_UNLISTED_LAPTOP_V1', 'version_number' => 1, 'status' => 'ACTIVE',
+                    'parameters_json' => json_encode([
+                        'target_margin_percent' => 0.20, 'warranty_reserve_percent' => 0.05,
+                        'hidden_defect_reserve_percent' => 0.05, 'markdown_reserve_percent' => 0.05,
+                        'opening_offer_ratio' => 0.70, 'target_acquisition_ratio' => 0.80,
+                        'negotiation_ceiling_ratio' => 0.90,
+                    ]),
+                    'created_by' => $userId, 'effective_at' => $now, 'created_at' => $now, 'updated_at' => $now,
+                ]);
+            }
             $extraSupplierId = $this->insert('contacts', [
                 'business_id' => $businessId, 'type' => 'supplier', 'supplier_business_name' => 'Demo Technology Supplier',
                 'name' => 'Demo Technology Supplier', 'contact_id' => 'SUP-DEMO-002', 'created_by' => $userId,
@@ -253,7 +299,7 @@ class SaverposDemoRuntimeSeeder extends Seeder
             $repairJobs = SaverposDemoRepairFixture::apply($businessId, $branchA, $userId, $this->command);
             SaverposDemoDiagnosticFixture::apply($businessId, $userId, $this->command);
 
-            $this->command?->info("SAVERPOS demo fixture: business={$businessId}; branch_a={$branchA}; branch_b={$branchB}; products=5; devices=17; repair_jobs={$repairJobs}; variation={$variationId}; device=SB-DV-00000001-9");
+            $this->command?->info("SAVERPOS demo fixture: business={$businessId}; branch_a={$branchA}; branch_b={$branchB}; products=6; devices=17; repair_jobs={$repairJobs}; variation={$variationId}; unlisted_laptop_variation={$unlistedLaptopVariationId}; device=SB-DV-00000001-9");
         });
     }
 
