@@ -25,7 +25,7 @@
             <h3 class="box-title">New device acquisition</h3>
             <p class="text-muted" style="margin:6px 0 0">Seller → Device Passport → inspection → evidence → offer → approval → native acquisition → QC.</p>
         </div>
-        <form method="post" action="{{ route('recommerce.tradeins.store') }}" enctype="multipart/form-data" autocomplete="off" id="tradein-wizard">
+        <form method="post" action="{{ route('recommerce.tradeins.store') }}" enctype="multipart/form-data" autocomplete="off" id="tradein-wizard" novalidate>
             @csrf
             <input type="hidden" name="command_uuid" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
             <div class="box-body">
@@ -96,11 +96,33 @@ document.addEventListener('DOMContentLoaded', function () {
         wizard.dataset.step = index;
     };
     links.forEach(function (link, index) { link.addEventListener('click', function (event) { event.preventDefault(); show(index); }); });
+    var validateStep = function (index) {
+        var fields = steps[index].querySelectorAll('input, select, textarea');
+        for (var fieldIndex = 0; fieldIndex < fields.length; fieldIndex += 1) {
+            var field = fields[fieldIndex];
+            if (field.disabled || field.type === 'hidden') continue;
+            if (!field.checkValidity()) {
+                show(index);
+                field.focus();
+                if (typeof field.reportValidity === 'function') field.reportValidity();
+                return false;
+            }
+        }
+        return true;
+    };
     steps.forEach(function (step, index) {
         var controls = document.createElement('div'); controls.className = 'clearfix'; controls.style.marginTop = '18px';
         if (index > 0) { var previous = document.createElement('button'); previous.type = 'button'; previous.className = 'btn btn-default pull-left'; previous.textContent = 'Previous'; previous.addEventListener('click', function () { show(index - 1); }); controls.appendChild(previous); }
-        if (index < steps.length - 1) { var next = document.createElement('button'); next.type = 'button'; next.className = 'btn btn-primary pull-right'; next.textContent = 'Next'; next.addEventListener('click', function () { show(index + 1); }); controls.appendChild(next); }
+        if (index < steps.length - 1) { var next = document.createElement('button'); next.type = 'button'; next.className = 'btn btn-primary pull-right'; next.textContent = 'Next'; next.addEventListener('click', function () { if (validateStep(index)) show(index + 1); }); controls.appendChild(next); }
         step.appendChild(controls);
+    });
+    wizard.addEventListener('submit', function (event) {
+        for (var index = 0; index < steps.length; index += 1) {
+            if (!validateStep(index)) {
+                event.preventDefault();
+                return;
+            }
+        }
     });
     var catalogueSelect = wizard.querySelector('#tradein-variation');
     var catalogueSuggestions = wizard.querySelector('#catalogue-suggestions');
