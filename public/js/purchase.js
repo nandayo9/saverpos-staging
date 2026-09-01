@@ -270,8 +270,10 @@ $(document).ready(function() {
         });
     });
 
-    //On Change of quantity
-    $(document).on('change', '.purchase_quantity', function() {
+    // Keep the hidden line totals in step with keyboard and scanner-style
+    // quantity entry. Depending only on `change` leaves the submitted totals
+    // stale until a browser decides to dispatch a blur change event.
+    $(document).on('input change', '.purchase_quantity', function() {
         var row = $(this).closest('tr');
         var receivingHint = row.find('.saverpos-device-receiving-count');
         if (receivingHint.length) {
