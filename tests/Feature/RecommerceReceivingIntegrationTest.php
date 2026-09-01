@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Schema;
 use LogicException;
 use InvalidArgumentException;
 use Modules\Recommerce\Entities\Device;
+use Modules\Recommerce\Entities\DeviceIdentifier;
 use Modules\Recommerce\Entities\DeviceEvent;
 use Modules\Recommerce\Entities\DeviceReturnDisposition;
 use Modules\Recommerce\Entities\DeviceSaleDisposition;
@@ -44,6 +45,7 @@ use Modules\Recommerce\Services\UltimatePosStockAdjustmentWriter;
 use Modules\Recommerce\Services\DiagnosticTemplateService;
 use Modules\Recommerce\Services\DeviceCertificationService;
 use Modules\Recommerce\Services\DeviceLifecycleService;
+use Modules\Recommerce\Services\DeviceIdentityResolver;
 use Modules\Recommerce\Services\DeviceReceivingProgressService;
 use Modules\Recommerce\Services\DeviceTransferExceptionService;
 use Modules\Recommerce\Entities\DiagnosticCheck;
@@ -1814,8 +1816,8 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertStringNotContainsString('token_hash', $content);
         $this->assertStringNotContainsString('https://scan.saverbro.example/s/d/', $content);
         $this->assertStringContainsString('<svg', $content);
-        $this->assertStringContainsString('@page { size: 50mm 38mm;', $content);
-        $this->assertStringContainsString('.label { width: 50mm; min-height: 38mm;', $content);
+        $this->assertStringContainsString('@page { size: 50mm 20mm;', $content);
+        $this->assertStringContainsString('.label { width: 50mm; min-height: 20mm;', $content);
         $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
         $this->assertSame('no-referrer', $response->headers->get('Referrer-Policy'));
         $this->assertSame(1, DB::table('recommerce_label_jobs')->count());
@@ -1971,6 +1973,83 @@ class RecommerceReceivingIntegrationTest extends TestCase
         );
 
         $this->assertSame(404, $replacedResponse->getStatusCode());
+    }
+
+    public function test_all_permanent_and_manufacturer_identities_resolve_the_same_device_exactly(): void
+    {
+        $device = $this->availableDevice('SB-DV-00000041-3', 101);
+        foreach ([['SERIAL', 'ABC1234'], ['IMEI', '356938035643809'], ['SERVICE_TAG', 'DELL-5420-01']] as [$type, $value]) {
+            DeviceIdentifier::create([
+                'device_id' => $device->id, 'business_id' => 7, 'identifier_type' => $type,
+                'raw_value_encrypted' => StrongIdentifierHasher::normalize($value),
+                'normalized_hash' => StrongIdentifierHasher::hash(StrongIdentifierHasher::normalize($value)),
+                'is_verified' => false,
+            ]);
+        }
+        $tokens = new OpaqueScanToken();
+        $issued = (new ScanTokenIssuanceService($this->gate(), $tokens))->issue($this->authorizedUser(), $device);
+        $resolver = new DeviceIdentityResolver($tokens);
+
+        foreach ([
+            $device->device_code,
+            ' abc-1234 ',
+            '356938035643809',
+            'dell_5420-01',
+            'https://scan.saverbro.example/s/d/'.$issued['raw_token'],
+        ] as $identity) {
+            $this->assertSame($device->id, $resolver->resolve(7, $identity)?->id);
+        }
+        $this->assertNull($resolver->resolve(7, 'ABC1235'), 'Exact identifier lookup must not fuzzy-match a serial.');
+    }
+
+    public function test_sale_selection_resolves_serial_imei_and_qr_through_the_same_exact_device_validator(): void
+    {
+        $serialDevice = $this->availableDevice('SB-DV-00000042-1', 101);
+        $imeiDevice = $this->availableDevice('SB-DV-00000043-X', 101);
+        $qrDevice = $this->availableDevice('SB-DV-00000044-9', 101);
+        foreach ([[$serialDevice, 'SERIAL', 'SALE-SERIAL-01'], [$imeiDevice, 'IMEI', '356938035643810']] as [$device, $type, $value]) {
+            DeviceIdentifier::create([
+                'device_id' => $device->id, 'business_id' => 7, 'identifier_type' => $type,
+                'raw_value_encrypted' => StrongIdentifierHasher::normalize($value),
+                'normalized_hash' => StrongIdentifierHasher::hash(StrongIdentifierHasher::normalize($value)),
+                'is_verified' => false,
+            ]);
+        }
+        $tokens = new OpaqueScanToken();
+        $issued = (new ScanTokenIssuanceService($this->gate(), $tokens))->issue($this->authorizedUser(), $qrDevice);
+        $sale = Transaction::create(['business_id' => 7, 'location_id' => 101, 'type' => 'sell', 'status' => 'final', 'contact_id' => 405, 'transaction_date' => now(), 'created_by' => 900]);
+        $sale->sell_lines()->create(['product_id' => 202, 'variation_id' => 303, 'quantity' => 3, 'unit_price' => 2000, 'unit_price_inc_tax' => 2000]);
+
+        (new DeviceLifecycleService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder(), new DeviceIdentityResolver($tokens)))
+            ->synchroniseFinalSale($this->authorizedUser(), $sale->fresh(), [[
+                'product_id' => 202, 'variation_id' => 303,
+                'recommerce_device_codes' => 'SALE-SERIAL-01 356938035643810 https://scan.saverbro.example/s/d/'.$issued['raw_token'],
+            ]]);
+
+        $this->assertSame('SOLD', $serialDevice->fresh()->lifecycle_state);
+        $this->assertSame('SOLD', $imeiDevice->fresh()->lifecycle_state);
+        $this->assertSame('SOLD', $qrDevice->fresh()->lifecycle_state);
+        $this->assertSame(3, DeviceSaleDisposition::query()->where('sale_transaction_id', $sale->id)->count());
+        $this->assertSame(3, Device::query()->count(), 'POS resolution must not create another Device.');
+    }
+
+    public function test_unknown_pos_manufacturer_identifier_cannot_create_or_select_a_device(): void
+    {
+        $sale = Transaction::create(['business_id' => 7, 'location_id' => 101, 'type' => 'sell', 'status' => 'final', 'contact_id' => 405, 'transaction_date' => now(), 'created_by' => 900]);
+        $sale->sell_lines()->create(['product_id' => 202, 'variation_id' => 303, 'quantity' => 1, 'unit_price' => 2000, 'unit_price_inc_tax' => 2000]);
+
+        try {
+            (new DeviceLifecycleService($this->gate(), new \Modules\Recommerce\Services\DeviceEventRecorder()))
+                ->synchroniseFinalSale($this->authorizedUser(), $sale->fresh(), [[
+                    'product_id' => 202, 'variation_id' => 303, 'recommerce_device_codes' => 'UNKNOWN-SERIAL-01',
+                ]]);
+            $this->fail('POS must not create an unknown Device from a manufacturer identifier.');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('No registered Device matches this QR, SaverBro Device ID, serial, or IMEI.', $exception->getMessage());
+        }
+
+        $this->assertSame(0, Device::query()->count());
+        $this->assertSame(0, DeviceSaleDisposition::query()->count());
     }
 
     public function test_label_attachment_confirmation_is_auditable_without_changing_device_identity(): void

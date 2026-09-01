@@ -6,6 +6,7 @@
 @php
     $state = $state ?? '';
     $query = $query ?? '';
+    $labelStatus = $labelStatus ?? '';
     $lifecycleLabels = ['RECEIVED_PENDING_INSPECTION' => 'Waiting for inspection', 'INSPECTION_IN_PROGRESS' => 'Inspection in progress', 'REFURBISHMENT_REQUIRED' => 'Action required', 'AVAILABLE' => 'Ready for sale', 'RESERVED' => 'Reserved', 'SOLD' => 'Sold'];
     $custodyLabels = ['LOCATION' => 'SaverBro location', 'CUSTOMER' => 'Customer', 'IN_TRANSIT' => 'In transit', 'EXTERNAL_PROVIDER' => 'External provider'];
     $stockLabels = ['ON_HAND' => 'In stock', 'RESERVED' => 'Reserved', 'IN_TRANSFER' => 'In transfer', 'NONE' => 'Not in stock'];
@@ -22,13 +23,22 @@
                 <label class="sr-only" for="device-query">Search device code or product</label>
                 @if ($state !== '')<input type="hidden" name="state" value="{{ $state }}">@endif
                 <input id="device-query" name="q" class="form-control" value="{{ $query }}" maxlength="160" placeholder="Device code or product">
+                <label class="sr-only" for="device-label-status">Label status</label>
+                <select id="device-label-status" name="label_status" class="form-control" aria-label="Label status">
+                    <option value="">All label statuses</option>
+                    <option value="NEEDS_LABEL" @if($labelStatus === 'NEEDS_LABEL') selected @endif>Needs label attention</option>
+                    <option value="NOT_PRINTED" @if($labelStatus === 'NOT_PRINTED') selected @endif>Not printed</option>
+                    <option value="PRINT_VIEW_OPENED" @if($labelStatus === 'PRINT_VIEW_OPENED') selected @endif>Print view opened</option>
+                    <option value="PRINTED" @if($labelStatus === 'PRINTED') selected @endif>Printed</option>
+                    <option value="REPRINTED" @if($labelStatus === 'REPRINTED') selected @endif>Reprinted</option>
+                </select>
                 <button class="btn btn-default" type="submit"><i class="fa fa-search"></i> Search</button>
-                @if ($query !== '' || $state !== '')<a class="btn btn-link" href="{{ route('recommerce.devices.index') }}">Clear</a>@endif
+                @if ($query !== '' || $state !== '' || $labelStatus !== '')<a class="btn btn-link" href="{{ route('recommerce.devices.index') }}">Clear</a>@endif
             </form>
             <div class="table-responsive"><table class="table table-hover"><caption class="sr-only">Devices visible in the authorized location</caption><thead><tr><th>Device code</th><th>Product</th><th>Status</th><th>Label</th><th>Current holder</th><th>Inventory</th><th></th></tr></thead><tbody>
                 @forelse ($devices as $device)
                     @php $latestLabel = ($device->labelJobItems ?? collect())->sortByDesc('id')->first(); $labelStatus = ! $latestLabel ? 'Not printed' : ($latestLabel->job?->status === 'REPRINT_CONFIRMED' ? 'Reprinted' : ($latestLabel->job?->status === 'PRINT_CONFIRMED' ? 'Printed' : 'Print view opened')); @endphp
-                    <tr><td><strong>{{ $device->device_code }}</strong></td><td>{{ optional($device->product)->name ?: 'Product unavailable' }}@if(optional($device->variation)->name)<br><small class="text-muted">{{ $device->variation->name }}</small>@endif</td><td>{{ $lifecycleLabels[$device->lifecycle_state] ?? ucwords(strtolower(str_replace('_', ' ', $device->lifecycle_state))) }}@if(($device->transfer_state ?? 'NONE') !== 'NONE')<br><small class="text-warning">{{ $device->transfer_state === 'RECEIVED_PENDING_COMPLETION' ? 'Received — transfer awaiting completion' : ucwords(strtolower(str_replace('_', ' ', $device->transfer_state))) }}</small>@endif</td><td>{{ $labelStatus }}</td><td>{{ $custodyLabels[$device->custody_kind] ?? ucwords(strtolower(str_replace('_', ' ', $device->custody_kind))) }}</td><td>{{ $stockLabels[$device->stock_participation] ?? ucwords(strtolower(str_replace('_', ' ', $device->stock_participation))) }}</td><td><a class="btn btn-default btn-xs" href="{{ route('recommerce.devices.show', $device->device_code) }}">Open</a></td></tr>
+                    <tr><td><strong>{{ $device->device_code }}</strong></td><td>{{ optional($device->product)->name ?: 'Product unavailable' }}@if(optional($device->variation)->name)<br><small class="text-muted">{{ $device->variation->name }}</small>@endif</td><td>{{ $lifecycleLabels[$device->lifecycle_state] ?? ucwords(strtolower(str_replace('_', ' ', $device->lifecycle_state))) }}@if(($device->transfer_state ?? 'NONE') !== 'NONE')<br><small class="text-warning">{{ $device->transfer_state === 'RECEIVED_PENDING_COMPLETION' ? 'Received — transfer awaiting completion' : ucwords(strtolower(str_replace('_', ' ', $device->transfer_state))) }}</small>@endif</td><td>{{ $labelStatus }}</td><td>{{ $custodyLabels[$device->custody_kind] ?? ucwords(strtolower(str_replace('_', ' ', $device->custody_kind))) }}</td><td>{{ $stockLabels[$device->stock_participation] ?? ucwords(strtolower(str_replace('_', ' ', $device->stock_participation))) }}</td><td><a class="btn btn-default btn-xs" href="{{ route('recommerce.devices.show', $device->device_code) }}">Open</a>@if(($canPrintLabel ?? false) && ! empty($device->id)) <form method="post" action="{{ route('recommerce.devices.label.print', $device->id) }}" target="_blank" style="display:inline-block;margin-left:4px">@csrf<button class="btn btn-primary btn-xs" type="submit"><i class="fa fa-print"></i> Print label</button></form>@endif</td></tr>
                 @empty
                     <tr><td colspan="7" class="text-muted">No authorized devices matched this search.</td></tr>
                 @endforelse

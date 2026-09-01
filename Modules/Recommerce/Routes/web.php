@@ -179,6 +179,11 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->middleware('throttle:20,1')
         ->name('recommerce.repair.intake');
 
+    Route::get('/repair/{jobCode}/customer-receipt', 'RepairJobController@customerReceipt')
+        ->where('jobCode', '[A-Za-z0-9-]+')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.repair.customer_receipt');
+
     Route::get('/repair/legacy-archive', 'LegacyRepairArchiveController@index')
         ->middleware('throttle:30,1')
         ->name('recommerce.repair.legacy_archive.index');
@@ -359,6 +364,20 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->whereNumber('variationId')
         ->middleware('throttle:30,1')
         ->name('recommerce.reconciliation.runs.store');
+
+    Route::get('/stock-counts', 'StockCountController@index')->middleware('throttle:30,1')->name('recommerce.stock-counts.index');
+    Route::get('/stock-counts/create', 'StockCountController@create')->middleware('throttle:30,1')->name('recommerce.stock-counts.create');
+    Route::post('/stock-counts', 'StockCountController@store')->middleware('throttle:20,1')->name('recommerce.stock-counts.store');
+    Route::get('/stock-counts/{sessionId}', 'StockCountController@show')->whereNumber('sessionId')->middleware('throttle:60,1')->name('recommerce.stock-counts.show');
+    Route::post('/stock-counts/{sessionId}/start', 'StockCountController@start')->whereNumber('sessionId')->middleware('throttle:20,1')->name('recommerce.stock-counts.start');
+    Route::post('/stock-counts/{sessionId}/scan', 'StockCountController@scan')->whereNumber('sessionId')->middleware('throttle:60,1')->name('recommerce.stock-counts.scan');
+    Route::post('/stock-counts/{sessionId}/items/{itemId}/quantity', 'StockCountController@quantity')->whereNumber('sessionId')->whereNumber('itemId')->middleware('throttle:30,1')->name('recommerce.stock-counts.quantity');
+    Route::post('/stock-counts/{sessionId}/review', 'StockCountController@review')->whereNumber('sessionId')->middleware('throttle:20,1')->name('recommerce.stock-counts.review');
+    Route::post('/stock-counts/{sessionId}/exceptions/{exceptionId}/resolve', 'StockCountController@resolve')->whereNumber('sessionId')->whereNumber('exceptionId')->middleware('throttle:20,1')->name('recommerce.stock-counts.resolve');
+    Route::post('/stock-counts/{sessionId}/submit', 'StockCountController@submit')->whereNumber('sessionId')->middleware('throttle:20,1')->name('recommerce.stock-counts.submit');
+    Route::post('/stock-counts/{sessionId}/approve', 'StockCountController@approve')->whereNumber('sessionId')->middleware('throttle:20,1')->name('recommerce.stock-counts.approve');
+    Route::post('/stock-counts/{sessionId}/reconcile', 'StockCountController@reconcile')->whereNumber('sessionId')->middleware('throttle:20,1')->name('recommerce.stock-counts.reconcile');
+    Route::post('/stock-counts/{sessionId}/close', 'StockCountController@close')->whereNumber('sessionId')->middleware('throttle:20,1')->name('recommerce.stock-counts.close');
 });
 
 Route::get('/s/d/{token}', 'ScanController@device')

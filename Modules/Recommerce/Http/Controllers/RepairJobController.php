@@ -350,6 +350,57 @@ class RepairJobController extends Controller
             ->header('Referrer-Policy', 'no-referrer');
     }
 
+    /**
+     * Opens the linked UltimatePOS sale receipt for a customer repair. The
+     * repair workspace owns operational evidence only; the core sale remains
+     * the authority for the customer-facing receipt and its payments.
+     */
+    public function customerReceipt(string $jobCode, AuthorizationGate $authorizationGate)
+    {
+        $user = auth()->user();
+        $businessId = (int) $user->business_id;
+        $job = RepairJob::query()
+            ->with(['device', 'partUsages'])
+            ->where('business_id', $businessId)
+            ->where('job_code', strtoupper(trim($jobCode)))
+            ->first();
+
+        if (! $job
+            || ! $job->isCustomerRepair()
+            || ! User::can_access_this_location($job->location_id, $businessId)
+            || ! $authorizationGate->allowsRead($user, 'recommerce.repair.view_cost', $businessId, $job->location_id)
+        ) {
+            abort(404);
+        }
+
+        $financialSourceId = $job->source_id;
+        if (! $financialSourceId) {
+            $financialSourceId = $job->partUsages
+                ->where('consumption_path', 'CUSTOMER')
+                ->whereNotNull('source_transaction_id')
+                ->sortByDesc('id')
+                ->value('source_transaction_id');
+        }
+
+        $sale = $financialSourceId
+            ? DB::table('transactions')
+                ->where('business_id', $businessId)
+                ->where('id', $financialSourceId)
+                ->where('type', 'sell')
+                ->first(['id'])
+            : null;
+
+        if (! $sale) {
+            abort(404);
+        }
+
+        $receiptUrl = app(\App\Utils\Util::class)->getInvoiceUrl((int) $sale->id, $businessId);
+
+        return redirect()->to($receiptUrl.'?print_on_load=1')
+            ->header('Cache-Control', 'no-store')
+            ->header('Referrer-Policy', 'no-referrer');
+    }
+
     public function intake(Request $request, RepairJobIntakeService $intakeService)
     {
         try {

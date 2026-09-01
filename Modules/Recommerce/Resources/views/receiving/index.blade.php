@@ -77,6 +77,7 @@
                         <p><strong id="completion-count">{{ data_get($purchaseContext, 'registered_count', 0) }} / {{ data_get($purchaseContext, 'expected_count', 0) }}</strong> tracked devices registered.</p>
                         @if (data_get($purchaseContext, 'label_remaining_count', 0))
                             <p class="text-warning"><strong>{{ data_get($purchaseContext, 'label_remaining_count', 0) }} registered Device{{ data_get($purchaseContext, 'label_remaining_count', 0) === 1 ? '' : 's' }} still need{{ data_get($purchaseContext, 'label_remaining_count', 0) === 1 ? 's' : '' }} a label.</strong> Registration remains complete; recover labels from the Device Registry.</p>
+                            <a class="btn btn-warning" href="{{ route('recommerce.devices.index', ['label_status' => 'NEEDS_LABEL']) }}">Open Label Recovery Queue</a>
                         @endif
                         <p class="text-success">✓ Purchase quantity reconciled<br>✓ Device identities registered<br>✓ {{ $inspectionRequired ? 'Devices waiting for inspection' : 'Device intake policy completed' }}</p>
                         @if($inspectionRequired)<p><strong id="inspection-waiting-count">{{ (int) data_get($purchaseContext, 'inspection_open_count', 0) }}</strong> <span id="inspection-waiting-grammar">{{ (int) data_get($purchaseContext, 'inspection_open_count', 0) === 1 ? 'device is' : 'devices are' }}</span> now waiting for inspection.</p>@endif
@@ -103,12 +104,13 @@
                             @elseif (! $postEnabled)
                                 <div class="alert alert-info">You can review this purchase line, but device identification is not available for your current access.</div>
                             @else
-                                <label for="scan-identifier">Manufacturer Serial / Service Tag</label>
+                                <label for="scan-identifier">Manufacturer identifier</label>
                                 <div class="input-group input-group-lg">
-                                    <span class="input-group-btn"><select id="identifier-type" class="form-control" aria-label="Identifier type"><option value="SERIAL">Serial</option><option value="IMEI">IMEI</option><option value="ASSET_TAG">Asset tag</option></select></span>
-                                    <input id="scan-identifier" class="form-control sb-scanner-input" maxlength="255" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type serial or service tag, then press Enter">
+                                    <span class="input-group-btn"><select id="identifier-type" class="form-control" aria-label="Identifier type"><option value="SERIAL">Serial</option><option value="IMEI">IMEI</option><option value="SERVICE_TAG">Service tag</option><option value="ASSET_TAG">Asset tag</option></select></span>
+                                    <input id="scan-identifier" type="text" class="form-control sb-scanner-input" maxlength="255" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type or scan serial, IMEI, or service tag">
+                                    <span class="input-group-btn"><button id="stage-identifier" class="btn btn-default" type="button">Accept identifier</button></span>
                                 </div>
-                                <p class="help-block">Enter one physical Device at a time. SAVERPOS checks duplicates before registration, then prepares its permanent SAVERBRO identity and label.</p>
+                                <p class="help-block">Scan or enter one manufacturer identifier, then choose <strong>Accept identifier</strong> (or press Enter). SAVERPOS creates one Device Passport, then generates the SaverBro Device ID and label.</p>
 
                                 <div id="scan-message" class="alert" style="display:none" role="status" aria-live="polite"></div>
                                 <div id="scan-exceptions" aria-live="polite"></div>
@@ -186,6 +188,7 @@
     const root = document.getElementById('device-receiving');
     const scanner = document.getElementById('scan-identifier');
     const type = document.getElementById('identifier-type');
+    const stageButton = document.getElementById('stage-identifier');
     const stagedTarget = document.getElementById('staged-units');
     const emptyState = document.getElementById('empty-staged');
     const registerButton = document.getElementById('register-devices');
@@ -241,10 +244,10 @@
         if (!key) { notify('Scan or enter a serial, IMEI, or asset tag first.', 'warning'); return; }
         if (staged.some(unit => unit.type === type.value && unit.key === key)) { notify('This identifier is already in the current batch.', 'warning'); scanner.select(); return; }
         if (staged.length >= Math.min(config.max, config.remaining)) { notify('This purchase line already has the maximum number of devices ready for this batch.', 'warning'); return; }
-        scanner.disabled = true;
-        try { await request(config.prepareUrl, { location_id: config.locationId, product_id: config.productId, variation_id: config.variationId, units: [{ identifier_type: type.value, identifier_value: value }] }); const mask = key.length <= 4 ? '••••' : '••••' + key.slice(-4); staged.push({ type: type.value, value, key, mask, cost: config.defaultCost, costReason: '', observationType: '' }); scanner.value = ''; notify('Serial accepted. Register this exact Device and print its SAVERBRO label.', 'success'); }
+        scanner.disabled = true; stageButton.disabled = true;
+        try { await request(config.prepareUrl, { location_id: config.locationId, product_id: config.productId, variation_id: config.variationId, units: [{ identifier_type: type.value, identifier_value: value }] }); const mask = key.length <= 4 ? '••••' : '••••' + key.slice(-4); staged.push({ type: type.value, value, key, mask, cost: config.defaultCost, costReason: '', observationType: '' }); scanner.value = ''; notify('Identifier accepted. Register this exact Device and print its SAVERBRO label.', 'success'); }
         catch (error) { blocked.push({ message: error.message || 'This scan needs attention.', device_url: error.device_url || null }); notify('Scan blocked. Valid staged devices are unchanged.', 'warning'); }
-        finally { scanner.disabled = false; render(); scanner.focus(); }
+        finally { scanner.disabled = false; stageButton.disabled = false; render(); scanner.focus(); }
     }
     async function request(url, body) {
         const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': root.dataset.csrfToken }, body: JSON.stringify(body) });
@@ -261,6 +264,7 @@
     }
     function payload(commandUuid) { return { command_uuid: commandUuid, location_id: config.locationId, product_id: config.productId, variation_id: config.variationId, purchase_transaction_id: config.purchaseId, purchase_line_id: config.purchaseLineId, units: staged.map(unit => ({ identifier_type: unit.type, identifier_value: unit.value, unit_acquisition_cost: unit.cost, cost_override_reason_code: unit.costReason, intake_observations: unit.observationType ? [{ type: unit.observationType }] : [] })) }; }
     scanner.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); stageCurrent(); } });
+    stageButton.addEventListener('click', stageCurrent);
     clearButton.addEventListener('click', () => { staged = []; resetMessage(); render(); scanner.focus(); });
     registerButton.addEventListener('click', async () => {
         if (!staged.length) return; registerButton.disabled = true; const commandUuid = uuid(); const labelPreview = window.open('', 'saverbro-device-label');

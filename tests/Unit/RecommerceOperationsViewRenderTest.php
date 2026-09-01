@@ -36,7 +36,7 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $html = $this->renderRecommerceView('recommerce::device.index', [
             'devices' => collect([
                 (object) [
-                    'device_code' => 'SB-DV-00000001-9', 'lifecycle_state' => 'AVAILABLE',
+                    'id' => 1, 'device_code' => 'SB-DV-00000001-9', 'lifecycle_state' => 'AVAILABLE',
                     'custody_kind' => 'LOCATION', 'stock_participation' => 'ON_HAND',
                     'product' => (object) ['name' => 'SaverBro Demo Device'],
                     'variation' => (object) ['name' => 'Default'],
@@ -49,7 +49,9 @@ class RecommerceOperationsViewRenderTest extends TestCase
             ]),
             'locationId' => 1,
             'query' => '',
+            'labelStatus' => 'NOT_PRINTED',
             'canReceive' => true,
+            'canPrintLabel' => true,
         ]);
 
         $this->assertStringContainsString('SB-DV-00000001-9', $html);
@@ -60,6 +62,12 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $this->assertStringContainsString('Find and investigate an existing physical device', $html);
         $this->assertStringContainsString('Ready for sale', $html);
         $this->assertStringContainsString('SaverBro location', $html);
+        $this->assertStringContainsString('Print label', $html);
+        $this->assertStringContainsString('/label/print', $html);
+        $this->assertStringContainsString('Label status', $html);
+        $this->assertStringContainsString('All label statuses', $html);
+        $this->assertMatchesRegularExpression('/value="NOT_PRINTED"\\s+selected/', $html);
+        $this->assertStringContainsString('Print view opened', $html);
         $this->assertStringNotContainsString('Add Device', $html);
     }
 
@@ -91,7 +99,9 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $this->assertStringContainsString("stopCamera('Device scan captured. Resolving…')", $html);
         $this->assertStringContainsString('resolveButton.click()', $html);
         $this->assertStringContainsString('Camera scanning requires HTTPS (or localhost) and browser camera permission.', $html);
-        $this->assertStringContainsString('This browser does not provide QR detection.', $html);
+        $this->assertStringContainsString('jsqr@1.4.0/dist/jsQR.min.js', $html);
+        $this->assertStringContainsString('detectFrameWithFallback', $html);
+        $this->assertStringContainsString('QR camera decoding is unavailable in this browser.', $html);
     }
 
     public function test_the_operations_dashboard_shows_only_the_cards_a_role_may_see(): void
@@ -164,7 +174,7 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $this->assertStringContainsString("lineAwaitingInspection += awaitingAdded", $html);
         $this->assertStringContainsString("lineProgressBar.style.width", $html);
         $this->assertStringContainsString("lineAction.textContent = 'View devices'", $html);
-        $this->assertStringContainsString('Manufacturer Serial / Service Tag', $html);
+        $this->assertStringContainsString('Manufacturer identifier', $html);
         $this->assertStringContainsString('Register &amp; Print Label', $html);
         $this->assertStringNotContainsString('Serialization', $html);
         $this->assertStringNotContainsString('serialized product line', $html);
@@ -191,6 +201,7 @@ class RecommerceOperationsViewRenderTest extends TestCase
                 'lines' => collect([$line]), 'selected_line' => $line,
                 'expected_count' => 10, 'registered_count' => 10, 'remaining_count' => 0,
                 'inspection_cleared_count' => 0, 'inspection_open_count' => 10,
+                'label_confirmed_count' => 8, 'label_remaining_count' => 2,
             ],
             'locationId' => 101, 'postEnabled' => true, 'canOverrideCost' => false,
             'canViewInspection' => true, 'registeredDevices' => collect(), 'reconciliationRecordEnabled' => false,
@@ -201,6 +212,9 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $this->assertStringContainsString('Open Inspection Queue', $html);
         $this->assertStringContainsString('id="inspection-waiting-count">10', $html);
         $this->assertStringContainsString('id="inspection-waiting-grammar">devices are', $html);
+        $this->assertStringContainsString('2 registered Devices still need a label', $html);
+        $this->assertStringContainsString('Open Label Recovery Queue', $html);
+        $this->assertStringContainsString('label_status=NEEDS_LABEL', $html);
         $this->assertStringContainsString('Return to purchases', $html);
         $this->assertStringContainsString('View devices', $html);
     }

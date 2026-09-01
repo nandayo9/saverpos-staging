@@ -121,7 +121,7 @@
                         @else
                             <p class="text-muted">No public certificate is published for this Device in the current permission scope.</p>
                         @endif
-                        <p class="text-muted">Sale price and gross profit remain in Ultimate POS until an exact Device-to-sale-line assignment is implemented; this view will not invent a parallel sales ledger.</p>
+                        <p class="text-muted">Sale price and gross profit remain in Ultimate POS. The protected lifecycle record retains the exact device-sale link; this view does not duplicate the financial ledger.</p>
 
                         <h4>Ownership periods</h4>
                         @forelse ($device->ownershipPeriods as $period)

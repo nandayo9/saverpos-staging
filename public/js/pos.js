@@ -14,6 +14,106 @@ function pos_sync_empty_state() {
     var hasRows = $('#pos_table tbody .product_row').length > 0;
     $('#pos_table').toggleClass('pos-has-rows', hasRows);
     $('#add_pos_sell_form, #edit_pos_sell_form').toggleClass('pos-has-rows', hasRows);
+    pos_sync_recommerce_device_scans();
+}
+
+function recommerce_device_codes(value) {
+    var seen = {};
+    return String(value || '')
+        .split(/[\s,]+/)
+        .map(function(code) { return code.trim(); })
+        .filter(function(code) {
+            if (!code || seen[code]) {
+                return false;
+            }
+            seen[code] = true;
+            return true;
+        });
+}
+
+function recommerce_device_scan_state($row) {
+    var $panel = $row.find('.recommerce-device-scan');
+    var $field = $panel.find('.recommerce-device-codes');
+    if (!$panel.length || !$field.length) {
+        return null;
+    }
+
+    var quantity = __read_number($row.find('input.pos_quantity'));
+    var required = Math.max(1, Math.round(quantity || 0));
+    var hasWholeQuantity = quantity > 0 && quantity === Math.floor(quantity);
+    var codes = recommerce_device_codes($field.val());
+    var complete = hasWholeQuantity && codes.length === required;
+
+    return {
+        panel: $panel,
+        field: $field,
+        quantity: quantity,
+        required: required,
+        codes: codes,
+        complete: complete,
+        hasWholeQuantity: hasWholeQuantity,
+    };
+}
+
+function pos_sync_recommerce_device_scan($row) {
+    var state = recommerce_device_scan_state($row);
+    if (!state) {
+        return true;
+    }
+
+    var countText = state.codes.length + ' of ' + state.required + ' scanned';
+    var helpText = 'Scan QR or enter one unique SaverBro Device ID, serial, or IMEI for each unit. Checkout stays unavailable until the count matches the quantity.';
+    if (!state.hasWholeQuantity) {
+        countText = 'Whole units required';
+        helpText = 'Serialized products must be sold in whole units so every physical device can be assigned.';
+    } else if (state.complete) {
+        countText = state.required + ' of ' + state.required + ' scanned';
+        helpText = 'All Device identities are ready for checkout. The sale will resolve and assign each exact Device to this customer.';
+    } else if (state.codes.length > state.required) {
+        helpText = 'Too many codes scanned. Remove extras so this row has exactly one unique code per unit.';
+    }
+
+    state.panel.find('.recommerce-device-scan-count').text(countText);
+    state.panel.find('.recommerce-device-scan-help').text(helpText);
+    state.panel.toggleClass('recommerce-device-scan-complete', state.complete);
+    state.panel.css({
+        borderColor: state.complete ? '#22c55e' : '#38bdf8',
+        background: state.complete ? '#f0fdf4' : '#f0f9ff',
+    });
+    state.field.attr('aria-invalid', state.complete ? 'false' : 'true');
+
+    return state.complete;
+}
+
+function pos_sync_recommerce_device_scans() {
+    $('#pos_table tbody .product_row').each(function() {
+        pos_sync_recommerce_device_scan($(this));
+    });
+}
+
+function pos_validate_recommerce_device_scans() {
+    var invalidState = null;
+
+    $('#pos_table tbody .product_row').each(function() {
+        var $row = $(this);
+        var state = recommerce_device_scan_state($row);
+        if (state && !pos_sync_recommerce_device_scan($row) && !invalidState) {
+            invalidState = state;
+        }
+    });
+
+    if (!invalidState) {
+        return true;
+    }
+
+    var productName = invalidState.panel.data('product-name') || 'this serialized product';
+    var message = invalidState.hasWholeQuantity
+        ? 'Identify exactly ' + invalidState.required + ' unique device(s) for ' + productName + ' before checkout.'
+        : 'Use a whole-unit quantity for ' + productName + ' before checkout.';
+
+    toastr.error(message);
+    invalidState.field.focus();
+    return false;
 }
 $(document).ready(function() {
     pos_sync_empty_state();
@@ -25,6 +125,10 @@ $(document).ready(function() {
             e.preventDefault();
             return false;
         }
+    });
+
+    $(document).on('input change', '.recommerce-device-codes, input.pos_quantity', function() {
+        pos_sync_recommerce_device_scan($(this).closest('.product_row'));
     });
 
     //For edit pos form
@@ -701,6 +805,10 @@ $(document).ready(function() {
             return false;
         }
 
+        if (!pos_validate_recommerce_device_scans()) {
+            return false;
+        }
+
         if ($('#reward_point_enabled').length) {
             var validate_rp = isValidatRewardPoint();
             if (!validate_rp['is_valid']) {
@@ -730,6 +838,10 @@ $(document).ready(function() {
         //Check if product is present or not.
         if ($('table#pos_table tbody').find('.product_row').length <= 0) {
             toastr.warning(LANG.no_products_added);
+            return false;
+        }
+
+        if (!pos_validate_recommerce_device_scans()) {
             return false;
         }
 
@@ -876,6 +988,10 @@ $(document).ready(function() {
 
     pos_form_validator = pos_form_obj.validate({
         submitHandler: function(form) {
+            if (!pos_validate_recommerce_device_scans()) {
+                return false;
+            }
+
             // var total_payble = __read_number($('input#final_total_input'));
             // var total_paying = __read_number($('input#total_paying_input'));
             var cnf = true;

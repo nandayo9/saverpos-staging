@@ -54,8 +54,12 @@ class DeviceController extends Controller
 
         $term = trim((string) $request->query('q', ''));
         $state = strtoupper(trim((string) $request->query('state', '')));
+        $labelStatus = strtoupper(trim((string) $request->query('label_status', '')));
         $state = in_array($state, ['RECEIVED_PENDING_INSPECTION', 'REFURBISHMENT_REQUIRED', 'AVAILABLE'], true)
             ? $state
+            : '';
+        $labelStatus = in_array($labelStatus, ['NEEDS_LABEL', 'NOT_PRINTED', 'PRINT_VIEW_OPENED', 'PRINTED', 'REPRINTED'], true)
+            ? $labelStatus
             : '';
         if ($state !== '') {
             $query->where('lifecycle_state', $state);
@@ -69,14 +73,31 @@ class DeviceController extends Controller
             });
         }
 
-        $devices = $query->limit(100)->get()->filter(function (Device $device) use ($authorizationGate, $user, $businessId, $locationId) {
-            return $authorizationGate->allowsRead(
+        $devices = $query->limit(100)->get()->filter(function (Device $device) use ($authorizationGate, $user, $businessId, $locationId, $labelStatus) {
+            if (! $authorizationGate->allowsRead(
                 $user,
                 'recommerce.device.view',
                 $businessId,
                 $locationId,
                 $device->variation_id
-            );
+            )) {
+                return false;
+            }
+
+            if ($labelStatus === '') {
+                return true;
+            }
+
+            $latestItem = $device->labelJobItems->sortByDesc('id')->first();
+            $currentStatus = ! $latestItem
+                ? 'NOT_PRINTED'
+                : (($latestItem->job?->status === 'REPRINT_CONFIRMED')
+                    ? 'REPRINTED'
+                    : (($latestItem->job?->status === 'PRINT_CONFIRMED') ? 'PRINTED' : 'PRINT_VIEW_OPENED'));
+
+            return $labelStatus === 'NEEDS_LABEL'
+                ? in_array($currentStatus, ['NOT_PRINTED', 'PRINT_VIEW_OPENED'], true)
+                : $currentStatus === $labelStatus;
         })->values();
 
         return response()->view('recommerce::device.index', [
@@ -84,9 +105,20 @@ class DeviceController extends Controller
             'locationId' => $locationId,
             'query' => $term,
             'state' => $state,
+            'labelStatus' => $labelStatus,
             'canReceive' => $authorizationGate->allowsWriteLocation(
                 $user,
                 'recommerce.receiving.prepare',
+                $businessId,
+                $locationId
+            ),
+            // Every listed Device has already passed the variation-level read
+            // cohort filter above, so this location-level check safely
+            // controls the registry's direct print action without exposing a
+            // second per-row permission implementation in the view.
+            'canPrintLabel' => $authorizationGate->allowsWriteLocation(
+                $user,
+                'recommerce.device.print_label',
                 $businessId,
                 $locationId
             ),

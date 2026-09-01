@@ -22,7 +22,7 @@ return [
     'label_template_version' => 'v2.2-2',
     // The browser-print dimensions live in one place so later thermal
     // templates do not need to change identity or receiving behavior.
-    'label_template' => ['width' => '50mm', 'height' => '38mm'],
+    'label_template' => ['width' => '50mm', 'height' => '20mm'],
     // Product/legal teams own the final wording. V2 records the displayed
     // version and acknowledgement without exposing identity references in lists.
     'tradein_seller_declaration' => env('RECOMMERCE_TRADEIN_SELLER_DECLARATION', 'Seller declares that they have the right to offer this device and that the information provided is accurate.'),
@@ -54,6 +54,13 @@ return [
         'recommerce.inspection.complete',
         'recommerce.stock.reconcile',
         'recommerce.stock.reconcile.record',
+        'recommerce.stockcount.view',
+        'recommerce.stockcount.create',
+        'recommerce.stockcount.count',
+        'recommerce.stockcount.review',
+        'recommerce.stockcount.approve',
+        'recommerce.stockcount.reconcile',
+        'recommerce.stockcount.close',
         'recommerce.audit.view',
         'recommerce.repair.view',
         'recommerce.repair.view_cost',
@@ -77,6 +84,14 @@ return [
         'recommerce.tradein.override_economic_ceiling',
         'recommerce.tradein.accept',
         'recommerce.tradein.reverse',
+    ],
+    'stock_count' => [
+        // There is deliberately no monetary default. Operations must set a
+        // local policy before generic-cost threshold approvals are enabled.
+        'approval' => [
+            'serialized_requires_approval' => env('RECOMMERCE_STOCK_COUNT_SERIALIZED_REQUIRES_APPROVAL', true),
+            'generic_cost_threshold' => env('RECOMMERCE_STOCK_COUNT_GENERIC_COST_THRESHOLD'),
+        ],
     ],
     'cohort' => [
         'business_id' => env('RECOMMERCE_COHORT_BUSINESS_ID'),

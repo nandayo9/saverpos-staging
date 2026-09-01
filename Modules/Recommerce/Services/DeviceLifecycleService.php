@@ -28,9 +28,13 @@ class DeviceLifecycleService
 {
     public function __construct(
         protected AuthorizationGate $authorizationGate,
-        protected DeviceEventRecorder $eventRecorder
+        protected DeviceEventRecorder $eventRecorder,
+        ?DeviceIdentityResolver $identityResolver = null
     ) {
+        $this->identityResolver = $identityResolver ?: new DeviceIdentityResolver();
     }
+
+    protected DeviceIdentityResolver $identityResolver;
 
     public function synchroniseFinalSale(User $user, Transaction $sale, array $requestedProducts): void
     {
@@ -401,8 +405,8 @@ class DeviceLifecycleService
                         : 'Tracked quantity must equal the number of selected devices.');
                 }
                 foreach ($codes as $code) {
-                    $device = Device::query()->where('business_id', $transaction->business_id)->where('device_code', $code)->first();
-                    if (! $device) { throw new InvalidArgumentException('Selected tracked device was not found.'); }
+                    $device = $this->identityResolver->resolve((int) $transaction->business_id, $code);
+                    if (! $device) { throw new InvalidArgumentException('No registered Device matches this QR, SaverBro Device ID, serial, or IMEI.'); }
                     $selected[] = ['device_id' => $device->id, 'sell_line_id' => $line->id, 'variation_id' => $line->variation_id, 'return_state' => $inputRows[$index]['recommerce_return_state'] ?? null];
                 }
             }
@@ -460,7 +464,9 @@ class DeviceLifecycleService
     protected function codes($value): array
     {
         $values = is_array($value) ? $value : preg_split('/[\s,]+/', (string) $value, -1, PREG_SPLIT_NO_EMPTY);
-        return array_values(array_unique(array_map(fn ($code) => strtoupper(trim((string) $code)), $values)));
+        // DeviceIdentityResolver owns approved normalization. Preserve opaque
+        // QR URLs exactly here so the resolver can validate their scheme/path.
+        return array_values(array_unique(array_map(fn ($code) => trim((string) $code), $values)));
     }
 
     protected function assertOperationScope(User $user, string $permission, Transaction $transaction, array $selections): void

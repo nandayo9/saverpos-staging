@@ -33,7 +33,7 @@
                 <ol class="nav nav-pills nav-justified" aria-label="Acquisition steps" style="margin-bottom:18px"><li class="active"><a href="#tradein-step-1">1 Type & seller</a></li><li><a href="#tradein-step-2">2 Device</a></li><li><a href="#tradein-step-3">3 Inspection</a></li><li><a href="#tradein-step-4">4 Evidence & offer</a></li><li><a href="#tradein-step-5">5 Declaration</a></li></ol>
 
                 <fieldset id="tradein-step-1" class="tradein-step"><legend>1. Acquisition type and seller</legend>
-                    <div class="row"><div class="col-md-4"><div class="form-group"><label>Acquisition type</label><select class="form-control" name="acquisition_type" aria-label="Acquisition type"><option value="SELL_TO_SAVERBRO">Sell to SaverBro</option><option value="TRADE_IN">Trade-in against a future sale</option><option value="BUSINESS_OR_BULK_ACQUISITION">Business / bulk (single-device V2)</option></select></div></div><div class="col-md-4"><div class="form-group"><label for="tradein-customer">Existing seller / customer</label><select id="tradein-customer" class="form-control" name="customer_contact_id"><option value="">Create a new seller below</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" @selected((string)old('customer_contact_id') === (string)$customer->id)>{{ $customer->name }}{{ $customer->mobile ? ' · '.$customer->mobile : '' }}</option>@endforeach</select></div></div><div class="col-md-4"><div class="form-group"><label for="seller-phone">Seller phone</label><input id="seller-phone" class="form-control" name="seller_phone" maxlength="80" value="{{ old('seller_phone') }}" placeholder="Required for a new seller/payee"></div></div></div>
+                    <div class="row"><div class="col-md-4"><div class="form-group"><label>Acquisition type</label><select class="form-control" name="acquisition_type" aria-label="Acquisition type"><option value="SELL_TO_SAVERBRO">Sell to SaverBro</option><option value="TRADE_IN">Trade-in against a future sale</option><option value="BUSINESS_OR_BULK_ACQUISITION">Business / bulk (single-device V2)</option></select></div></div><div class="col-md-4"><div class="form-group"><label for="tradein-customer">Existing seller / customer</label><select id="tradein-customer" class="form-control" name="customer_contact_id"><option value="">Create a new seller below</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" data-has-phone="{{ $customer->mobile ? '1' : '0' }}" data-has-native-payee="{{ in_array((int) $customer->id, $customerNativePayeeIds, true) ? '1' : '0' }}" @selected((string)old('customer_contact_id') === (string)$customer->id)>{{ $customer->name }}{{ $customer->mobile ? ' · '.$customer->mobile : (in_array((int) $customer->id, $customerNativePayeeIds, true) ? ' · payee ready' : ' · phone required') }}</option>@endforeach</select></div></div><div class="col-md-4"><div class="form-group"><label for="seller-phone">Seller phone</label><input id="seller-phone" class="form-control" name="seller_phone" maxlength="80" value="{{ old('seller_phone') }}" placeholder="Required for a new seller or missing contact phone"><p id="seller-phone-help" class="help-block" aria-live="polite">Select an existing seller with a saved phone or payee, or enter a new seller name and phone.</p></div></div></div>
                     <div class="row"><div class="col-md-6"><div class="form-group"><label for="seller-name">New seller name</label><input id="seller-name" class="form-control" name="seller_name" maxlength="255" value="{{ old('seller_name') }}" placeholder="Only if not selecting an existing customer"></div></div><div class="col-md-6"><div class="form-group"><label for="seller-id-ref">Identification reference</label><input id="seller-id-ref" class="form-control" name="seller_identity_reference" maxlength="255" value="{{ old('seller_identity_reference') }}" autocomplete="off"><p class="help-block">Stored encrypted; never displayed in the acquisition list.</p></div></div></div>
                 </fieldset>
 
@@ -74,7 +74,7 @@
         @if($valuation->status === 'PENDING_APPROVAL' && $canApprove)<form method="post" action="{{ route('recommerce.tradeins.approve',$valuation->id) }}" style="margin-top:6px">@csrf<input class="form-control input-sm" name="reason" placeholder="Approval reason / evidence" aria-label="Approval reason or evidence" required><button class="btn btn-info btn-sm" style="margin-top:4px">Approve offer</button></form>@endif
         @if(in_array($valuation->status,['READY_TO_ACCEPT','APPROVED'],true) && $canAccept)<form method="post" action="{{ route('recommerce.tradeins.accept',$valuation->id) }}" style="margin-top:6px">@csrf<input type="hidden" name="command_uuid" value="{{ (string)\Illuminate\Support\Str::uuid() }}"><button class="btn btn-success btn-sm">Accept → native purchase → QC</button></form>@endif
         @if(in_array($valuation->status,['READY_TO_ACCEPT','PENDING_APPROVAL','APPROVED'],true) && $canManage)<form method="post" action="{{ route('recommerce.tradeins.reject',$valuation->id) }}" style="margin-top:6px">@csrf<select class="form-control input-sm" name="reason_code" aria-label="Rejection reason code"><option value="OFFER_TOO_LOW">Offer too low</option><option value="CUSTOMER_EXPECTED_MORE">Customer expected more</option><option value="COMPETITOR_OFFERED_MORE">Competitor offered more</option><option value="FAILED_INSPECTION">Failed inspection</option><option value="OWNERSHIP_OR_FRAUD_CONCERN">Ownership/fraud concern</option><option value="PRICE_CHECK_ONLY">Price check only</option><option value="OTHER">Other</option></select><input class="form-control input-sm" name="reason" placeholder="Reason" aria-label="Rejection reason" required><button class="btn btn-default btn-sm" style="margin-top:4px">Reject / return custody</button></form>@endif
-        @if($valuation->status === 'ACCEPTED')<form method="post" action="{{ route('recommerce.tradeins.refurbishment',$valuation->id) }}" style="margin-top:6px">@csrf<button class="btn btn-warning btn-sm">Start QC / refurbishment</button></form><form method="post" action="{{ route('recommerce.tradeins.release_for_sale',$valuation->id) }}" style="margin-top:6px">@csrf<button class="btn btn-success btn-sm">Release for sale after QC</button></form>@endif
+        @if($valuation->status === 'ACCEPTED' && optional($valuation->device)->lifecycle_state === 'AVAILABLE')<span class="label label-success">Available for sale</span><br><small>QC release recorded.</small>@elseif($valuation->status === 'ACCEPTED')<form method="post" action="{{ route('recommerce.tradeins.refurbishment',$valuation->id) }}" style="margin-top:6px">@csrf<button class="btn btn-warning btn-sm">Start QC / refurbishment</button></form><form method="post" action="{{ route('recommerce.tradeins.release_for_sale',$valuation->id) }}" style="margin-top:6px">@csrf<button class="btn btn-success btn-sm">Release for sale after QC</button></form>@endif
         @if($valuation->status === 'ACCEPTED' && $canReverse)<form method="post" action="{{ route('recommerce.tradeins.reverse',$valuation->id) }}" style="margin-top:6px">@csrf<input class="form-control input-sm" type="number" name="purchase_return_transaction_id" placeholder="Native purchase-return ID" aria-label="Native purchase return ID" required><input class="form-control input-sm" name="reason" placeholder="Reversal reason" aria-label="Reversal reason" required><input type="hidden" name="command_uuid" value="{{ (string)\Illuminate\Support\Str::uuid() }}"><button class="btn btn-danger btn-sm" style="margin-top:4px">Record reversal</button></form>@endif
         </td></tr>
     @empty<tr><td colspan="5" class="text-muted">No acquisitions recorded for this branch.</td></tr>@endforelse
@@ -98,7 +98,60 @@ document.addEventListener('DOMContentLoaded', function () {
         wizard.dataset.step = index;
     };
     links.forEach(function (link, index) { link.addEventListener('click', function (event) { event.preventDefault(); show(index); }); });
+    var sellerCustomer = wizard.querySelector('#tradein-customer');
+    var sellerName = wizard.querySelector('#seller-name');
+    var sellerPhone = wizard.querySelector('#seller-phone');
+    var sellerPhoneHelp = wizard.querySelector('#seller-phone-help');
+    var showSellerValidation = function (message) {
+        if (!sellerPhoneHelp) return;
+        sellerPhoneHelp.textContent = message;
+        sellerPhoneHelp.classList.add('text-danger');
+    };
+    var syncSellerRequirements = function () {
+        if (!sellerCustomer || !sellerName || !sellerPhone || !sellerPhoneHelp) return;
+        var selected = sellerCustomer.options[sellerCustomer.selectedIndex];
+        var hasExistingSeller = sellerCustomer.value !== '';
+        var existingSellerHasPhone = hasExistingSeller && selected && selected.dataset.hasPhone === '1';
+        var existingSellerHasPayee = hasExistingSeller && selected && selected.dataset.hasNativePayee === '1';
+        sellerName.setCustomValidity('');
+        sellerPhone.setCustomValidity('');
+        sellerPhoneHelp.classList.remove('text-danger');
+        if (!hasExistingSeller) {
+            sellerPhoneHelp.textContent = 'New seller: enter both name and phone. This creates the customer and its native purchase payee.';
+            return;
+        }
+        if (existingSellerHasPhone || existingSellerHasPayee) {
+            if (existingSellerHasPayee && !existingSellerHasPhone) {
+                sellerPhoneHelp.textContent = 'An active native purchase payee already exists for this seller. A phone is optional for this acquisition.';
+                return;
+            }
+            sellerPhoneHelp.textContent = 'Saved seller phone is available for the native purchase payee. Leave this blank unless this acquisition needs a different phone.';
+            return;
+        }
+        sellerPhoneHelp.textContent = 'This seller has no saved phone. Enter one before continuing so a native purchase payee can be created.';
+    };
+    if (sellerCustomer) sellerCustomer.addEventListener('change', syncSellerRequirements);
+    if (sellerName) sellerName.addEventListener('input', syncSellerRequirements);
+    if (sellerPhone) sellerPhone.addEventListener('input', syncSellerRequirements);
+    syncSellerRequirements();
     var validateStep = function (index) {
+        if (index === 0 && sellerCustomer && sellerName && sellerPhone) {
+            var selected = sellerCustomer.options[sellerCustomer.selectedIndex];
+            var existingSellerHasPhone = sellerCustomer.value !== '' && selected && selected.dataset.hasPhone === '1';
+            var existingSellerHasPayee = sellerCustomer.value !== '' && selected && selected.dataset.hasNativePayee === '1';
+            if (sellerCustomer.value === '' && sellerName.value.trim() === '') {
+                sellerName.setCustomValidity('Enter a seller name when creating a new seller.');
+                showSellerValidation('Enter a seller name and phone before continuing. This creates the customer and its native purchase payee.');
+            }
+            if ((sellerCustomer.value === '' || (!existingSellerHasPhone && !existingSellerHasPayee)) && sellerPhone.value.trim() === '') {
+                sellerPhone.setCustomValidity(sellerCustomer.value === ''
+                    ? 'Enter a seller phone number when creating a new seller.'
+                    : 'This seller has no saved phone. Enter one before continuing.');
+                showSellerValidation(sellerCustomer.value === ''
+                    ? 'Enter a seller name and phone before continuing. This creates the customer and its native purchase payee.'
+                    : 'This seller has no saved phone. Enter one before continuing so a native purchase payee can be created.');
+            }
+        }
         var fields = steps[index].querySelectorAll('input, select, textarea');
         for (var fieldIndex = 0; fieldIndex < fields.length; fieldIndex += 1) {
             var field = fields[fieldIndex];

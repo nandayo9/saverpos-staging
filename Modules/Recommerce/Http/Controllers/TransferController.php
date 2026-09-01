@@ -13,11 +13,9 @@ use Illuminate\Support\Facades\DB;
 use LogicException;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\DeviceTransferAssignment;
-use Modules\Recommerce\Entities\ScanToken;
 use Modules\Recommerce\Services\DeviceLifecycleService;
+use Modules\Recommerce\Services\DeviceIdentityResolver;
 use Modules\Recommerce\Support\AuthorizationGate;
-use Modules\Recommerce\Support\Identity\OpaqueScanToken;
-use Modules\Recommerce\Support\Identity\ScanInput;
 
 /** Staff-facing exact-device workflow over the native UltimatePOS transfer pair. */
 class TransferController extends Controller
@@ -34,13 +32,13 @@ class TransferController extends Controller
             ->header('Cache-Control', 'no-store')->header('Referrer-Policy', 'no-referrer');
     }
 
-    public function select(Request $request, int $transferId, DeviceLifecycleService $lifecycle, OpaqueScanToken $tokens)
+    public function select(Request $request, int $transferId, DeviceLifecycleService $lifecycle, DeviceIdentityResolver $identityResolver)
     {
         [$sell, $purchase] = $this->pair($transferId);
         try {
             if ($sell->status !== 'pending') throw new LogicException('Devices can only be selected while this transfer is a draft.');
             $value = (string) $request->validate(['scan_value' => ['required', 'string', 'max:2048']])['scan_value'];
-            $device = $this->resolve($sell->business_id, $value, $tokens);
+            $device = $this->resolve($sell->business_id, $value, $identityResolver);
             $selection = $this->selectionWith($sell, $device);
             DB::transaction(fn () => $lifecycle->synchroniseTransferReservation($request->user(), $sell->fresh(), $purchase->fresh(), $selection, true));
             return back()->with('status', $device->device_code.' selected for transfer.');
@@ -65,13 +63,13 @@ class TransferController extends Controller
         }
     }
 
-    public function receive(Request $request, int $transferId, DeviceLifecycleService $lifecycle, OpaqueScanToken $tokens)
+    public function receive(Request $request, int $transferId, DeviceLifecycleService $lifecycle, DeviceIdentityResolver $identityResolver)
     {
         [$sell, $purchase] = $this->pair($transferId);
         try {
             if ($sell->status !== 'in_transit') throw new LogicException('Only an incoming transfer can receive Devices.');
             $data = $request->validate(['scan_value' => ['required', 'string', 'max:2048'], 'condition' => ['nullable', 'in:NORMAL,DAMAGED'], 'note' => ['nullable', 'string', 'max:1000']]);
-            $device = $this->resolve($sell->business_id, $data['scan_value'], $tokens);
+            $device = $this->resolve($sell->business_id, $data['scan_value'], $identityResolver);
             $outcome = DB::transaction(fn () => $lifecycle->receiveTransferDevice($request->user(), $sell->fresh(), $purchase->fresh(), $device, $data['condition'] ?? 'NORMAL', $data['note'] ?? null));
             return back()->with('status', $outcome['status'] === 'ALREADY_RECEIVED' ? $device->device_code.' was already received.' : $device->device_code.' received.');
         } catch (\Throwable $e) {
@@ -111,16 +109,11 @@ class TransferController extends Controller
         return [$sell, $purchase];
     }
 
-    protected function resolve(int $businessId, string $value, OpaqueScanToken $tokens): Device
+    protected function resolve(int $businessId, string $value, DeviceIdentityResolver $identityResolver): \Modules\Recommerce\Entities\Device
     {
-        $parsed = ScanInput::parse($value);
-        if (! $parsed) throw new LogicException('Scan a SAVERBRO QR or enter a valid SAVERPOS Device ID.');
-        if ($parsed['type'] === 'DEVICE_CODE') {
-            return Device::query()->where('business_id', $businessId)->where('device_code', $parsed['value'])->firstOrFail();
-        }
-        $token = ScanToken::query()->where('business_id', $businessId)->where('subject_type', 'DEVICE')->where('status', 'ACTIVE')->where('token_hash', $tokens->hash($parsed['value']))->with('device')->first();
-        if (! $token || ! $token->device) throw new LogicException('This SAVERBRO QR could not be resolved.');
-        return $token->device;
+        $device = $identityResolver->resolve($businessId, $value);
+        if (! $device) throw new LogicException('No registered Device matches this QR, SaverBro Device ID, serial, or IMEI.');
+        return $device;
     }
 
     protected function selectionWith(Transaction $sell, Device $incoming): array

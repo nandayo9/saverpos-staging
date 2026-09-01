@@ -33,7 +33,7 @@ class ScanInput
             : false;
 
         if (! is_array($parts)
-            || ($parts['scheme'] ?? null) !== 'https'
+            || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
             || ! is_array($resolverParts)
             || ! is_string($resolverParts['host'] ?? null)
             || strtolower($parts['host'] ?? '') !== strtolower($resolverParts['host'])

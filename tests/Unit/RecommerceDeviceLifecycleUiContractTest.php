@@ -6,6 +6,22 @@ use Tests\TestCase;
 
 class RecommerceDeviceLifecycleUiContractTest extends TestCase
 {
+    public function test_pos_only_shows_the_device_scanner_for_approved_serialised_variations(): void
+    {
+        $productUtil = file_get_contents(base_path('app/Utils/ProductUtil.php'));
+        $row = file_get_contents(base_path('resources/views/sale_pos/product_row.blade.php'));
+        $script = file_get_contents(base_path('public/js/pos.js'));
+
+        $this->assertStringContainsString('recommerce_tracking_required', $productUtil);
+        $this->assertStringContainsString("Schema::hasTable('recommerce_serialization_profiles')", $productUtil);
+        $this->assertStringContainsString("where('mode', 'TRACKED_REQUIRED')", $productUtil);
+        $this->assertStringContainsString("@if(!empty(\$product->recommerce_tracking_required))", $row);
+        $this->assertStringContainsString('Identify device', $row);
+        $this->assertStringContainsString('recommerce-device-scan-count', $row);
+        $this->assertStringContainsString('pos_validate_recommerce_device_scans', $script);
+        $this->assertStringContainsString('Identify exactly ', $script);
+    }
+
     public function test_sale_return_form_collects_the_exact_original_device_code(): void
     {
         $view = file_get_contents(base_path('resources/views/sell_return/add.blade.php'));
@@ -51,6 +67,22 @@ class RecommerceDeviceLifecycleUiContractTest extends TestCase
         $this->assertStringContainsString("'canStartRepeat' => \$this->canStartRepeat(", $controller);
         $this->assertStringContainsString("'canClaimWarranty' => \$this->canClaimWarranty(", $controller);
         $this->assertStringContainsString('WarrantyClaimService::PERMISSION_MANAGE', $controller);
+    }
+
+    public function test_customer_repair_exposes_the_linked_pos_customer_receipt(): void
+    {
+        $view = file_get_contents(base_path('Modules/Recommerce/Resources/views/repair/show.blade.php'));
+        $controller = file_get_contents(base_path('Modules/Recommerce/Http/Controllers/RepairJobController.php'));
+        $routes = file_get_contents(base_path('Modules/Recommerce/Routes/web.php'));
+
+        $this->assertStringContainsString('Print customer receipt', $view);
+        $this->assertStringContainsString("route('recommerce.repair.customer_receipt', \$job->job_code)", $view);
+        $this->assertStringContainsString('public function customerReceipt(', $controller);
+        $this->assertStringContainsString("'recommerce.repair.view_cost'", $controller);
+        $this->assertStringContainsString('getInvoiceUrl', $controller);
+        $this->assertStringContainsString('print_on_load=1', $controller);
+        $this->assertStringContainsString("/repair/{jobCode}/customer-receipt", $routes);
+        $this->assertStringContainsString("name('recommerce.repair.customer_receipt')", $routes);
     }
 
     /**

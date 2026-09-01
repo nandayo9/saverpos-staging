@@ -26,6 +26,8 @@ use Modules\Recommerce\Services\DeviceCertificationService;
 use Modules\Recommerce\Services\DeviceTransferExceptionService;
 use Modules\Recommerce\Services\DeviceReceivingProgressService;
 use Modules\Recommerce\Services\DeviceInspectionService;
+use Modules\Recommerce\Services\StockCountService;
+use Modules\Recommerce\Services\UltimatePosStockCountAdjustmentWriter;
 
 class RecommerceServiceProvider extends ServiceProvider
 {
@@ -163,6 +165,14 @@ class RecommerceServiceProvider extends ServiceProvider
                 $app->make(\App\Utils\ProductUtil::class),
                 $app->make(\App\Utils\TransactionUtil::class)
             );
+        });
+
+        $this->app->singleton(UltimatePosStockCountAdjustmentWriter::class, function ($app) {
+            return new UltimatePosStockCountAdjustmentWriter($app->make(\App\Utils\ProductUtil::class), $app->make(\App\Utils\TransactionUtil::class));
+        });
+
+        $this->app->singleton(StockCountService::class, function ($app) {
+            return new StockCountService($app->make(AuthorizationGate::class), $app->make(UltimatePosStockCountAdjustmentWriter::class), $app->make(OpaqueScanToken::class));
         });
 
         if (config('recommerce.enabled', false) === true) {

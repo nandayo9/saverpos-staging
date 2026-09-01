@@ -71,7 +71,7 @@ class DashboardDarkThemeTest extends TestCase
         $this->assertStringContainsString('/home/branch-performance', $view);
         $this->assertStringContainsString('branch_performance_table', $view);
         $this->assertStringContainsString('if (lang)', $javascript);
-        $this->assertStringContainsString("home.js?v=' . $asset_v . '&mtime=' . filemtime", $view);
+        $this->assertStringContainsString('home.js?v=\' . $asset_v . \'&mtime=\' . filemtime', $view);
         $this->assertStringContainsString('.sb-dashboard-header-row {', $css);
         $this->assertStringContainsString('.sb-dashboard-filter-button {', $css);
         $this->assertStringContainsString('.sb-dashboard-kpi {', $css);

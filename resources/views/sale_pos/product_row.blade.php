@@ -334,11 +334,14 @@
 
 			@endforeach
 		@endif
-		@if(config('recommerce.enabled'))
-			<div class="form-group" style="margin-top:8px">
-				<label class="control-label"><i class="fa fa-barcode"></i> Tracked device code(s)</label>
-				<textarea class="form-control input-sm" rows="2" name="products[{{$row_count}}][recommerce_device_codes]" placeholder="Scan or enter one SaverBro device code per unit, separated by spaces"></textarea>
-				<small class="text-muted">Required only for the configured tracked Recommerce cohort.</small>
+		@if(!empty($product->recommerce_tracking_required))
+			<div class="recommerce-device-scan" data-product-name="{{ e($product->product_name) }}" style="margin-top:10px;padding:9px 10px;border:1px solid #38bdf8;border-radius:7px;background:#f0f9ff;">
+				<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+					<label class="control-label" for="recommerce_device_codes_{{$row_count}}" style="margin:0;color:#075985;"><i class="fa fa-barcode"></i> Identify device</label>
+					<span class="recommerce-device-scan-count" aria-live="polite" style="font-size:11px;font-weight:700;color:#075985;white-space:nowrap;">0 of {{ @format_quantity($product->quantity_ordered) }} scanned</span>
+				</div>
+				<textarea id="recommerce_device_codes_{{$row_count}}" class="form-control input-sm recommerce-device-codes" rows="2" name="products[{{$row_count}}][recommerce_device_codes]" placeholder="Scan QR or enter SaverBro ID, serial, or IMEI" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="recommerce_device_help_{{$row_count}}"></textarea>
+				<small id="recommerce_device_help_{{$row_count}}" class="recommerce-device-scan-help" style="display:block;margin-top:5px;color:#475569;">Enter one unique Device identity per unit. QR, SaverBro Device ID, serial, and IMEI all resolve to the same Device Passport.</small>
 			</div>
 		@endif
 	</td>

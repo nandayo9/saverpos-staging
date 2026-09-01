@@ -16,6 +16,7 @@ use LogicException;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\TradeInRuleSet;
 use Modules\Recommerce\Entities\TradeInAuthorityRule;
+use Modules\Recommerce\Entities\TradeInSellerRepresentation;
 use Modules\Recommerce\Entities\TradeInValuation;
 use Modules\Recommerce\Services\TradeInService;
 use Modules\Recommerce\Services\TradeInDeviceIntakeService;
@@ -69,6 +70,13 @@ class TradeInController extends Controller
             'authorityRules' => Schema::hasTable('recommerce_trade_in_authority_rules') ? TradeInAuthorityRule::query()->where('business_id', $businessId)->where('location_id', $locationId)->where('active', true)->orderBy('role_name')->get() : collect(),
             'authorityRoles' => Role::query()->where('business_id', $businessId)->orderBy('name')->pluck('name')->map(fn ($name) => str_replace('#'.$businessId, '', (string) $name))->values(),
             'customers' => Contact::query()->where('business_id', $businessId)->whereIn('type', ['customer', 'both'])->whereNull('deleted_at')->orderBy('name')->limit(200)->get(),
+            'customerNativePayeeIds' => TradeInSellerRepresentation::query()
+                ->join('contacts as supplier_payees', 'supplier_payees.id', '=', 'recommerce_trade_in_seller_representations.supplier_contact_id')
+                ->where('recommerce_trade_in_seller_representations.business_id', $businessId)
+                ->whereIn('supplier_payees.type', ['supplier', 'both'])
+                ->whereNull('supplier_payees.deleted_at')
+                ->pluck('recommerce_trade_in_seller_representations.customer_contact_id')
+                ->map(fn ($id) => (int) $id)->all(),
             'devices' => Device::query()->where('business_id', $businessId)->where('ownership_kind', 'CUSTOMER')->orderBy('device_code')->limit(200)->get(),
             'valuations' => $valuations,
             'metrics' => [

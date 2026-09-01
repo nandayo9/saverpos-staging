@@ -21,6 +21,7 @@ use App\VariationLocationDetails;
 use App\VariationTemplate;
 use App\VariationValueTemplate;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ProductUtil extends Util
 {
@@ -2538,6 +2539,15 @@ class ProductUtil extends Util
 
         $product = $this->getDetailsFromVariation($variation_id, $business_id, $location_id, $check_qty);
 
+        // A serialised row needs a real device scan, not a generic free-text
+        // field shown for every POS product. Mirror the lifecycle service's
+        // approved TRACKED_REQUIRED profile check so the checkout UI and the
+        // final-sale guard agree on which variations require exact devices.
+        $product->recommerce_tracking_required = $this->requiresRecommerceDeviceScan(
+            (int) $business_id,
+            (int) $variation_id
+        );
+
         if (!isset($product->quantity_ordered)) {
             $product->quantity_ordered = $quantity;
         }
@@ -2622,6 +2632,44 @@ class ProductUtil extends Util
         }
 
         return $output;
+    }
+
+    /**
+     * Whether the variation has an approved Recommerce serialisation profile.
+     *
+     * Product rows are also used by installations where Recommerce has not
+     * been migrated. Guard the lookup so their normal POS product search does
+     * not turn a missing optional table into an "out of stock" error.
+     */
+    protected function requiresRecommerceDeviceScan(int $businessId, int $variationId): bool
+    {
+        static $profileTableAvailable = null;
+        static $trackedVariations = [];
+
+        if (! config('recommerce.enabled')) {
+            return false;
+        }
+
+        if ($profileTableAvailable === null) {
+            $profileTableAvailable = Schema::hasTable('recommerce_serialization_profiles');
+        }
+
+        if (! $profileTableAvailable) {
+            return false;
+        }
+
+        $cacheKey = $businessId . ':' . $variationId;
+        if (! array_key_exists($cacheKey, $trackedVariations)) {
+            $trackedVariations[$cacheKey] = DB::table('recommerce_serialization_profiles')
+                ->where('business_id', $businessId)
+                ->where('variation_id', $variationId)
+                ->where('mode', 'TRACKED_REQUIRED')
+                ->whereNotNull('configured_by')
+                ->whereNotNull('approval_reference')
+                ->exists();
+        }
+
+        return $trackedVariations[$cacheKey];
     }
 
     /**

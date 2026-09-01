@@ -34,8 +34,15 @@
     .sb-record .outcome-pass { color:var(--sb-success,#15803d); }.sb-record .outcome-fail { color:var(--sb-danger,#b91c1c); }
     .sb-record .outcome-na,.sb-record .outcome-not-applicable { color:var(--sb-muted,#64748b); }
     .sb-record .toolbar { display:flex; gap:8px; flex-wrap:wrap; }
+    .sb-record .repair-transition-grid { display:grid; grid-template-columns:minmax(220px,1fr) minmax(140px,.45fr); gap:16px; align-items:start; }
+    .sb-record .repair-transition-form--with-context .repair-transition-grid { grid-template-columns:minmax(180px,.85fr) minmax(280px,1.4fr) minmax(140px,.55fr); }
+    .sb-record .repair-transition-field { min-width:0; margin-bottom:0; }
+    .sb-record .repair-transition-actions { padding-top:25px; }
+    .sb-record .repair-transition-actions .btn { min-height:38px; }
+    .sb-record .repair-transition-help { margin:6px 0 0; }
     .sb-record .text-muted { color:var(--sb-muted,#64748b) !important; }
-    @media(max-width:700px){.sb-record .record-header{display:block}.sb-record .toolbar{margin-top:15px}.sb-record .grid{grid-template-columns:1fr}.sb-record dl{grid-template-columns:1fr;gap:3px;margin-bottom:10px}}
+    @media(max-width:900px){.sb-record .repair-transition-grid,.sb-record .repair-transition-form--with-context .repair-transition-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sb-record .repair-transition-actions{padding-top:0}}
+    @media(max-width:700px){.sb-record .record-header{display:block}.sb-record .toolbar{margin-top:15px}.sb-record .grid{grid-template-columns:1fr}.sb-record dl{grid-template-columns:1fr;gap:3px;margin-bottom:10px}.sb-record .repair-transition-grid,.sb-record .repair-transition-form--with-context .repair-transition-grid{grid-template-columns:1fr}}
     @media print {
         body{background:#fff!important}.no-print{display:none!important}
         .sb-record{max-width:none;color:#172033}
@@ -102,10 +109,11 @@
         @if($quoteManageEnabled)<hr><h4>Create draft quote</h4><form class="quote-draft-form" data-action="{{ route('recommerce.repair.quotes.store', $job->job_code) }}" data-csrf-token="{{ csrf_token() }}"><input aria-label="Quote summary" class="quote-summary form-control" maxlength="320" placeholder="Summary"><input aria-label="Quote expiry" class="quote-expiry form-control" type="date" style="margin-top:6px"><div class="quote-lines" style="margin-top:6px"><div class="quote-line row"><div class="col-sm-2"><select aria-label="Quote line type" class="quote-line-type form-control"><option>LABOUR</option><option>PART</option><option>SERVICE</option><option>OTHER</option></select></div><div class="col-sm-4"><input aria-label="Quote line description" class="quote-description form-control" maxlength="255" placeholder="Line description" required></div><div class="col-sm-2"><input aria-label="Quote line quantity" class="quote-quantity form-control" type="number" min="0.0001" step="0.0001" value="1" required></div><div class="col-sm-2"><input aria-label="Quote line unit amount" class="quote-unit-amount form-control" type="number" min="0" step="0.01" placeholder="Unit RM" required></div><div class="col-sm-2"><input aria-label="Quote line tax amount" class="quote-tax-amount form-control" type="number" min="0" step="0.01" value="0" placeholder="Tax RM"></div></div></div><button class="btn btn-default btn-sm quote-add-line" type="button">Add line</button> <button class="btn btn-primary btn-sm" type="submit">Create draft</button></form><div id="quote-result" class="alert" style="display:none;margin-top:10px" role="status"></div>@endif
     </div></div>
 
-    <div class="record-card"><h2>POS sale and payment evidence</h2><div class="card-body">@if($financialEvidence['sale'])<dl><dt>Sale reference</dt><dd>{{ $financialEvidence['sale']->ref_no ?: $financialEvidence['sale']->invoice_no ?: $financialEvidence['sale']->id }}</dd><dt>Sale status</dt><dd>{{ $financialEvidence['sale']->status }}</dd><dt>Payments</dt><dd>{{ $financialEvidence['payment_count'] }} recorded · RM {{ number_format((float) $financialEvidence['payment_total'], 2) }}</dd></dl>@else<p class="text-muted">No linked finalized POS sale or payment evidence has been linked yet. POS remains the financial authority.</p>@endif</div></div>
+    <div class="record-card"><h2>POS sale and payment evidence</h2><div class="card-body">@if($financialEvidence['sale'])<dl><dt>Sale reference</dt><dd>{{ $financialEvidence['sale']->ref_no ?: $financialEvidence['sale']->invoice_no ?: $financialEvidence['sale']->id }}</dd><dt>Sale status</dt><dd>{{ $financialEvidence['sale']->status }}</dd><dt>Payments</dt><dd>{{ $financialEvidence['payment_count'] }} recorded · RM {{ number_format((float) $financialEvidence['payment_total'], 2) }}</dd></dl><div class="toolbar no-print" style="margin-top:14px"><a class="btn btn-primary btn-sm" href="{{ route('recommerce.repair.customer_receipt', $job->job_code) }}" target="_blank" rel="noopener"><i class="fa fa-print"></i> Print customer receipt</a></div>@else<p class="text-muted">No linked finalized POS sale or payment evidence has been linked yet. POS remains the financial authority.</p>@endif</div></div>
 
-    @if($transitionEnabled && $allowedTransitions)
-        <div class="record-card no-print"><h2>Controlled state action</h2><div class="card-body"><form id="repair-transition-form" action="{{ route('recommerce.repair.transition', $job->job_code) }}" data-csrf-token="{{ csrf_token() }}">@csrf<input type="hidden" name="expected_lock_version" value="{{ $job->lock_version }}"><div class="row"><div class="col-sm-4 form-group"><label for="repair-to-state">Move to</label><select id="repair-to-state" class="form-control">@foreach($allowedTransitions as $state)<option value="{{ $state }}">{{ str_replace('_',' ',$state) }}</option>@endforeach</select></div><div class="col-sm-6 form-group"><label for="repair-evidence">Evidence JSON</label><input id="repair-evidence" class="form-control" placeholder='For example: {"work_submitted":true}'></div><div class="col-sm-2" style="padding-top:25px"><button class="btn btn-primary btn-block" type="submit">Update</button></div></div></form><div id="repair-transition-result" class="alert" style="display:none" role="status"></div></div></div>
+    @php($operatorTransitions = array_values(array_diff($allowedTransitions, ['CLOSED'])))
+    @if($transitionEnabled && $operatorTransitions)
+        <div class="record-card no-print"><h2>Controlled state action</h2><div class="card-body"><form id="repair-transition-form" class="repair-transition-form" action="{{ route('recommerce.repair.transition', $job->job_code) }}" data-csrf-token="{{ csrf_token() }}" data-current-state="{{ $job->state }}" novalidate>@csrf<input type="hidden" name="expected_lock_version" value="{{ $job->lock_version }}"><div class="repair-transition-grid"><div class="form-group repair-transition-field"><label for="repair-to-state">Move to</label><select id="repair-to-state" name="to_state" class="form-control">@foreach($operatorTransitions as $state)<option value="{{ $state }}">{{ str_replace('_',' ',$state) }}</option>@endforeach</select></div><div id="repair-transition-context" class="form-group repair-transition-field" style="display:none"><div id="repair-completion-fields" style="display:none"><label for="repair-resolution-code">Completion outcome</label><select id="repair-resolution-code" name="resolution_code" class="form-control"><option value="">Choose outcome</option><option value="COMPLETED">Completed</option><option value="CANCELLED">Cancelled</option><option value="DECLINED">Declined</option><option value="UNREPAIRABLE">Unrepairable</option></select><label id="repair-qc-passed-wrap" class="checkbox" style="display:none;margin-top:8px"><input id="repair-qc-passed" name="qc_passed" type="checkbox"> QC passed</label><p class="help-block repair-transition-help">Required before moving to Ready.</p></div><div id="repair-approval-fields" style="display:none"><label class="checkbox"><input id="repair-approval-satisfied" name="approval_satisfied" type="checkbox"> Approved work is confirmed</label><p class="help-block repair-transition-help">The approved quote is checked again before work can begin.</p></div><div id="repair-qc-fields" style="display:none"><label class="checkbox"><input id="repair-work-submitted" name="work_submitted" type="checkbox"> Repair work is ready for quality control</label><p class="help-block repair-transition-help">Confirm the work is complete before handing it to QC.</p></div><div id="repair-rework-fields" style="display:none"><label for="repair-qc-failure-reason">QC rework reason</label><input id="repair-qc-failure-reason" name="qc_failure_reason" class="form-control" maxlength="255" placeholder="Describe the issue found"><p class="help-block repair-transition-help">Required when QC returns the job to repair.</p></div><div id="repair-reopen-fields" style="display:none"><label for="repair-reopen-reason">Reason for reopening</label><input id="repair-reopen-reason" name="reopen_reason" class="form-control" maxlength="255" placeholder="Describe why this job must be reopened"><p class="help-block repair-transition-help">Required when reopening a ready job.</p></div></div><div class="repair-transition-actions"><button class="btn btn-primary btn-block" type="submit">Update</button></div></div></form><div id="repair-transition-result" class="alert" style="display:none" role="status"></div></div></div>
     @endif
 </section>
 <script>
@@ -122,7 +130,92 @@ function sbCommandUuid() {
     return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
 }
 
-(function(){const form=document.getElementById('repair-transition-form');if(!form)return;const result=document.getElementById('repair-transition-result');form.addEventListener('submit',async function(e){e.preventDefault();const button=form.querySelector('button');button.disabled=true;try{let evidence={};const raw=document.getElementById('repair-evidence').value.trim();if(raw)evidence=JSON.parse(raw);const response=await fetch(form.action,{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':form.dataset.csrfToken},credentials:'same-origin',body:JSON.stringify({to_state:document.getElementById('repair-to-state').value,expected_lock_version:Number(form.elements.expected_lock_version.value),evidence:evidence})});const data=await response.json().catch(function(){return{}});if(!response.ok)throw new Error(data.message||'The state update could not be applied.');result.textContent='Updated to '+data.state+'.';result.className='alert alert-success';result.style.display='block';setTimeout(function(){window.location.reload()},400)}catch(error){result.textContent=error.message;result.className='alert alert-warning';result.style.display='block';button.disabled=false}})}());
+(function(){
+    const form=document.getElementById('repair-transition-form');
+    if(!form)return;
+    const result=document.getElementById('repair-transition-result');
+    const toState=document.getElementById('repair-to-state');
+    const transitionContext=document.getElementById('repair-transition-context');
+    const completionFields=document.getElementById('repair-completion-fields');
+    const resolutionCode=document.getElementById('repair-resolution-code');
+    const qcPassed=document.getElementById('repair-qc-passed');
+    const qcPassedWrap=document.getElementById('repair-qc-passed-wrap');
+    const approvalFields=document.getElementById('repair-approval-fields');
+    const approvalSatisfied=document.getElementById('repair-approval-satisfied');
+    const qcFields=document.getElementById('repair-qc-fields');
+    const workSubmitted=document.getElementById('repair-work-submitted');
+    const reworkFields=document.getElementById('repair-rework-fields');
+    const qcFailureReason=document.getElementById('repair-qc-failure-reason');
+    const reopenFields=document.getElementById('repair-reopen-fields');
+    const reopenReason=document.getElementById('repair-reopen-reason');
+    const showResult=function(message, tone){result.textContent=message;result.className='alert alert-'+tone;result.style.display='block';};
+    const setVisibility=function(element, visible){element.style.display=visible?'':'none';};
+    const syncTransitionFields=function(){
+        const isReady=toState.value==='READY';
+        const needsApproval=form.dataset.currentState==='AWAITING_APPROVAL'&&['WAITING_PARTS','IN_REPAIR'].includes(toState.value);
+        const needsQcSubmission=toState.value==='QC';
+        const needsRework=form.dataset.currentState==='QC'&&toState.value==='IN_REPAIR';
+        const needsReopen=form.dataset.currentState==='READY'&&toState.value==='IN_REPAIR';
+        const hasContext=isReady||needsApproval||needsQcSubmission||needsRework||needsReopen;
+        form.classList.toggle('repair-transition-form--with-context',hasContext);
+        setVisibility(transitionContext,hasContext);
+        setVisibility(completionFields,isReady);
+        setVisibility(qcPassedWrap,isReady&&form.dataset.currentState==='QC');
+        setVisibility(approvalFields,needsApproval);
+        setVisibility(qcFields,needsQcSubmission);
+        setVisibility(reworkFields,needsRework);
+        setVisibility(reopenFields,needsReopen);
+        resolutionCode.setCustomValidity('');
+        qcPassed.setCustomValidity('');
+        approvalSatisfied.setCustomValidity('');
+        workSubmitted.setCustomValidity('');
+        qcFailureReason.setCustomValidity('');
+        reopenReason.setCustomValidity('');
+    };
+    toState.addEventListener('change',syncTransitionFields);
+    resolutionCode.addEventListener('change',function(){resolutionCode.setCustomValidity('');});
+    qcPassed.addEventListener('change',function(){qcPassed.setCustomValidity('');});
+    approvalSatisfied.addEventListener('change',function(){approvalSatisfied.setCustomValidity('');});
+    workSubmitted.addEventListener('change',function(){workSubmitted.setCustomValidity('');});
+    qcFailureReason.addEventListener('input',function(){qcFailureReason.setCustomValidity('');});
+    reopenReason.addEventListener('input',function(){reopenReason.setCustomValidity('');});
+    syncTransitionFields();
+    form.addEventListener('submit',async function(e){
+        e.preventDefault();
+        const button=form.querySelector('button[type="submit"]');
+        button.disabled=true;
+        try{
+            let evidence={};
+            if(toState.value==='READY'){
+                if(!resolutionCode.value){resolutionCode.setCustomValidity('Choose a completion outcome before moving to Ready.');resolutionCode.reportValidity();throw new Error('Choose a completion outcome before moving to Ready.');}
+                if(form.dataset.currentState==='QC'&&!qcPassed.checked){qcPassed.setCustomValidity('Confirm that QC passed before moving to Ready.');qcPassed.reportValidity();throw new Error('Confirm that QC passed before moving to Ready.');}
+                evidence.resolution_code=resolutionCode.value;
+                if(qcPassed.checked)evidence.qc_passed=true;
+            }
+            if(form.dataset.currentState==='AWAITING_APPROVAL'&&['WAITING_PARTS','IN_REPAIR'].includes(toState.value)){
+                if(!approvalSatisfied.checked){approvalSatisfied.setCustomValidity('Confirm that approved work is in place before starting.');approvalSatisfied.reportValidity();throw new Error('Confirm that approved work is in place before starting.');}
+                evidence.approval_satisfied=true;
+            }
+            if(toState.value==='QC'){
+                if(!workSubmitted.checked){workSubmitted.setCustomValidity('Confirm that repair work is ready for quality control.');workSubmitted.reportValidity();throw new Error('Confirm that repair work is ready for quality control.');}
+                evidence.work_submitted=true;
+            }
+            if(form.dataset.currentState==='QC'&&toState.value==='IN_REPAIR'){
+                if(!qcFailureReason.value.trim()){qcFailureReason.setCustomValidity('Describe the QC issue before returning the job to repair.');qcFailureReason.reportValidity();throw new Error('Describe the QC issue before returning the job to repair.');}
+                evidence.qc_failure_reason=qcFailureReason.value.trim();
+            }
+            if(form.dataset.currentState==='READY'&&toState.value==='IN_REPAIR'){
+                if(!reopenReason.value.trim()){reopenReason.setCustomValidity('Describe why this job must be reopened.');reopenReason.reportValidity();throw new Error('Describe why this job must be reopened.');}
+                evidence.reopen_reason=reopenReason.value.trim();
+            }
+            const response=await fetch(form.action,{method:'POST',headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':form.dataset.csrfToken},credentials:'same-origin',body:JSON.stringify({to_state:toState.value,expected_lock_version:Number(form.elements.expected_lock_version.value),evidence:evidence})});
+            const data=await response.json().catch(function(){return{}});
+            if(!response.ok)throw new Error(data.message||'The state update could not be applied.');
+            showResult('Updated to '+data.state+'.','success');
+            setTimeout(function(){window.location.reload()},400);
+        }catch(error){showResult(error.message,'warning');button.disabled=false;}
+    });
+}());
 (function(){
     var forms = document.querySelectorAll('.collection-form');
     var box = document.getElementById('collection-result');

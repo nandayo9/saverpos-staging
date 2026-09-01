@@ -29,7 +29,7 @@
                         <button type="button" class="btn btn-primary" id="recommerce-resolve-scan">Resolve scan</button>
                         <button type="button" class="btn btn-default" id="recommerce-open-camera">Scan Device</button>
                         <button type="button" class="btn btn-default" id="recommerce-clear-scan">Clear</button>
-                        <div style="margin-top:14px"><video id="recommerce-scan-camera" class="scan-camera" playsinline muted aria-label="Device QR camera preview"></video></div>
+                        <div style="margin-top:14px"><video id="recommerce-scan-camera" class="scan-camera" autoplay playsinline muted aria-label="Device QR camera preview"></video></div>
                         <p id="recommerce-camera-message" class="text-muted" aria-live="polite" style="margin-top:8px"></p>
 
                         <div id="recommerce-scan-result" class="alert" style="display:none;margin-top:18px" role="status" aria-live="polite"></div>
@@ -61,6 +61,8 @@
         </div>
     </section>
 
+    {{-- jsQR is the compatibility decoder for Safari and Chrome builds without BarcodeDetector. --}}
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
         (function () {
             const root = document.getElementById('recommerce-scan-entry');
@@ -74,6 +76,9 @@
             const scanUrl = @json(route('recommerce.scans.resolve'));
             let stream = null;
             let scanning = false;
+            let fallbackFrame = null;
+            let fallbackCanvas = null;
+            let fallbackContext = null;
 
             function showResult(message, kind) {
                 result.textContent = message;
@@ -159,6 +164,8 @@
                 scanning = false;
                 if (stream) stream.getTracks().forEach(track => track.stop());
                 stream = null;
+                if (fallbackFrame) cancelAnimationFrame(fallbackFrame);
+                fallbackFrame = null;
                 camera.srcObject = null;
                 camera.classList.remove('is-open');
                 cameraButton.textContent = 'Scan Device';
@@ -179,14 +186,46 @@
                 if (scanning) requestAnimationFrame(() => detectFrame(detector));
             }
 
+            function detectFrameWithFallback() {
+                if (!scanning || !stream) return;
+
+                if (camera.readyState >= 2 && camera.videoWidth && camera.videoHeight) {
+                    const maxWidth = 960;
+                    const scale = Math.min(1, maxWidth / camera.videoWidth);
+                    const width = Math.max(1, Math.round(camera.videoWidth * scale));
+                    const height = Math.max(1, Math.round(camera.videoHeight * scale));
+                    if (fallbackCanvas.width !== width || fallbackCanvas.height !== height) {
+                        fallbackCanvas.width = width;
+                        fallbackCanvas.height = height;
+                    }
+                    fallbackContext.drawImage(camera, 0, 0, width, height);
+                    const decoded = window.jsQR(
+                        fallbackContext.getImageData(0, 0, width, height).data,
+                        width,
+                        height,
+                        { inversionAttempts: 'attemptBoth' }
+                    );
+                    if (decoded && decoded.data) {
+                        input.value = decoded.data;
+                        stopCamera('Device scan captured. Resolving…');
+                        resolveButton.click();
+                        return;
+                    }
+                }
+
+                if (scanning) fallbackFrame = requestAnimationFrame(detectFrameWithFallback);
+            }
+
             cameraButton.addEventListener('click', async function () {
                 if (scanning) { stopCamera('Camera scan cancelled.'); return; }
                 if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     cameraMessage.textContent = 'Camera scanning requires HTTPS (or localhost) and browser camera permission. Use the lookup field or a barcode scanner instead.';
                     return;
                 }
-                if (!('BarcodeDetector' in window)) {
-                    cameraMessage.textContent = 'This browser does not provide QR detection. Use a browser with BarcodeDetector support, a hardware scanner, or the lookup field.';
+                const nativeQrAvailable = 'BarcodeDetector' in window;
+                const fallbackQrAvailable = typeof window.jsQR === 'function';
+                if (!nativeQrAvailable && !fallbackQrAvailable) {
+                    cameraMessage.textContent = 'QR camera decoding is unavailable in this browser. Use the lookup field or a barcode scanner instead.';
                     return;
                 }
                 try {
@@ -197,8 +236,15 @@
                     camera.classList.add('is-open');
                     cameraButton.textContent = 'Cancel Camera';
                     cameraMessage.textContent = 'Point the rear camera at a SAVERBRO QR label.';
-                    const detector = new BarcodeDetector({ formats: ['qr_code'] });
-                    detectFrame(detector);
+                    if (nativeQrAvailable) {
+                        const detector = new BarcodeDetector({ formats: ['qr_code'] });
+                        detectFrame(detector);
+                    } else {
+                        fallbackCanvas = document.createElement('canvas');
+                        fallbackContext = fallbackCanvas.getContext('2d', { willReadFrequently: true });
+                        if (!fallbackContext) throw new Error('QR camera decoder could not prepare a video frame.');
+                        detectFrameWithFallback();
+                    }
                 } catch (_) {
                     stopCamera('Camera access was unavailable or denied. Check permission and HTTPS, then try again.');
                 }

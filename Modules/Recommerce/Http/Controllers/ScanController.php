@@ -9,13 +9,11 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\ScanToken;
-use Modules\Recommerce\Entities\DeviceIdentifier;
 use Modules\Recommerce\Entities\DeviceTransferAssignment;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Modules\Recommerce\Support\Identity\OpaqueScanToken;
-use Modules\Recommerce\Support\Identity\ScanInput;
-use Modules\Recommerce\Support\Identity\StrongIdentifierHasher;
 use Modules\Recommerce\Services\DeviceCertificationService;
+use Modules\Recommerce\Services\DeviceIdentityResolver;
 
 class ScanController extends Controller
 {
@@ -47,7 +45,8 @@ class ScanController extends Controller
     public function resolve(
         Request $request,
         AuthorizationGate $authorizationGate,
-        OpaqueScanToken $tokenService
+        OpaqueScanToken $tokenService,
+        ?DeviceIdentityResolver $identityResolver = null
     ) {
         $input = $request->input('value');
 
@@ -55,49 +54,9 @@ class ScanController extends Controller
             return $this->notFoundResponse();
         }
 
-        $parsed = ScanInput::parse($input);
-
         $user = auth()->user();
         $businessId = $user->business_id;
-        $device = null;
-
-        if ($parsed && $parsed['type'] === 'DEVICE_CODE') {
-            $device = Device::query()
-                ->where('business_id', $businessId)
-                ->where('device_code', $parsed['value'])
-                ->with('product')
-                ->first();
-        } elseif ($parsed && $parsed['type'] === 'DEVICE_TOKEN') {
-            try {
-                $tokenHash = $tokenService->hash($parsed['value']);
-            } catch (\Throwable $exception) {
-                return $this->notFoundResponse();
-            }
-
-            $scanToken = ScanToken::query()
-                ->where('token_hash', $tokenHash)
-                ->where('business_id', $businessId)
-                ->where('subject_type', 'DEVICE')
-                ->where('status', 'ACTIVE')
-                ->with('device.product')
-                ->first();
-
-            $device = $scanToken ? $scanToken->device : null;
-        } else {
-            // Initial manufacturer identity remains a safe recovery lookup,
-            // but routine operations should prefer the permanent SAVERBRO QR.
-            try {
-                $hash = StrongIdentifierHasher::hash(StrongIdentifierHasher::normalize($input));
-                $identifier = DeviceIdentifier::query()
-                    ->where('business_id', $businessId)
-                    ->where('normalized_hash', $hash)
-                    ->with('device.product')
-                    ->first();
-                $device = $identifier?->device;
-            } catch (\Throwable $exception) {
-                return $this->notFoundResponse();
-            }
-        }
+        $device = ($identityResolver ?: new DeviceIdentityResolver($tokenService))->resolve((int) $businessId, $input);
 
         if (! $device || ! $this->authorizedLocationForDevice($user, $device, $authorizationGate)) {
             return $this->notFoundResponse();
