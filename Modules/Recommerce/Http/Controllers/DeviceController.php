@@ -10,16 +10,20 @@ use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Modules\Recommerce\Support\Identity\DeviceCode;
 use Modules\Recommerce\Services\DeviceEventTimelineService;
+use Modules\Recommerce\Services\DeviceIdentityResolver;
+use Modules\Recommerce\Services\DeviceRegistryQuery;
 use Modules\Recommerce\Entities\DeviceSaleDisposition;
 use Illuminate\Support\Facades\DB;
 
 class DeviceController extends Controller
 {
-    /**
-     * Safe registry for native POS navigation. Identifiers are deliberately
-     * excluded from both search and the result projection.
-     */
-    public function index(Request $request, AuthorizationGate $authorizationGate)
+    /** Read-only, paginated operations registry; lifecycle writes live elsewhere. */
+    public function index(
+        Request $request,
+        AuthorizationGate $authorizationGate,
+        DeviceIdentityResolver $identityResolver,
+        DeviceRegistryQuery $registryQuery
+    )
     {
         $user = auth()->user();
         $businessId = (int) $user->business_id;
@@ -34,80 +38,53 @@ class DeviceController extends Controller
             abort(404);
         }
 
-        $query = Device::query()
-            ->with(['product', 'variation', 'currentLocation', 'labelJobItems.job'])
-            ->where('business_id', $businessId)
-            ->where(function ($builder) use ($locationId) {
-                $builder->where('current_location_id', $locationId)
-                    ->orWhere(function ($transit) use ($locationId) {
-                        $transit->where('custody_kind', 'IN_TRANSIT')
-                            ->whereHas('transferAssignments', function ($assignment) use ($locationId) {
-                                $assignment->whereIn('status', ['IN_TRANSIT', 'RECEIVED', 'RECEIVED_WITH_ISSUE'])
-                                    ->where(function ($scope) use ($locationId) {
-                                        $scope->where('from_location_id', $locationId)
-                                            ->orWhere('to_location_id', $locationId);
-                                    });
-                            });
-                    });
-            })
-            ->whereIn('variation_id', array_values(array_filter(array_map('intval', (array) config('recommerce.cohort.variation_ids', [])))))
-            ->orderBy('device_code');
-
         $term = trim((string) $request->query('q', ''));
-        $state = strtoupper(trim((string) $request->query('state', '')));
-        $labelStatus = strtoupper(trim((string) $request->query('label_status', '')));
-        $state = in_array($state, ['RECEIVED_PENDING_INSPECTION', 'REFURBISHMENT_REQUIRED', 'AVAILABLE'], true)
-            ? $state
-            : '';
-        $labelStatus = in_array($labelStatus, ['NEEDS_LABEL', 'NOT_PRINTED', 'PRINT_VIEW_OPENED', 'PRINTED', 'REPRINTED'], true)
-            ? $labelStatus
-            : '';
-        if ($state !== '') {
-            $query->where('lifecycle_state', $state);
-        }
-        if ($term !== '') {
-            $query->where(function ($builder) use ($term) {
-                $builder->where('device_code', 'like', '%'.strtoupper($term).'%')
-                    ->orWhereHas('product', function ($product) use ($term) {
-                        $product->where('name', 'like', '%'.$term.'%');
-                    });
-            });
+        $filters = $this->registryFilters($request);
+        $variationIds = array_values(array_filter(array_map('intval', (array) config('recommerce.cohort.variation_ids', []))));
+        $base = $registryQuery->base($businessId, $locationId, $variationIds);
+        $filtered = $registryQuery->apply(clone $base, $filters);
+
+        // Identity resolution stays exact and is intentionally attempted
+        // before descriptive matching. A serial/IMEI/QR can never select a
+        // neighbouring Device through a partial registry search.
+        $resolvedDevice = $term === '' ? null : $identityResolver->resolve($businessId, $term);
+        if ($resolvedDevice) {
+            $filtered->whereKey($resolvedDevice->id);
+        } elseif ($term !== '') {
+            $registryQuery->applyDescriptiveSearch($filtered, $term);
         }
 
-        $devices = $query->limit(100)->get()->filter(function (Device $device) use ($authorizationGate, $user, $businessId, $locationId, $labelStatus) {
-            if (! $authorizationGate->allowsRead(
-                $user,
-                'recommerce.device.view',
-                $businessId,
-                $locationId,
-                $device->variation_id
-            )) {
-                return false;
-            }
+        // Quick-filter totals ignore the selected quick scope. Quick links
+        // reset it too, so each total matches its resulting records.
+        $summary = (clone $registryQuery->apply(clone $base, array_diff_key($filters, ['state' => true, 'custody' => true, 'transfer_state' => true])))
+            ->selectRaw("COUNT(*) as total, SUM(CASE WHEN lifecycle_state = 'AVAILABLE' THEN 1 ELSE 0 END) as ready, SUM(CASE WHEN lifecycle_state = 'RECEIVED_PENDING_INSPECTION' THEN 1 ELSE 0 END) as inspection, SUM(CASE WHEN lifecycle_state = 'REFURBISHMENT_REQUIRED' THEN 1 ELSE 0 END) as exceptions, SUM(CASE WHEN transfer_state <> 'NONE' THEN 1 ELSE 0 END) as transfer")
+            ->first();
 
-            if ($labelStatus === '') {
-                return true;
-            }
+        $devices = $filtered->orderBy('device_code')
+            ->paginate(min(max((int) $request->query('per_page', 50), 10), 100))
+            ->withQueryString();
 
-            $latestItem = $device->labelJobItems->sortByDesc('id')->first();
-            $currentStatus = ! $latestItem
-                ? 'NOT_PRINTED'
-                : (($latestItem->job?->status === 'REPRINT_CONFIRMED')
-                    ? 'REPRINTED'
-                    : (($latestItem->job?->status === 'PRINT_CONFIRMED') ? 'PRINTED' : 'PRINT_VIEW_OPENED'));
-
-            return $labelStatus === 'NEEDS_LABEL'
-                ? in_array($currentStatus, ['NOT_PRINTED', 'PRINT_VIEW_OPENED'], true)
-                : $currentStatus === $labelStatus;
-        })->values();
+        $filterOptions = [
+            'products' => DB::table('products')->whereIn('id', (clone $base)->select('product_id')->distinct())->orderBy('name')->limit(200)->get(['id', 'name']),
+            'variations' => DB::table('variations')->whereIn('id', $variationIds)->orderBy('name')->limit(200)->get(['id', 'name', 'sub_sku']),
+            'categories' => (clone $base)->whereNotNull('category_code')->distinct()->orderBy('category_code')->limit(100)->pluck('category_code'),
+        ];
 
         return response()->view('recommerce::device.index', [
             'devices' => $devices,
             'locationId' => $locationId,
             'locationName' => BusinessLocation::query()->where('id', $locationId)->value('name'),
             'query' => $term,
-            'state' => $state,
-            'labelStatus' => $labelStatus,
+            'state' => $filters['state'],
+            'labelStatus' => $filters['label_status'],
+            'filters' => $filters,
+            'summary' => $summary,
+            'filterOptions' => $filterOptions,
+            'quickFilters' => [
+                'AVAILABLE' => 'Ready for sale',
+                'RECEIVED_PENDING_INSPECTION' => 'Needs inspection',
+                'REFURBISHMENT_REQUIRED' => 'Exceptions',
+            ],
             'canReceive' => $authorizationGate->allowsWriteLocation(
                 $user,
                 'recommerce.receiving.prepare',
@@ -126,6 +103,96 @@ class DeviceController extends Controller
             ),
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
+    }
+
+    /** Lightweight, permission-scoped drawer payload; never includes raw identifiers. */
+    public function quickView(
+        string $deviceCode,
+        AuthorizationGate $authorizationGate,
+        DeviceEventTimelineService $timelineService
+    ) {
+        if (! DeviceCode::isValid($deviceCode)) {
+            abort(404);
+        }
+
+        $user = auth()->user();
+        $businessId = (int) $user->business_id;
+        $device = Device::query()->with(['product', 'variation', 'currentLocation', 'inspection', 'certification', 'purchaseAssignment', 'latestLabelJobItem.job'])
+            ->where('business_id', $businessId)->where('device_code', DeviceCode::normalize($deviceCode))->first();
+        if (! $device) {
+            abort(404);
+        }
+        $locationId = (int) $device->current_location_id;
+        if ($locationId < 1 && $device->custody_kind === 'IN_TRANSIT') {
+            $assignment = $device->transferAssignments()
+                ->whereIn('status', ['IN_TRANSIT', 'RECEIVED', 'RECEIVED_WITH_ISSUE'])
+                ->orderByDesc('id')->first();
+            foreach (array_filter([$assignment?->to_location_id, $assignment?->from_location_id]) as $candidateLocationId) {
+                if (User::can_access_this_location($candidateLocationId, $businessId)
+                    && $authorizationGate->allowsRead($user, 'recommerce.device.view', $businessId, $candidateLocationId, $device->variation_id)) {
+                    $locationId = (int) $candidateLocationId;
+                    break;
+                }
+            }
+        }
+        if ($locationId < 1) {
+            $saleDisposition = DeviceSaleDisposition::query()
+                ->where('device_id', $device->id)
+                ->whereNotNull('active_sale_key')
+                ->orderByDesc('id')
+                ->first();
+            $locationId = $saleDisposition
+                ? (int) DB::table('transactions')->where('id', $saleDisposition->sale_transaction_id)->value('location_id')
+                : 0;
+        }
+        if ($locationId < 1 || ! User::can_access_this_location($locationId, $businessId)
+            || ! $authorizationGate->allowsRead($user, 'recommerce.device.view', $businessId, $locationId, $device->variation_id)) {
+            abort(404);
+        }
+
+        $latestLabel = $device->latestLabelJobItem;
+        $labelStatus = ! $latestLabel ? 'Not printed' : ($latestLabel->job?->status === 'REPRINT_CONFIRMED' ? 'Reprinted' : ($latestLabel->job?->status === 'PRINT_CONFIRMED' ? 'Printed' : 'Print view opened'));
+        $serial = trim((string) $device->manufacturer_serial_display);
+        $serialHint = $serial === '' ? 'No display-safe serial recorded' : 'Serial ending '.substr($serial, -4);
+        $auditVisible = $authorizationGate->allowsRead($user, 'recommerce.audit.view', $businessId, $locationId, $device->variation_id);
+        $economicsVisible = $authorizationGate->allowsRead($user, 'recommerce.device.view_economics', $businessId, $locationId, $device->variation_id);
+
+        return response()->view('recommerce::device.quick-view', [
+            'device' => $device,
+            'stateLabel' => ucwords(strtolower(str_replace('_', ' ', $device->lifecycle_state))),
+            'holder' => $device->custody_kind === 'LOCATION' ? (optional($device->currentLocation)->name ?: 'Branch not recorded') : ucwords(strtolower(str_replace('_', ' ', $device->custody_kind))),
+            'inventoryLabel' => ucwords(strtolower(str_replace('_', ' ', $device->stock_participation))),
+            'labelStatus' => $labelStatus,
+            'serialHint' => $serialHint,
+            'auditVisible' => $auditVisible,
+            'economicsVisible' => $economicsVisible,
+            'events' => $auditVisible ? $timelineService->forDevice($device)->take(6) : collect(),
+            'inspectionUrl' => $authorizationGate->allowsRead($user, 'recommerce.inspection.view', $businessId, $locationId, $device->variation_id) ? route('recommerce.inspection.index', ['location_id' => $locationId]) : null,
+            'repairUrl' => $authorizationGate->allowsRead($user, 'recommerce.repair.view', $businessId, $locationId, $device->variation_id) ? route('recommerce.repair.index') : null,
+        ])->header('Cache-Control', 'no-store')->header('Referrer-Policy', 'no-referrer');
+    }
+
+    /** @return array<string, mixed> */
+    private function registryFilters(Request $request): array
+    {
+        $pick = static fn (string $key, array $allowed): string => in_array($value = strtoupper(trim((string) $request->query($key, ''))), $allowed, true) ? $value : '';
+
+        return [
+            'state' => $pick('state', DeviceRegistryQuery::LIFECYCLE_STATES),
+            'transfer_state' => $pick('transfer_state', ['ACTIVE']),
+            'label_status' => $pick('label_status', DeviceRegistryQuery::LABEL_STATES),
+            'custody' => $pick('custody', DeviceRegistryQuery::CUSTODY_KINDS),
+            'inventory' => $pick('inventory', DeviceRegistryQuery::STOCK_STATES),
+            'inspection' => $pick('inspection', ['PENDING', 'ASSIGNED', 'IN_INSPECTION', 'FAILED', 'PASSED']),
+            'grade' => $pick('grade', ['A', 'B', 'C', 'D']),
+            'product_id' => max(0, (int) $request->query('product_id', 0)),
+            'variation_id' => max(0, (int) $request->query('variation_id', 0)),
+            'category' => strtoupper(substr(trim((string) $request->query('category', '')), 0, 32)),
+            'age_days' => min(max(0, (int) $request->query('age_days', 0)), 36500),
+            'received_from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('received_from', '')) ? $request->query('received_from') : '',
+            'received_to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query('received_to', '')) ? $request->query('received_to') : '',
+            'has_repair' => $request->boolean('has_repair'),
+        ];
     }
 
     public function show(

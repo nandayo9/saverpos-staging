@@ -114,6 +114,121 @@ class ScanTokenIssuanceService
         });
     }
 
+    /**
+     * Resolve permanent token material for a bounded, all-or-nothing label
+     * batch. The caller receives each rendered result only after every Device
+     * has been re-queried and passed the same issuance gate as a single label.
+     *
+     * @param array<int, int|string> $deviceIds
+     * @return array<int, mixed>
+     */
+    public function issueOrReuseForLabels(User $user, array $deviceIds, callable $renderer): array
+    {
+        if (ResolverHost::value() === null) {
+            throw new InvalidArgumentException('Resolver host is required before token issuance.');
+        }
+
+        $limit = max(1, (int) config('recommerce.bulk_label_limit', 100));
+        $ids = array_values(array_unique(array_map(function ($value): int {
+            if (! is_numeric($value) || (int) $value < 1) {
+                throw new InvalidArgumentException('Label selection contains an invalid Device.');
+            }
+
+            return (int) $value;
+        }, $deviceIds)));
+
+        if ($ids === [] || count($ids) > $limit) {
+            throw new InvalidArgumentException('Choose between 1 and '.$limit.' Devices to print.');
+        }
+
+        return DB::transaction(function () use ($user, $ids, $renderer): array {
+            $devices = Device::query()
+                ->with('product')
+                ->where('business_id', $user->business_id)
+                ->whereIn('id', $ids)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            // A missing row is deliberately indistinguishable from a
+            // cross-tenant submission. Do not render an authorised subset.
+            if ($devices->count() !== count($ids)) {
+                throw new AuthorizationException('Recommerce label scope denied.');
+            }
+
+            foreach ($devices as $device) {
+                $this->assertIssuanceScope($user, $device, false);
+            }
+
+            $activeTokens = ScanToken::query()
+                ->where('business_id', $user->business_id)
+                ->where('subject_type', 'DEVICE')
+                ->where('status', 'ACTIVE')
+                ->whereIn('device_id', $devices->pluck('id'))
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('device_id');
+
+            $results = [];
+            foreach ($devices as $device) {
+                $activeToken = $activeTokens->get($device->id);
+                if ($activeToken) {
+                    $rawToken = $activeToken->raw_token_encrypted;
+                    if (! is_string($rawToken) || preg_match('/^[A-Fa-f0-9]{64}$/D', $rawToken) !== 1) {
+                        throw new \LogicException('This legacy QR identity cannot be safely reprinted because its opaque token predates encrypted label material. Its existing label remains valid; use the documented token-rotation recovery only if a replacement label is approved.');
+                    }
+
+                    $issued = [
+                        'token_id' => $activeToken->id,
+                        'device_id' => $device->id,
+                        'device_code' => $device->device_code,
+                        'raw_token' => $rawToken,
+                        'qr_path' => '/s/d/'.$rawToken,
+                        'reprint' => true,
+                    ];
+                } else {
+                    $rawToken = $this->tokenService->issue();
+                    $token = ScanToken::create([
+                        'business_id' => $user->business_id,
+                        'subject_type' => 'DEVICE',
+                        'device_id' => $device->id,
+                        'token_hash' => $this->tokenService->hash($rawToken),
+                        'raw_token_encrypted' => $rawToken,
+                        'token_hint' => substr($rawToken, -8),
+                        'status' => 'ACTIVE',
+                        'issued_at' => now(),
+                        'issued_by' => $user->id,
+                        'reason' => 'INITIAL_ISSUANCE',
+                    ]);
+                    ($this->deviceEventRecorder ?: new DeviceEventRecorder())->recordLabelIssued(
+                        $device,
+                        (int) $token->id,
+                        false,
+                        (int) $user->id
+                    );
+                    $issued = [
+                        'token_id' => $token->id,
+                        'device_id' => $device->id,
+                        'device_code' => $device->device_code,
+                        'raw_token' => $rawToken,
+                        'qr_path' => '/s/d/'.$rawToken,
+                        'reprint' => false,
+                    ];
+                }
+
+                $rendered = $renderer($issued, $device);
+                if (! is_array($rendered)) {
+                    throw new \LogicException('Label renderer returned an invalid result.');
+                }
+
+                $results[] = $rendered;
+            }
+
+            return $results;
+        });
+    }
+
     protected function issueInternal(
         User $user,
         Device $device,

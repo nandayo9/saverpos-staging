@@ -342,6 +342,7 @@ class RecommerceBoundaryTest extends TestCase
         $routes = collect(app('router')->getRoutes()->getRoutes());
         $postRoute = $routes->first(fn ($route) => $route->getName() === 'recommerce.receiving.post');
         $labelPrintRoute = $routes->first(fn ($route) => $route->getName() === 'recommerce.devices.label.print');
+        $bulkLabelPrintRoute = $routes->first(fn ($route) => $route->getName() === 'recommerce.devices.labels.print');
         $prepareRoute = $routes->first(fn ($route) => $route->getName() === 'recommerce.receiving.prepare');
         $receivingIndexRoute = $routes->first(fn ($route) => $route->getName() === 'recommerce.receiving.index');
         $reconciliationRoute = $routes->first(fn ($route) => $route->getName() === 'recommerce.reconciliation.show');
@@ -350,6 +351,7 @@ class RecommerceBoundaryTest extends TestCase
         $deviceIndexRoute = $routes->first(fn ($route) => $route->getName() === 'recommerce.devices.index');
         $internalRepairRoute = $routes->first(fn ($route) => $route->getName() === 'recommerce.repair.internal.create');
         $eventsRoute = $routes->first(fn ($route) => $route->getName() === 'recommerce.devices.events');
+        $quickViewRoute = $routes->first(fn ($route) => $route->getName() === 'recommerce.devices.quick_view');
         $policy = new CohortPolicy();
 
         $this->assertNotNull($postRoute);
@@ -363,6 +365,11 @@ class RecommerceBoundaryTest extends TestCase
         $this->assertContains('POST', $labelPrintRoute->methods());
         $this->assertContains('auth', $labelPrintRoute->middleware());
         $this->assertContains('throttle:10,1', $labelPrintRoute->middleware());
+        $this->assertNotNull($bulkLabelPrintRoute);
+        $this->assertSame('recommerce/devices/labels/print', $bulkLabelPrintRoute->uri());
+        $this->assertContains('POST', $bulkLabelPrintRoute->methods());
+        $this->assertContains('auth', $bulkLabelPrintRoute->middleware());
+        $this->assertContains('throttle:5,1', $bulkLabelPrintRoute->middleware());
         $this->assertNotNull($prepareRoute);
         $this->assertNotNull($receivingIndexRoute);
         $this->assertSame('recommerce/receiving', $receivingIndexRoute->uri());
@@ -383,6 +390,10 @@ class RecommerceBoundaryTest extends TestCase
         $this->assertNotNull($internalRepairRoute);
         $this->assertSame('recommerce/repair/internal/new', $internalRepairRoute->uri());
         $this->assertNotNull($eventsRoute);
+        $this->assertNotNull($quickViewRoute);
+        $this->assertSame('recommerce/devices/{deviceCode}/quick-view', $quickViewRoute->uri());
+        $this->assertContains('GET', $quickViewRoute->methods());
+        $this->assertContains('throttle:60,1', $quickViewRoute->middleware());
         $this->assertSame('recommerce/devices/{deviceCode}/events', $eventsRoute->uri());
         $this->assertContains('GET', $eventsRoute->methods());
         $this->assertContains('web', $eventsRoute->middleware());

@@ -230,7 +230,17 @@
                     return;
                 }
                 try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+                    // Decoders need enough source pixels per QR module. Ask
+                    // for the rear camera at a useful capture resolution;
+                    // browsers may still choose their closest supported mode.
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: { ideal: 'environment' },
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                        },
+                        audio: false,
+                    });
                     camera.srcObject = stream;
                     await camera.play();
                     scanning = true;

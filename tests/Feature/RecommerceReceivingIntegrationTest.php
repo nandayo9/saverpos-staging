@@ -32,8 +32,10 @@ use Modules\Recommerce\Http\Controllers\PosDeviceLookupController;
 use Modules\Recommerce\Http\Controllers\ReconciliationController;
 use Modules\Recommerce\Http\Controllers\ReceivingController;
 use Modules\Recommerce\Http\Controllers\ScanController;
+use Modules\Recommerce\Http\Controllers\DeviceController;
 use Modules\Recommerce\Providers\RouteServiceProvider;
 use Modules\Recommerce\Services\ScanTokenIssuanceService;
+use Modules\Recommerce\Services\BulkDeviceLabelPrintService;
 use Modules\Recommerce\Services\LabelRenderer;
 use Modules\Recommerce\Services\ReconciliationRunService;
 use Modules\Recommerce\Services\StockReconciliationService;
@@ -49,6 +51,8 @@ use Modules\Recommerce\Services\DeviceCertificationService;
 use Modules\Recommerce\Services\DeviceLifecycleService;
 use Modules\Recommerce\Services\DeviceIdentityResolver;
 use Modules\Recommerce\Services\DeviceReceivingProgressService;
+use Modules\Recommerce\Services\DeviceRegistryQuery;
+use Modules\Recommerce\Services\DeviceEventTimelineService;
 use Modules\Recommerce\Services\ProductTrackingPolicyService;
 use Modules\Recommerce\Services\DeviceTransferExceptionService;
 use Modules\Recommerce\Entities\DiagnosticCheck;
@@ -57,6 +61,7 @@ use Modules\Recommerce\Entities\DiagnosticTemplateVersion;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Modules\Recommerce\Support\CohortPolicy;
 use Modules\Recommerce\Support\Identity\OpaqueScanToken;
+use Modules\Recommerce\Support\Identity\DeviceCode;
 use Modules\Recommerce\Support\Identity\StrongIdentifierHasher;
 use Modules\Recommerce\Support\LabelPayloadBuilder;
 use App\Utils\ProductUtil;
@@ -193,6 +198,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
             $table->unsignedInteger('id')->primary();
             $table->unsignedInteger('product_id');
             $table->string('name')->nullable();
+            $table->string('sub_sku')->nullable();
             $table->timestamp('deleted_at')->nullable();
         });
         $schema->create('tax_rates', function (Blueprint $table) {
@@ -1720,7 +1726,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $responseData = $response->getData(true);
         $payload = $responseData['label'];
 
-        $this->assertSame('v2.2-2', $payload['template_version']);
+        $this->assertSame('v2.2-3', $payload['template_version']);
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('READY_TO_PRINT', $responseData['status']);
         $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
@@ -1906,6 +1912,8 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertStringContainsString('<svg', $content);
         $this->assertStringContainsString('@page { size: 50mm 20mm;', $content);
         $this->assertStringContainsString('.label { width: 50mm; min-height: 20mm;', $content);
+        $this->assertMatchesRegularExpression('/aria-label="Opaque QR code">[\s\S]*?<svg width="164" height="164" viewBox="-16 -16 196 196"/', $content);
+        $this->assertStringContainsString('.qr { width: 19mm; height: 19mm;', $content);
         $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
         $this->assertSame('no-referrer', $response->headers->get('Referrer-Policy'));
         $this->assertSame(1, DB::table('recommerce_label_jobs')->count());
@@ -1989,6 +1997,197 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame('REPRINT', json_decode($jobs[1]->request_json, true)['reason']);
         $this->assertSame(1, DB::table('recommerce_label_job_items')->distinct()->count('scan_token_id'));
         $this->assertSame(1, DB::table('recommerce_label_job_items')->distinct()->count('device_id'));
+    }
+
+    public function test_bulk_label_print_renders_one_safe_batch_and_reuses_permanent_qr_identities(): void
+    {
+        $this->app['view']->addNamespace('recommerce', base_path('Modules/Recommerce/Resources/views'));
+        (new RouteServiceProvider(app()))->map();
+
+        $first = $this->receiveOneDevice();
+        $second = $this->availableDevice(DeviceCode::forDeviceId($first->id + 1), 101);
+        $user = $this->authorizedUser();
+
+        $this->actingAs($user)
+            ->post('/recommerce/devices/'.$first->id.'/label/print')
+            ->assertOk();
+        $firstToken = ScanToken::query()->where('device_id', $first->id)->where('status', 'ACTIVE')->firstOrFail();
+
+        $response = $this->actingAs($user)->post('/recommerce/devices/labels/print', [
+            'device_ids' => [$first->id, $second->id],
+        ]);
+
+        $response->assertOk()
+            ->assertSee($first->device_code, false)
+            ->assertSee($second->device_code, false)
+            ->assertSee('Print 2 SAVERBRO labels', false)
+            ->assertHeader('Referrer-Policy', 'no-referrer');
+        $content = $response->getContent();
+        $this->assertStringContainsString('break-after: page', $content);
+        $this->assertStringContainsString('aria-label="Opaque QR code"', $content);
+        $this->assertStringContainsString('aria-label="Code 128 barcode"', $content);
+        $this->assertStringNotContainsString($firstToken->raw_token_encrypted, $content);
+        $this->assertStringNotContainsString('/s/d/', $content);
+        $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+
+        $batch = DB::table('recommerce_label_jobs')->orderByDesc('id')->first();
+        $request = json_decode($batch->request_json, true);
+        $this->assertSame('BULK_PRINT', $request['reason']);
+        $this->assertSame(2, (int) $batch->item_count);
+        $this->assertSame(1, $request['initial_issuance_count']);
+        $this->assertSame(1, $request['reprint_count']);
+        $this->assertSame([$first->device_code, $second->device_code], $request['device_codes']);
+        $this->assertStringNotContainsString('raw_token', $batch->request_json);
+        $this->assertSame('PRINT_VIEW_OPENED', $batch->status);
+        $this->assertSame(2, DB::table('recommerce_label_job_items')->where('label_job_id', $batch->id)->count());
+        $this->assertSame(2, ScanToken::query()->where('status', 'ACTIVE')->count());
+        $this->assertSame($firstToken->id, ScanToken::query()->where('device_id', $first->id)->value('id'));
+        $this->assertSame($firstToken->raw_token_encrypted, ScanToken::query()->where('device_id', $first->id)->value('raw_token_encrypted'));
+
+        $resolution = $this->actingAs($user)->postJson('/recommerce/scans/resolve', [
+            'value' => 'https://scan.saverbro.example/s/d/'.$firstToken->raw_token_encrypted,
+        ]);
+        $resolution->assertOk()->assertJsonPath('device_code', $first->device_code);
+    }
+
+    public function test_bulk_label_print_aborts_the_entire_selection_for_foreign_or_stale_devices(): void
+    {
+        $user = $this->authorizedUser();
+        $this->actingAs($user);
+        $allowed = $this->receiveOneDevice();
+
+        DB::table('business')->insert(['id' => 8]);
+        DB::table('business_locations')->insert(['id' => 801, 'business_id' => 8, 'name' => 'Foreign branch']);
+        $foreign = Device::create([
+            'business_id' => 8, 'device_uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'device_code' => DeviceCode::forDeviceId($allowed->id + 1), 'ownership_kind' => 'BUSINESS', 'custody_kind' => 'LOCATION',
+            'current_location_id' => 801, 'product_id' => 202, 'variation_id' => 303,
+            'lifecycle_state' => 'AVAILABLE', 'stock_participation' => 'ON_HAND', 'lock_version' => 1,
+            'created_by' => 900, 'updated_by' => 900,
+        ]);
+
+        try {
+            $this->bulkLabelPrintService()->render($user, [$allowed->id, $foreign->id]);
+            $this->fail('A bulk print may not render an authorized subset.');
+        } catch (AuthorizationException $exception) {
+            $this->assertSame('Recommerce label scope denied.', $exception->getMessage());
+        }
+
+        $this->assertSame(0, ScanToken::query()->count());
+        $this->assertSame(0, DB::table('recommerce_label_jobs')->count());
+        $this->assertSame(1, DB::table('recommerce_device_events')->count());
+
+        DB::table('business_locations')->insert(['id' => 999, 'business_id' => 7, 'name' => 'No longer permitted']);
+        Device::query()->whereKey($allowed->id)->update(['current_location_id' => 999]);
+
+        try {
+            $this->bulkLabelPrintService()->render($user, [$allowed->id]);
+            $this->fail('A Device made inaccessible after Registry selection must be rejected.');
+        } catch (AuthorizationException $exception) {
+            $this->assertSame('Recommerce token issuance scope denied.', $exception->getMessage());
+        }
+
+        $this->assertSame(0, ScanToken::query()->count());
+        $this->assertSame(0, DB::table('recommerce_label_jobs')->count());
+        $this->assertSame(1, DB::table('recommerce_device_events')->count());
+    }
+
+    public function test_bulk_label_print_rechecks_print_permission_without_writing_any_subset(): void
+    {
+        $device = $this->receiveOneDevice();
+        $deniedUser = new class extends User
+        {
+            public function can($ability, $arguments = []): bool
+            {
+                return false;
+            }
+
+            public function permitted_locations($business_id = null)
+            {
+                return [101, 102];
+            }
+        };
+        $deniedUser->id = 900;
+        $deniedUser->business_id = 7;
+        $this->actingAs($deniedUser);
+
+        try {
+            $this->bulkLabelPrintService()->render($deniedUser, [$device->id]);
+            $this->fail('A permission change must block bulk printing.');
+        } catch (AuthorizationException $exception) {
+            $this->assertSame('Recommerce token issuance scope denied.', $exception->getMessage());
+        }
+
+        $this->assertSame(0, ScanToken::query()->count());
+        $this->assertSame(0, DB::table('recommerce_label_jobs')->count());
+        $this->assertSame(1, DB::table('recommerce_device_events')->count());
+    }
+
+    public function test_bulk_label_print_returns_a_safe_error_for_an_invalid_selection(): void
+    {
+        (new RouteServiceProvider(app()))->map();
+
+        $response = $this->actingAs($this->authorizedUser())
+            ->postJson('/recommerce/devices/labels/print', ['device_ids' => ['not-a-device']]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', 'Selected Devices could not be printed. Refresh the Registry and review their label status.')
+            ->assertHeader('Referrer-Policy', 'no-referrer');
+        $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+        $this->assertSame(0, ScanToken::query()->count());
+        $this->assertSame(0, DB::table('recommerce_label_jobs')->count());
+    }
+
+    public function test_bulk_label_print_redirects_a_normal_browser_request_back_with_a_safe_error(): void
+    {
+        (new RouteServiceProvider(app()))->map();
+
+        $this->actingAs($this->authorizedUser())
+            ->post('/recommerce/devices/labels/print', ['device_ids' => ['not-a-device']])
+            ->assertRedirect('/recommerce/devices')
+            ->assertSessionHas('status', 'Selected Devices could not be printed. Refresh the Registry and review their label status.');
+
+        $this->assertSame(0, ScanToken::query()->count());
+        $this->assertSame(0, DB::table('recommerce_label_jobs')->count());
+    }
+
+    public function test_bulk_label_print_scales_bounded_batches_of_one_ten_and_fifty_without_per_device_reads(): void
+    {
+        $user = $this->authorizedUser();
+        $this->actingAs($user);
+        $service = $this->bulkLabelPrintService();
+
+        foreach ([1, 10, 50] as $quantity) {
+            $devices = [];
+            for ($position = 0; $position < $quantity; $position++) {
+                $nextId = (int) Device::query()->max('id') + 1;
+                $devices[] = $this->availableDevice(DeviceCode::forDeviceId($nextId), 101);
+            }
+
+            DB::connection()->flushQueryLog();
+            DB::connection()->enableQueryLog();
+            $result = $service->render($user, array_map(fn (Device $device): int => (int) $device->id, $devices));
+            $queries = DB::connection()->getQueryLog();
+            DB::connection()->disableQueryLog();
+
+            $this->assertCount($quantity, $result['labels']);
+            $deviceSelects = count(array_filter($queries, static function (array $query): bool {
+                $sql = strtolower($query['query']);
+
+                return str_starts_with($sql, 'select') && str_contains($sql, 'recommerce_devices');
+            }));
+            $tokenSelects = count(array_filter($queries, static function (array $query): bool {
+                $sql = strtolower($query['query']);
+
+                return str_starts_with($sql, 'select') && str_contains($sql, 'recommerce_scan_tokens');
+            }));
+            $this->assertSame(1, $deviceSelects, 'Bulk printing must load selected Devices in one scoped query.');
+            $this->assertSame(1, $tokenSelects, 'Bulk printing must load active label tokens in one scoped query.');
+        }
+
+        $this->assertSame(3, DB::table('recommerce_label_jobs')->count());
+        $this->assertSame(61, DB::table('recommerce_label_job_items')->count());
+        $this->assertSame(61, ScanToken::query()->where('status', 'ACTIVE')->count());
     }
 
     public function test_enabled_label_print_route_runs_authenticated_http_path(): void
@@ -3546,7 +3745,12 @@ class RecommerceReceivingIntegrationTest extends TestCase
     public function test_internal_refurbishment_rejects_business_device_outside_the_variation_cohort(): void
     {
         $device = $this->receiveOneDevice();
-        config(['recommerce.cohort.variation_ids' => [999]]);
+        // This test isolates the configured variation boundary rather than
+        // the optional approved-product-policy expansion path.
+        config([
+            'recommerce.cohort.variation_ids' => [999],
+            'recommerce.cohort.allow_approved_product_policies' => false,
+        ]);
 
         $this->expectException(AuthorizationException::class);
         (new RepairJobIntakeService($this->gate()))->create($this->authorizedUser(), [
@@ -3652,9 +3856,71 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame('REFURB-LAPTOP-01', data_get($session->template_snapshot_json, 'template_code'));
     }
 
+    public function test_device_registry_uses_exact_identity_resolution_database_filters_and_masked_quick_view(): void
+    {
+        config(['recommerce.enabled' => true]);
+        $this->app['view']->addNamespace('recommerce', base_path('Modules/Recommerce/Resources/views'));
+        $this->app['view']->getFinder()->prependLocation(base_path('tests/Fixtures/views'));
+        $this->app['view']->flushFinderCache();
+        (new RouteServiceProvider(app()))->map();
+        app('router')->getRoutes()->refreshNameLookups();
+        app('url')->setRoutes(app('router')->getRoutes());
+        $this->assertNotNull(app('router')->getRoutes()->getByName('recommerce.dashboard'));
+
+        $device = $this->receiveOneDevice();
+        $device->update([
+            'lifecycle_state' => 'AVAILABLE',
+            'category_code' => 'LAPTOP',
+            'acquired_at' => now()->subDays(61),
+        ]);
+        DB::table('business')->insert(['id' => 8]);
+        $other = $this->availableDevice('SB-DV-OUT-OF-BUSINESS-1', 101);
+        $other->update(['business_id' => 8]);
+
+        $registry = new DeviceRegistryQuery();
+        $base = $registry->base(7, 101, [303]);
+        $combined = $registry->apply(clone $base, [
+            'state' => 'AVAILABLE', 'category' => 'LAPTOP', 'age_days' => 60,
+            'label_status' => '', 'product_id' => 0, 'variation_id' => 0,
+            'custody' => '', 'inventory' => '', 'grade' => '', 'inspection' => '',
+            'received_from' => '', 'received_to' => '', 'has_repair' => false,
+        ])->pluck('device_code')->all();
+        $this->assertSame([$device->device_code], $combined);
+
+        $controller = new DeviceController();
+        $registryResponse = $controller->index(
+            Request::create('/recommerce/devices', 'GET', ['location_id' => 101, 'q' => 'SN-LABEL-01']),
+            $this->gate(),
+            new DeviceIdentityResolver(),
+            $registry
+        );
+        $registryHtml = $registryResponse->getContent();
+        $this->assertStringContainsString($device->device_code, $registryHtml);
+        $this->assertStringNotContainsString($other->device_code, $registryHtml);
+
+        $quickView = $controller->quickView(
+            $device->device_code,
+            $this->gate(),
+            new DeviceEventTimelineService()
+        );
+        $this->assertStringContainsString('View full record', $quickView->getContent());
+        $this->assertStringContainsString($device->device_code, $quickView->getContent());
+        $this->assertStringNotContainsString('SN-LABEL-01', $quickView->getContent());
+        $this->assertStringContainsString('no-store', (string) $quickView->headers->get('Cache-Control'));
+    }
+
     private function service(): TrackedReceivingService
     {
         return new TrackedReceivingService(new AuthorizationGate(new CohortPolicy()));
+    }
+
+    private function bulkLabelPrintService(): BulkDeviceLabelPrintService
+    {
+        return new BulkDeviceLabelPrintService(
+            new ScanTokenIssuanceService($this->gate(), new OpaqueScanToken()),
+            new LabelPayloadBuilder(),
+            new LabelRenderer()
+        );
     }
 
     private function gate(): AuthorizationGate

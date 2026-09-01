@@ -39,12 +39,16 @@ class RecommerceOperationsViewRenderTest extends TestCase
                 (object) [
                     'id' => 1, 'device_code' => 'SB-DV-00000001-9', 'lifecycle_state' => 'AVAILABLE',
                     'custody_kind' => 'LOCATION', 'current_location_id' => 1, 'currentLocation' => (object) ['name' => 'Branch A'], 'stock_participation' => 'ON_HAND',
+                    'manufacturer_serial_display' => null,
+                    'acquired_at' => Carbon::now()->subDays(2),
                     'product' => (object) ['name' => 'SaverBro Demo Device'],
                     'variation' => (object) ['name' => 'Default'],
                 ],
                 (object) [
                     'device_code' => 'SB-DV-00000002-1', 'lifecycle_state' => 'RESERVED',
                     'custody_kind' => 'LOCATION', 'current_location_id' => 2, 'currentLocation' => (object) ['name' => 'Branch B'], 'stock_participation' => 'ON_HAND',
+                    'manufacturer_serial_display' => null,
+                    'acquired_at' => null,
                     'product' => null, 'variation' => null,
                 ],
             ]),
@@ -59,17 +63,19 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $this->assertStringContainsString('SB-DV-00000001-9', $html);
         $this->assertStringContainsString('SaverBro Demo Device', $html);
         $this->assertStringContainsString('Product unavailable', $html);
-        $this->assertStringContainsString('Receive stock from Purchases', $html);
         $this->assertStringContainsString('Device Registry', $html);
         $this->assertStringContainsString('Find and investigate an existing physical device', $html);
         $this->assertStringContainsString('Ready for sale', $html);
         $this->assertStringContainsString('Branch A', $html);
         $this->assertStringContainsString('Branch B', $html);
         $this->assertStringNotContainsString('SaverBro location', $html);
-        $this->assertStringContainsString('Print label', $html);
+        $this->assertStringContainsString('Quick view', $html);
         $this->assertStringContainsString('/label/print', $html);
-        $this->assertStringContainsString('Label status', $html);
-        $this->assertStringContainsString('All label statuses', $html);
+        $this->assertStringContainsString('recommerce-bulk-label-print', $html);
+        $this->assertStringContainsString('data-registry-select-visible', $html);
+        $this->assertStringContainsString('data-registry-selection', $html);
+        $this->assertStringContainsString('Print labels', $html);
+        $this->assertStringContainsString('Any label state', $html);
         $this->assertMatchesRegularExpression('/value="NOT_PRINTED"\\s+selected/', $html);
         $this->assertStringContainsString('Print view opened', $html);
         $this->assertStringNotContainsString('Add Device', $html);
@@ -81,9 +87,36 @@ class RecommerceOperationsViewRenderTest extends TestCase
             'devices' => collect(), 'locationId' => 1, 'query' => 'nothing', 'canReceive' => false,
         ]);
 
-        $this->assertStringContainsString('No authorized devices matched this search.', $html);
+        $this->assertStringContainsString('No device matches', $html);
         $this->assertStringNotContainsString('Receive stock from Purchases', $html);
         $this->assertStringContainsString('Clear', $html);
+    }
+
+    public function test_device_quick_view_masks_identity_and_gates_acquisition_cost(): void
+    {
+        $device = Device::unguarded(fn () => new Device([
+            'id' => 9, 'device_code' => 'SB-DV-00000009-4', 'lifecycle_state' => 'AVAILABLE',
+            'stock_participation' => 'ON_HAND', 'acquired_at' => Carbon::parse('2026-09-01'),
+        ]));
+        $device->setRelation('product', (object) ['name' => 'Demo Laptop']);
+        $device->setRelation('variation', (object) ['name' => 'Default']);
+        $device->setRelation('purchaseAssignment', (object) ['unit_acquisition_cost' => 1875.50]);
+        $device->setRelation('certification', null);
+        $device->setRelation('inspection', null);
+
+        $data = [
+            'device' => $device, 'stateLabel' => 'Ready for sale', 'holder' => 'Branch A',
+            'inventoryLabel' => 'In stock', 'labelStatus' => 'Printed',
+            'serialHint' => 'Serial ending A123', 'auditVisible' => false, 'events' => collect(),
+            'inspectionUrl' => null, 'repairUrl' => null,
+        ];
+        $restricted = $this->renderRecommerceView('recommerce::device.quick-view', $data + ['economicsVisible' => false]);
+        $economic = $this->renderRecommerceView('recommerce::device.quick-view', $data + ['economicsVisible' => true]);
+
+        $this->assertStringContainsString('Serial ending A123', $restricted);
+        $this->assertStringNotContainsString('1875.50', $restricted);
+        $this->assertStringNotContainsString('Acquisition cost', $restricted);
+        $this->assertStringContainsString('RM 1,875.50', $economic);
     }
 
     public function test_device_detail_prioritises_safe_profile_and_technical_information(): void

@@ -37,6 +37,12 @@ class Device extends Model
         return $this->hasMany(LabelJobItem::class, 'device_id');
     }
 
+    /** One bounded label-status projection for dense registry pages. */
+    public function latestLabelJobItem(): HasOne
+    {
+        return $this->hasOne(LabelJobItem::class, 'device_id')->latestOfMany();
+    }
+
     public function certification(): HasOne
     {
         return $this->hasOne(DeviceCertification::class, 'device_id');

@@ -9,12 +9,12 @@
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; background: #eef2f7; color: #111827; font-family: Arial, sans-serif; }
         body { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-        .label { width: {{ config('recommerce.label_template.width') }}; min-height: {{ config('recommerce.label_template.height') }}; height: {{ config('recommerce.label_template.height') }}; overflow: hidden; background: #fff; border: 1px solid #cbd5e1; border-radius: 1.5mm; padding: .7mm; }
+        .label { width: {{ config('recommerce.label_template.width') }}; min-height: {{ config('recommerce.label_template.height') }}; height: {{ config('recommerce.label_template.height') }}; overflow: hidden; background: #fff; border: 1px solid #cbd5e1; border-radius: 1.5mm; padding: .25mm; }
         .brand { font-size: 6pt; line-height: 1; font-weight: 700; letter-spacing: .08em; }
         .sub { color: #64748b; font-size: 4.5pt; line-height: 1; margin-top: .3mm; }
-        .content { display: flex; gap: 2mm; align-items: center; height: 17mm; }
-        .qr { width: 17mm; height: 17mm; display: grid; place-items: center; flex: 0 0 17mm; }
-        .qr svg { width: 17mm; height: 17mm; }
+        .content { display: flex; gap: 1mm; align-items: center; height: 19.5mm; }
+        .qr { width: 19mm; height: 19mm; display: grid; place-items: center; flex: 0 0 19mm; }
+        .qr svg { width: 19mm; height: 19mm; }
         .details { min-width: 0; flex: 1; }
         .description { font-size: 6.5pt; font-weight: 700; line-height: 1.05; overflow-wrap: anywhere; }
         .code { font-family: monospace; font-size: 6.5pt; margin-top: .5mm; letter-spacing: .02em; }

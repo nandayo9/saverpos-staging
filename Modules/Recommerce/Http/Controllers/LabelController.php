@@ -11,6 +11,7 @@ use LogicException;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\LabelJob;
 use Modules\Recommerce\Entities\LabelJobItem;
+use Modules\Recommerce\Services\BulkDeviceLabelPrintService;
 use Modules\Recommerce\Services\LabelRenderer;
 use Modules\Recommerce\Services\ScanTokenIssuanceService;
 use Modules\Recommerce\Support\LabelPayloadBuilder;
@@ -115,6 +116,40 @@ class LabelController extends Controller
         return response()->view('recommerce::labels.device', [
             'label' => $payload,
             'rendered' => $rendered,
+        ])->header('Cache-Control', 'no-store')
+            ->header('Referrer-Policy', 'no-referrer');
+    }
+
+    /** Print a bounded, explicit Registry selection using permanent label identities. */
+    public function printBulk(Request $request, BulkDeviceLabelPrintService $bulkLabelPrintService)
+    {
+        $ids = $request->input('device_ids', []);
+        if (! is_array($ids)) {
+            $ids = [];
+        }
+
+        try {
+            $result = $bulkLabelPrintService->render(auth()->user(), $ids);
+        } catch (AuthorizationException $exception) {
+            // Do not distinguish an absent, foreign, or now-inaccessible
+            // Device selected from an older Registry page.
+            abort(404);
+        } catch (InvalidArgumentException|LogicException $exception) {
+            if (! $request->expectsJson()) {
+                return redirect('/recommerce/devices')->with(
+                    'status',
+                    'Selected Devices could not be printed. Refresh the Registry and review their label status.'
+                );
+            }
+
+            return response()->json([
+                'message' => 'Selected Devices could not be printed. Refresh the Registry and review their label status.',
+            ], 422)->header('Cache-Control', 'no-store')
+                ->header('Referrer-Policy', 'no-referrer');
+        }
+
+        return response()->view('recommerce::labels.device-sheet', [
+            'labels' => $result['labels'],
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
     }

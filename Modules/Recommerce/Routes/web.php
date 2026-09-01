@@ -27,6 +27,11 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->where('deviceCode', '[A-Za-z0-9-]+')
         ->name('recommerce.devices.show');
 
+    Route::get('/devices/{deviceCode}/quick-view', 'DeviceController@quickView')
+        ->where('deviceCode', '[A-Za-z0-9-]+')
+        ->middleware('throttle:60,1')
+        ->name('recommerce.devices.quick_view');
+
     Route::get('/devices/{deviceCode}/events', 'DeviceEventController@index')
         ->where('deviceCode', '[A-Za-z0-9-]+')
         ->middleware('throttle:60,1')
@@ -41,6 +46,10 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->whereNumber('deviceId')
         ->middleware('throttle:10,1')
         ->name('recommerce.devices.label.print');
+
+    Route::post('/devices/labels/print', 'LabelController@printBulk')
+        ->middleware('throttle:5,1')
+        ->name('recommerce.devices.labels.print');
 
     Route::post('/devices/{deviceId}/label/confirm', 'LabelController@confirm')
         ->whereNumber('deviceId')

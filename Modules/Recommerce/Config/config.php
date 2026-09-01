@@ -19,7 +19,9 @@ return [
     // Configure one approved HTTPS customer-support endpoint before exposing
     // the warranty-service button.
     'public_warranty_service_url' => env('RECOMMERCE_PUBLIC_WARRANTY_SERVICE_URL'),
-    'label_template_version' => 'v2.2-2',
+    // v2.2-3 increases printed QR module size for reliable mobile scanning
+    // without changing the permanent QR identity.
+    'label_template_version' => 'v2.2-3',
     // The browser-print dimensions live in one place so later thermal
     // templates do not need to change identity or receiving behavior.
     'label_template' => ['width' => '50mm', 'height' => '20mm'],
@@ -27,6 +29,9 @@ return [
     // version and acknowledgement without exposing identity references in lists.
     'tradein_seller_declaration' => env('RECOMMERCE_TRADEIN_SELLER_DECLARATION', 'Seller declares that they have the right to offer this device and that the information provided is accurate.'),
     'receive_batch_limit' => 50,
+    // Bounded visible-page bulk printing. This is deliberately not a
+    // server-side "select all matching" capability.
+    'bulk_label_limit' => 100,
     'repair_intake_checklist' => [
         ['key' => 'powers_on', 'label' => 'Powers on'],
         ['key' => 'display', 'label' => 'Display / screen'],
