@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\Recommerce\Services\DeviceIdentityResolver;
 use Modules\Recommerce\Support\AuthorizationGate;
+use Modules\Recommerce\Support\Identity\DeviceCode;
 
 /**
  * Staff-only POS shortcut for an exact physical Device identity.
@@ -36,20 +37,48 @@ class PosDeviceLookupController extends Controller
         }
 
         $device = $identityResolver->resolve($businessId, $data['value']);
-        if (! $device
-            || ! $device->variation_id
-            || ! $authorizationGate->allowsWrite($user, 'recommerce.device.sell', $businessId, $locationId, $device->variation_id)) {
+        if (! $device) {
+            // A syntactically valid SaverBro Device ID is never a normal
+            // product barcode. Give POS staff an actionable answer instead of
+            // dropping into the generic "no products found" autocomplete.
+            if (DeviceCode::isValid($data['value'])) {
+                return $this->unregisteredDeviceResponse($data['value']);
+            }
+
             return $this->notFoundResponse();
         }
 
-        // Do not reveal a Device's private state to a POS user outside its
-        // selling branch. A genuine but unavailable Device gets only an
-        // operationally useful, non-sensitive message.
-        if ((int) $device->current_location_id !== $locationId
-            || $device->lifecycle_state !== 'AVAILABLE'
-            || $device->stock_participation !== 'ON_HAND') {
+        if (! $device->variation_id) {
             return response()->json([
-                'message' => 'This Device is not available to sell at this branch.',
+                'message' => 'This Device has no sellable product assigned. Ask a manager to correct its Device record.',
+            ], 422)->header('Cache-Control', 'no-store')
+                ->header('Referrer-Policy', 'no-referrer');
+        }
+
+        if (! $authorizationGate->allowsWrite($user, 'recommerce.device.sell', $businessId, $locationId, $device->variation_id)) {
+            return response()->json([
+                'message' => 'You do not have permission to sell this Device at the selected POS branch.',
+            ], 403)->header('Cache-Control', 'no-store')
+                ->header('Referrer-Policy', 'no-referrer');
+        }
+
+        if ((int) $device->current_location_id !== $locationId) {
+            return response()->json([
+                'message' => 'This Device is held at a different branch. Switch the POS branch or complete a Device transfer before sale.',
+            ], 422)->header('Cache-Control', 'no-store')
+                ->header('Referrer-Policy', 'no-referrer');
+        }
+
+        if ($device->lifecycle_state !== 'AVAILABLE') {
+            return response()->json([
+                'message' => 'This Device is currently '.strtolower(str_replace('_', ' ', $device->lifecycle_state)).'. Only Available Devices can be sold.',
+            ], 422)->header('Cache-Control', 'no-store')
+                ->header('Referrer-Policy', 'no-referrer');
+        }
+
+        if ($device->stock_participation !== 'ON_HAND') {
+            return response()->json([
+                'message' => 'This Device is not on hand for sale. Resolve its current reservation or movement before selling it.',
             ], 422)->header('Cache-Control', 'no-store')
                 ->header('Referrer-Policy', 'no-referrer');
         }
@@ -68,6 +97,15 @@ class PosDeviceLookupController extends Controller
     {
         return response()->json([
             'message' => 'Device scan could not be resolved.',
+        ], 404)->header('Cache-Control', 'no-store')
+            ->header('Referrer-Policy', 'no-referrer');
+    }
+
+    private function unregisteredDeviceResponse(string $deviceCode)
+    {
+        return response()->json([
+            'code' => 'DEVICE_NOT_REGISTERED',
+            'message' => 'SaverBro Device ID '.DeviceCode::normalize($deviceCode).' is not registered. Register it through Purchase Receiving before sale.',
         ], 404)->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
     }

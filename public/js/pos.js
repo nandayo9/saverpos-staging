@@ -410,6 +410,12 @@ $(document).ready(function() {
                         pos_product_row(result.variation_id, null, null, 1, result.device_code);
                         response([{auto_added: true}]);
                     }).fail(function(xhr) {
+                        if (xhr.status === 404 && xhr.responseJSON && xhr.responseJSON.code === 'DEVICE_NOT_REGISTERED') {
+                            toastr.warning(xhr.responseJSON.message);
+                            response([]);
+                            return;
+                        }
+
                         if (xhr.status === 404) {
                             // Unknown Device identities may still be ordinary
                             // UltimatePOS SKUs or product barcodes.

@@ -2056,7 +2056,7 @@ class RecommerceReceivingIntegrationTest extends TestCase
 
         $unknown = $controller->resolve(
             Request::create('/recommerce/pos/resolve-device', 'POST', [
-                'value' => 'UNKNOWN-POS-DEVICE',
+                'value' => 'SB-DV-00000001-9',
                 'location_id' => 101,
             ]),
             $this->gate(),
@@ -2072,7 +2072,16 @@ class RecommerceReceivingIntegrationTest extends TestCase
         );
 
         $this->assertSame(404, $unknown->getStatusCode());
+        $this->assertSame('DEVICE_NOT_REGISTERED', $unknown->getData(true)['code']);
+        $this->assertSame(
+            'SaverBro Device ID SB-DV-00000001-9 is not registered. Register it through Purchase Receiving before sale.',
+            $unknown->getData(true)['message']
+        );
         $this->assertSame(422, $outOfBranch->getStatusCode());
+        $this->assertSame(
+            'This Device is held at a different branch. Switch the POS branch or complete a Device transfer before sale.',
+            $outOfBranch->getData(true)['message']
+        );
         $this->assertStringNotContainsString($device->device_code, $outOfBranch->getContent());
     }
 
