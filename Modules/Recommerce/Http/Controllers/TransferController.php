@@ -10,6 +10,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use LogicException;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\DeviceTransferAssignment;
@@ -134,7 +135,9 @@ class TransferController extends Controller
 
     protected function tracked(int $businessId, int $variationId): bool
     {
-        return DB::table('recommerce_serialization_profiles')->where('business_id', $businessId)->where('variation_id', $variationId)->where('mode', 'TRACKED_REQUIRED')->whereNotNull('configured_by')->whereNotNull('approval_reference')->exists();
+        return DB::table('recommerce_serialization_profiles')->where('business_id', $businessId)->where('variation_id', $variationId)->where('mode', 'TRACKED_REQUIRED')
+            ->when(Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'), fn ($query) => $query->where('inventory_tracking_mode', 'SERIALIZED_DEVICE'))
+            ->whereNotNull('configured_by')->whereNotNull('approval_reference')->exists();
     }
 
     protected function assertScope(User $user, AuthorizationGate $gate, Transaction $sell, Transaction $purchase, $assignments): void

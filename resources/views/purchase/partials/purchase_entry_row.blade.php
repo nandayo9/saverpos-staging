@@ -1,12 +1,18 @@
 @foreach( $variations as $variation)
+    @php
+        $purchaseTrackingMode = strtoupper((string) ($purchaseTrackingModes[$variation->id] ?? 'BULK'));
+        $isIndividualDevice = $purchaseTrackingMode === 'SERIALIZED_DEVICE';
+    @endphp
     <tr @if(!empty($purchase_order_line)) data-purchase_order_id="{{$purchase_order_line->transaction_id}}" @endif @if(!empty($purchase_requisition_line)) data-purchase_requisition_id="{{$purchase_requisition_line->transaction_id}}" @endif>
         <td><span class="sr_number"></span></td>
         <td>
             {{ $product->name }} ({{$variation->sub_sku}})
             @if( $product->type == 'variable' )
                 <br/>
-                (<b>{{ $variation->product_variation->name }}</b> : {{ $variation->name }})
+                (<b>Configuration — {{ $variation->product_variation->name }}</b>: {{ $variation->name }})
             @endif
+            <br>
+            <span class="label {{ $isIndividualDevice ? 'label-primary' : 'label-default' }}">{{ $isIndividualDevice ? 'Individual Device' : 'Quantity' }}</span>
             @if($product->enable_stock == 1)
                 <br>
                 <small class="text-muted" style="white-space: nowrap;">@lang('report.current_stock'): @if(!empty($variation->variation_location_details->first())) {{@num_format($variation->variation_location_details->first()->qty_available)}} @else 0 @endif {{ $product->unit->short_name }}</small>
@@ -55,6 +61,11 @@
                     data-msg-max-value="{{__('lang_v1.max_quantity_quantity_allowed', ['quantity' => $max_quantity])}}" 
                 @endif
             >
+            @if($isIndividualDevice)
+                <small class="help-block saverpos-device-receiving-count" data-unit-label="physical Devices will need identification after receiving.">{{ @format_quantity($quantity_value) }} physical Devices will need identification after receiving.</small>
+            @else
+                <small class="help-block">Normal quantity receiving completes this line. No Device identification is required.</small>
+            @endif
 
 
             <input type="hidden" class="base_unit_cost" value="{{$variation->default_purchase_price}}">

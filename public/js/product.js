@@ -771,3 +771,31 @@ $(document).on('change', '.variation-file-input', function() {
         $preview.hide();
     }
 });
+function saverpos_apply_tracking_mode(panel, mode, message) {
+    panel.find('input[name="inventory_tracking_mode"][value="' + mode + '"]').prop('checked', true);
+    panel.find('.saverpos-enable-sr-no').val(mode === 'SERIALIZED_DEVICE' ? '1' : '0');
+    panel.find('.saverpos-tracking-recommendation').text(message);
+}
+
+$(document).on('change', '.saverpos-tracking-policy input[name="inventory_tracking_mode"]', function() {
+    var panel = $(this).closest('.saverpos-tracking-policy');
+    panel.attr('data-tracking-touched', '1');
+    saverpos_apply_tracking_mode(
+        panel,
+        this.value,
+        this.value === 'SERIALIZED_DEVICE'
+            ? 'Individual Device selected. Each received unit will need identification.'
+            : 'Quantity selected. Normal stock receiving completes the workflow.'
+    );
+});
+
+$(document).on('change', '#category_id, #sub_category_id', function() {
+    var panel = $('.saverpos-tracking-policy').first();
+    if (!panel.length || panel.data('tracking-locked') == 1 || panel.attr('data-tracking-touched') === '1') return;
+    var category = ($('#category_id option:selected').text() + ' ' + $('#sub_category_id option:selected').text()).toLowerCase();
+    if (/laptop|notebook|phone|mobile|tablet|desktop|computer/.test(category)) {
+        saverpos_apply_tracking_mode(panel, 'SERIALIZED_DEVICE', 'Recommended from the selected category: Individual Device. You can override this before saving.');
+    } else if (/cable|bag|mouse|adapter|accessor|charger/.test(category)) {
+        saverpos_apply_tracking_mode(panel, 'BULK', 'Recommended from the selected category: Quantity. You can override this before saving.');
+    }
+});

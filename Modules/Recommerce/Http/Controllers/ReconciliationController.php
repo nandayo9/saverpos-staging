@@ -8,6 +8,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use LogicException;
 use Modules\Recommerce\Services\ReconciliationRunService;
@@ -44,6 +45,7 @@ class ReconciliationController extends Controller
             ->with(['product', 'variation'])
             ->where('business_id', $businessId)
             ->whereIn('variation_id', (array) config('recommerce.cohort.variation_ids', []))
+            ->when(Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'), fn ($query) => $query->where('inventory_tracking_mode', 'SERIALIZED_DEVICE'))
             ->orderBy('product_id')
             ->get()
             ->filter(fn (SerializationProfile $profile) => $authorizationGate->allowsRead(

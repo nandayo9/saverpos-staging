@@ -6,6 +6,7 @@ use App\Transaction;
 use App\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use LogicException;
 use Modules\Recommerce\Entities\CustodyPeriod;
@@ -458,7 +459,9 @@ class DeviceLifecycleService
 
     protected function isTracked(int $businessId, int $variationId): bool
     {
-        return SerializationProfile::query()->where('business_id', $businessId)->where('variation_id', $variationId)->where('mode', 'TRACKED_REQUIRED')->whereNotNull('configured_by')->whereNotNull('approval_reference')->exists();
+        return SerializationProfile::query()->where('business_id', $businessId)->where('variation_id', $variationId)->where('mode', 'TRACKED_REQUIRED')
+            ->when(Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'), fn ($query) => $query->where('inventory_tracking_mode', 'SERIALIZED_DEVICE'))
+            ->whereNotNull('configured_by')->whereNotNull('approval_reference')->exists();
     }
 
     protected function codes($value): array

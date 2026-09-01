@@ -6,6 +6,7 @@ use App\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use LogicException;
 use Modules\Recommerce\Entities\Device;
@@ -229,7 +230,9 @@ class StockCountService
         $variationIds = (array) ($session->scope_json['variation_ids'] ?? []);
         $devices = Device::query()->with(['product', 'variation', 'purchaseAssignment'])->where('business_id', $session->business_id)->where('current_location_id', $session->location_id)->whereIn('variation_id', $variationIds)->whereIn('stock_participation', ['ON_HAND', 'RESERVED'])->get();
         foreach ($devices as $device) StockCountItem::create(['session_id' => $session->id, 'item_kind' => 'SERIALIZED_DEVICE', 'device_id' => $device->id, 'product_id' => $device->product_id, 'variation_id' => $device->variation_id, 'expected_quantity' => 1, 'snapshot_json' => ['device_code' => $device->device_code, 'product' => optional($device->product)->name, 'variation' => optional($device->variation)->name, 'lifecycle_state' => $device->lifecycle_state, 'stock_participation' => $device->stock_participation, 'ownership_kind' => $device->ownership_kind, 'custody_kind' => $device->custody_kind, 'expected_location_id' => $session->location_id, 'acquisition_cost' => optional($device->purchaseAssignment)->unit_acquisition_cost]]);
-        $serializedIds = SerializationProfile::query()->where('business_id', $session->business_id)->whereIn('variation_id', $variationIds)->pluck('variation_id')->all();
+        $serializedIds = SerializationProfile::query()->where('business_id', $session->business_id)->whereIn('variation_id', $variationIds)
+            ->when(Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'), fn ($query) => $query->where('inventory_tracking_mode', 'SERIALIZED_DEVICE'))
+            ->pluck('variation_id')->all();
         $core = DB::table('variation_location_details as vld')->join('products as p', 'p.id', '=', 'vld.product_id')->leftJoin('variations as v', 'v.id', '=', 'vld.variation_id')->where('p.business_id', $session->business_id)->where('vld.location_id', $session->location_id)->whereIn('vld.variation_id', $variationIds)->when($serializedIds !== [], fn ($q) => $q->whereNotIn('vld.variation_id', $serializedIds))->select('vld.product_id', 'vld.variation_id', 'vld.qty_available', 'p.name as product_name', 'v.name as variation_name')->get();
         foreach ($core as $row) StockCountItem::create(['session_id' => $session->id, 'item_kind' => 'NON_SERIALIZED_VARIATION', 'product_id' => $row->product_id, 'variation_id' => $row->variation_id, 'expected_quantity' => $row->qty_available, 'snapshot_json' => ['product' => $row->product_name, 'variation' => $row->variation_name, 'expected_location_id' => $session->location_id]]);
     }

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\User;
+use App\Product;
 use App\Events\PurchaseCreatedOrModified;
 use App\Transaction;
 use Illuminate\Database\Schema\Blueprint;
@@ -48,6 +49,7 @@ use Modules\Recommerce\Services\DeviceCertificationService;
 use Modules\Recommerce\Services\DeviceLifecycleService;
 use Modules\Recommerce\Services\DeviceIdentityResolver;
 use Modules\Recommerce\Services\DeviceReceivingProgressService;
+use Modules\Recommerce\Services\ProductTrackingPolicyService;
 use Modules\Recommerce\Services\DeviceTransferExceptionService;
 use Modules\Recommerce\Entities\DiagnosticCheck;
 use Modules\Recommerce\Entities\DiagnosticTemplate;
@@ -1152,6 +1154,48 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame(0, $line->remaining_count);
         $this->assertSame([1, 2, 3], DB::table('recommerce_device_purchase_assignments')->orderBy('unit_ordinal')->pluck('unit_ordinal')->all());
         $this->assertSame(1, DB::table('transactions')->count());
+    }
+
+    public function test_authorised_product_policy_persists_individual_device_and_quantity_modes(): void
+    {
+        config(['recommerce.cohort.allow_approved_product_policies' => true]);
+        DB::table('products')->insert(['id' => 203, 'business_id' => 7, 'brand_id' => 1, 'name' => 'ThinkPad T14']);
+        DB::table('variations')->insert(['id' => 305, 'product_id' => 203]);
+        $service = new ProductTrackingPolicyService($this->gate());
+        $product = Product::query()->findOrFail(203);
+
+        $service->sync($product, ProductTrackingPolicyService::INDIVIDUAL_DEVICE, $this->authorizedUser());
+
+        $profile = DB::table('recommerce_serialization_profiles')->where('variation_id', 305)->first();
+        $this->assertSame('SERIALIZED_DEVICE', $profile->inventory_tracking_mode);
+        $this->assertSame(1, (int) $profile->inspection_required);
+        $this->assertSame(900, (int) $profile->configured_by);
+        $this->assertTrue((new CohortPolicy())->allowsReadVariation(7, 101, 305));
+
+        $service->sync($product, ProductTrackingPolicyService::QUANTITY, $this->authorizedUser());
+
+        $this->assertSame('BULK', $service->modeForProduct($product));
+        $this->assertSame(0, (int) DB::table('recommerce_serialization_profiles')->where('variation_id', 305)->value('inspection_required'));
+        $this->assertFalse((new CohortPolicy())->allowsReadVariation(7, 101, 305));
+    }
+
+    public function test_product_tracking_mode_cannot_change_after_purchase_history_exists(): void
+    {
+        config(['recommerce.cohort.allow_approved_product_policies' => true]);
+        DB::table('products')->insert(['id' => 204, 'business_id' => 7, 'brand_id' => 1, 'name' => 'Tablet']);
+        DB::table('variations')->insert(['id' => 306, 'product_id' => 204]);
+        $service = new ProductTrackingPolicyService($this->gate());
+        $product = Product::query()->findOrFail(204);
+        $service->sync($product, ProductTrackingPolicyService::INDIVIDUAL_DEVICE, $this->authorizedUser());
+        DB::table('purchase_lines')->insert([
+            'id' => 709, 'transaction_id' => 606, 'product_id' => 204, 'variation_id' => 306,
+            'quantity' => 1, 'purchase_price_inc_tax' => 500,
+        ]);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Tracking cannot be changed');
+
+        $service->sync($product, ProductTrackingPolicyService::QUANTITY, $this->authorizedUser());
     }
 
     public function test_purchase_attachment_defaults_cost_and_requires_permission_for_override(): void

@@ -20,6 +20,7 @@
     @endphp
     {!! Form::open(['url' => action([\App\Http\Controllers\ProductController::class, 'store']), 'method' => 'post',
     'id' => 'product_add_form','class' => 'product_form ' . $form_class, 'files' => true ]) !!}
+    @include('product.partials.tracking_policy')
     @component('components.widget', ['class' => 'box-primary'])
     <div class="row">
         <div class="col-sm-4">
@@ -213,7 +214,7 @@
         </div>
         @endif
 
-        <div class="col-sm-4">
+        <div class="col-sm-4 @if(!empty($recommerceProductTrackingEnabled)) hide @endif">
             <div class="form-group">
                 <br>
                 <label>

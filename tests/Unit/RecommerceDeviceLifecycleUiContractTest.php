@@ -47,6 +47,24 @@ class RecommerceDeviceLifecycleUiContractTest extends TestCase
         $this->assertStringContainsString('buildLabelAction(device)', $view);
     }
 
+    public function test_product_and_purchase_forms_use_operator_facing_tracking_language(): void
+    {
+        $tracking = file_get_contents(base_path('resources/views/product/partials/tracking_policy.blade.php'));
+        $create = file_get_contents(base_path('resources/views/product/create.blade.php'));
+        $quick = file_get_contents(base_path('resources/views/product/partials/quick_add_product.blade.php'));
+        $purchaseRow = file_get_contents(base_path('resources/views/purchase/partials/purchase_entry_row.blade.php'));
+        $purchaseScript = file_get_contents(base_path('public/js/purchase.js'));
+
+        $this->assertStringContainsString('How should SAVERPOS track this product?', $tracking);
+        $this->assertStringContainsString('Individual Device', $tracking);
+        $this->assertStringContainsString('Quantity', $tracking);
+        $this->assertStringContainsString('Configuration', $tracking);
+        $this->assertStringContainsString("@include('product.partials.tracking_policy')", $create);
+        $this->assertStringContainsString('Create & Add to Purchase', $quick);
+        $this->assertStringContainsString('physical Devices will need identification after receiving.', $purchaseRow);
+        $this->assertStringContainsString('product_for=purchase', $purchaseScript);
+    }
+
     public function test_reconciliation_can_select_an_authorized_cohort_branch_and_timeline_keeps_history(): void
     {
         $controller = file_get_contents(base_path('Modules/Recommerce/Http/Controllers/ReconciliationController.php'));

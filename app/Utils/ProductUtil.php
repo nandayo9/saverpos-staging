@@ -2669,6 +2669,10 @@ class ProductUtil extends Util
                 ->where('business_id', $businessId)
                 ->where('variation_id', $variationId)
                 ->where('mode', 'TRACKED_REQUIRED')
+                ->when(
+                    Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'),
+                    fn ($query) => $query->where('inventory_tracking_mode', 'SERIALIZED_DEVICE')
+                )
                 ->whereNotNull('configured_by')
                 ->whereNotNull('approval_reference')
                 ->exists();

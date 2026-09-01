@@ -108,5 +108,8 @@ return [
             array_map('intval', explode(',', (string) env('RECOMMERCE_COHORT_VARIATION_IDS', ''))),
             fn (int $variationId): bool => $variationId > 0
         )),
+        // New configurations can join the cohort through the authorised
+        // Product tracking form without an environment-file deployment.
+        'allow_approved_product_policies' => env('RECOMMERCE_ALLOW_APPROVED_PRODUCT_POLICIES', false),
     ],
 ];

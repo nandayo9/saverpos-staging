@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Storage;
 use Yajra\DataTables\Facades\DataTables;
 use App\Events\ProductsCreatedOrModified;
 use App\TransactionSellLine;
+use Modules\Recommerce\Services\ProductTrackingPolicyService;
 
 class ProductController extends Controller
 {
@@ -420,8 +421,15 @@ class ProductController extends Controller
         //product screen view from module
         $pos_module_data = $this->moduleUtil->getModuleData('get_product_screen_top_view');
 
+        $trackingPolicy = app(ProductTrackingPolicyService::class);
+        $recommerceProductTrackingEnabled = $trackingPolicy->availableFor(auth()->user(), (int) $business_id);
+        $productTrackingMode = $duplicate_product
+            ? $trackingPolicy->modeForProduct($duplicate_product)
+            : ProductTrackingPolicyService::QUANTITY;
+        $productTrackingLocked = false;
+
         return view('product.create')
-            ->with(compact('categories', 'brands', 'units', 'taxes', 'barcode_types', 'default_profit_percent', 'tax_attributes', 'barcode_default', 'business_locations', 'duplicate_product', 'sub_categories', 'rack_details', 'selling_price_group_count', 'module_form_parts', 'product_types', 'common_settings', 'warranties', 'pos_module_data'));
+            ->with(compact('categories', 'brands', 'units', 'taxes', 'barcode_types', 'default_profit_percent', 'tax_attributes', 'barcode_default', 'business_locations', 'duplicate_product', 'sub_categories', 'rack_details', 'selling_price_group_count', 'module_form_parts', 'product_types', 'common_settings', 'warranties', 'pos_module_data', 'recommerceProductTrackingEnabled', 'productTrackingMode', 'productTrackingLocked'));
     }
 
     private function product_types()
@@ -482,7 +490,9 @@ class ProductController extends Controller
                 $product_details['expiry_period'] = $this->productUtil->num_uf($request->input('expiry_period'));
             }
 
-            if (! empty($request->input('enable_sr_no')) && $request->input('enable_sr_no') == 1) {
+            if ($request->filled('inventory_tracking_mode')) {
+                $product_details['enable_sr_no'] = $request->input('inventory_tracking_mode') === ProductTrackingPolicyService::INDIVIDUAL_DEVICE ? 1 : 0;
+            } elseif (! empty($request->input('enable_sr_no')) && $request->input('enable_sr_no') == 1) {
                 $product_details['enable_sr_no'] = 1;
             }
 
@@ -537,6 +547,14 @@ class ProductController extends Controller
                 }
 
                 $this->productUtil->createSingleProductVariation($product->id, $product->sku, $request->input('item_level_purchase_price_total'), $request->input('purchase_price_inc_tax'), $request->input('profit_percent'), $request->input('selling_price'), $request->input('selling_price_inc_tax'), $combo_variations);
+            }
+
+            if ($request->filled('inventory_tracking_mode')) {
+                app(ProductTrackingPolicyService::class)->sync(
+                    $product,
+                    $request->input('inventory_tracking_mode'),
+                    auth()->user()
+                );
             }
 
             //Add product racks details.
@@ -659,8 +677,13 @@ class ProductController extends Controller
 
         $alert_quantity = ! is_null($product->alert_quantity) ? $this->productUtil->num_f($product->alert_quantity, false, null, true) : null;
 
+        $trackingPolicy = app(ProductTrackingPolicyService::class);
+        $recommerceProductTrackingEnabled = $trackingPolicy->availableFor(auth()->user(), (int) $business_id);
+        $productTrackingMode = $trackingPolicy->modeForProduct($product);
+        $productTrackingLocked = $trackingPolicy->isChangeLocked($product);
+
         return view('product.edit')
-                ->with(compact('categories', 'brands', 'units', 'sub_units', 'taxes', 'tax_attributes', 'barcode_types', 'product', 'sub_categories', 'default_profit_percent', 'business_locations', 'rack_details', 'selling_price_group_count', 'module_form_parts', 'product_types', 'common_settings', 'warranties', 'pos_module_data', 'alert_quantity'));
+                ->with(compact('categories', 'brands', 'units', 'sub_units', 'taxes', 'tax_attributes', 'barcode_types', 'product', 'sub_categories', 'default_profit_percent', 'business_locations', 'rack_details', 'selling_price_group_count', 'module_form_parts', 'product_types', 'common_settings', 'warranties', 'pos_module_data', 'alert_quantity', 'recommerceProductTrackingEnabled', 'productTrackingMode', 'productTrackingLocked'));
     }
 
     /**
@@ -756,7 +779,9 @@ class ProductController extends Controller
                 }
             }
 
-            if (! empty($request->input('enable_sr_no')) && $request->input('enable_sr_no') == 1) {
+            if ($request->filled('inventory_tracking_mode')) {
+                $product->enable_sr_no = $request->input('inventory_tracking_mode') === ProductTrackingPolicyService::INDIVIDUAL_DEVICE ? 1 : 0;
+            } elseif (! empty($request->input('enable_sr_no')) && $request->input('enable_sr_no') == 1) {
                 $product->enable_sr_no = 1;
             } else {
                 $product->enable_sr_no = 0;
@@ -853,6 +878,14 @@ class ProductController extends Controller
                 $variation->sell_price_inc_tax = $this->productUtil->num_uf($request->input('selling_price_inc_tax'));
                 $variation->combo_variations = $combo_variations;
                 $variation->save();
+            }
+
+            if ($request->filled('inventory_tracking_mode')) {
+                app(ProductTrackingPolicyService::class)->sync(
+                    $product,
+                    $request->input('inventory_tracking_mode'),
+                    auth()->user()
+                );
             }
 
             //Add product racks details.
@@ -1538,8 +1571,13 @@ class ProductController extends Controller
         $common_settings = session()->get('business.common_settings');
         $warranties = Warranty::forDropdown($business_id);
 
+        $trackingPolicy = app(ProductTrackingPolicyService::class);
+        $recommerceProductTrackingEnabled = $trackingPolicy->availableFor(auth()->user(), (int) $business_id);
+        $productTrackingMode = ProductTrackingPolicyService::QUANTITY;
+        $productTrackingLocked = false;
+
         return view('product.partials.quick_add_product')
-                ->with(compact('categories', 'brands', 'units', 'taxes', 'barcode_types', 'default_profit_percent', 'tax_attributes', 'product_name', 'locations', 'product_for', 'enable_expiry', 'enable_lot', 'module_form_parts', 'business_locations', 'common_settings', 'warranties'));
+                ->with(compact('categories', 'brands', 'units', 'taxes', 'barcode_types', 'default_profit_percent', 'tax_attributes', 'product_name', 'locations', 'product_for', 'enable_expiry', 'enable_lot', 'module_form_parts', 'business_locations', 'common_settings', 'warranties', 'recommerceProductTrackingEnabled', 'productTrackingMode', 'productTrackingLocked'));
     }
 
     /**
@@ -1602,7 +1640,9 @@ class ProductController extends Controller
                 $product_details['expiry_period'] = $this->productUtil->num_uf($request->input('expiry_period'));
             }
 
-            if (! empty($request->input('enable_sr_no')) && $request->input('enable_sr_no') == 1) {
+            if ($request->filled('inventory_tracking_mode')) {
+                $product_details['enable_sr_no'] = $request->input('inventory_tracking_mode') === ProductTrackingPolicyService::INDIVIDUAL_DEVICE ? 1 : 0;
+            } elseif (! empty($request->input('enable_sr_no')) && $request->input('enable_sr_no') == 1) {
                 $product_details['enable_sr_no'] = 1;
             }
 
@@ -1628,6 +1668,14 @@ class ProductController extends Controller
                 $request->input('single_dsp'),
                 $request->input('single_dsp_inc_tax')
             );
+
+            if ($request->filled('inventory_tracking_mode')) {
+                app(ProductTrackingPolicyService::class)->sync(
+                    $product,
+                    $request->input('inventory_tracking_mode'),
+                    auth()->user()
+                );
+            }
 
             if ($product->enable_stock == 1 && ! empty($request->input('opening_stock'))) {
                 $user_id = $request->session()->get('user.id');

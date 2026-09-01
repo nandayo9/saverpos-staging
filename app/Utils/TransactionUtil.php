@@ -5230,18 +5230,17 @@ class TransactionUtil extends Util
                 ->selectRaw("dpa.purchase_line_id, COUNT(*) as registered_count, SUM(CASE WHEN di.status = 'PASSED' AND d.lifecycle_state = 'AVAILABLE' THEN 1 ELSE 0 END) as inspection_ready_count")
                 ->groupBy('dpa.purchase_line_id');
         }
-        $variationIds = array_values(array_filter(array_map('intval', (array) config('recommerce.cohort.variation_ids', []))));
-
         $serializedLines = DB::table('purchase_lines as rdpl')
             ->join('recommerce_serialization_profiles as rsp', function ($join) use ($businessId) {
                 $join->on('rsp.product_id', '=', 'rdpl.product_id')
                     ->on('rsp.variation_id', '=', 'rdpl.variation_id')
                     ->where('rsp.business_id', '=', $businessId)
-                    ->whereIn('rsp.mode', ['TRACKED_REQUIRED', 'LEGACY_MIXED']);
+                    ->whereIn('rsp.mode', ['TRACKED_REQUIRED', 'LEGACY_MIXED'])
+                    ->whereNotNull('rsp.configured_by')
+                    ->whereNotNull('rsp.approval_reference');
             })
             ->leftJoinSub($assignments, 'rdpa', fn ($join) => $join->on('rdpa.purchase_line_id', '=', 'rdpl.id'))
             ->whereRaw('rdpl.quantity > 0 AND rdpl.quantity = ROUND(rdpl.quantity)')
-            ->whereIn('rdpl.variation_id', $variationIds ?: [-1])
             ->when(
                 Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'),
                 fn ($query) => $query->where('rsp.inventory_tracking_mode', 'SERIALIZED_DEVICE')

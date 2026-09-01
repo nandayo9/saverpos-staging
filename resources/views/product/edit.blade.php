@@ -19,7 +19,8 @@
 <!-- Main content -->
 <section class="content">
 {!! Form::open(['url' => action([\App\Http\Controllers\ProductController::class, 'update'] , [$product->id] ), 'method' => 'PUT', 'id' => 'product_add_form',
-        'class' => 'product_form', 'files' => true ]) !!}
+    'class' => 'product_form', 'files' => true ]) !!}
+    @include('product.partials.tracking_policy')
     <input type="hidden" id="product_id" value="{{ $product->id }}">
 
     @component('components.widget', ['class' => 'box-primary'])
@@ -215,7 +216,7 @@
             </div>
           </div>
           @endif
-          <div class="col-sm-4">
+          <div class="col-sm-4 @if(!empty($recommerceProductTrackingEnabled)) hide @endif">
             <div class="checkbox">
               <label>
                 {!! Form::checkbox('enable_sr_no', 1, $product->enable_sr_no, ['class' => 'input-icheck']); !!} <strong>@lang('lang_v1.enable_imei_or_sr_no')</strong>
@@ -274,7 +275,7 @@
         @endif
 
 
-        <div class="col-sm-4">
+        <div class="col-sm-4 @if(!empty($recommerceProductTrackingEnabled)) hide @endif">
           <div class="form-group">
             {!! Form::label('weight',  __('lang_v1.weight') . ':') !!}
             {!! Form::text('weight', $product->weight, ['class' => 'form-control', 'placeholder' => __('lang_v1.weight')]); !!}

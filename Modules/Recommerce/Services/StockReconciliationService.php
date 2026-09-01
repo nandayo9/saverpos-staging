@@ -5,6 +5,7 @@ namespace Modules\Recommerce\Services;
 use App\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\LegacyStockBalance;
 use Modules\Recommerce\Entities\SerializationProfile;
@@ -87,6 +88,7 @@ class StockReconciliationService
         $profile = SerializationProfile::query()
             ->where('business_id', $businessId)
             ->where('variation_id', $variationId)
+            ->when(Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'), fn ($query) => $query->where('inventory_tracking_mode', 'SERIALIZED_DEVICE'))
             ->when($coreRow, fn ($query) => $query->where('product_id', $coreRow->product_id))
             ->first();
 

@@ -2,6 +2,9 @@
 
 namespace Modules\Recommerce\Support;
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
 /**
  * Deny-by-default cohort boundary for Recommerce read and write paths.
  *
@@ -94,14 +97,28 @@ class CohortPolicy
     {
         $variationIds = config('recommerce.cohort.variation_ids', []);
 
-        if (! is_array($variationIds) || $variationIds === []) {
-            return false;
-        }
-
-        foreach ($variationIds as $configuredVariationId) {
+        foreach (is_array($variationIds) ? $variationIds : [] as $configuredVariationId) {
             if ((string) $configuredVariationId === (string) $variationId) {
                 return true;
             }
+        }
+
+        // Product creation can add a variation after environment configuration
+        // was deployed. An explicitly approved Individual Device policy is the
+        // durable business-scoped cohort record for that new configuration.
+        if (config('recommerce.cohort.allow_approved_product_policies', false)
+            && Schema::hasTable('recommerce_serialization_profiles')) {
+            return DB::table('recommerce_serialization_profiles')
+                ->where('business_id', config('recommerce.cohort.business_id'))
+                ->where('variation_id', $variationId)
+                ->whereIn('mode', ['TRACKED_REQUIRED', 'LEGACY_MIXED'])
+                ->when(
+                    Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'),
+                    fn ($query) => $query->where('inventory_tracking_mode', 'SERIALIZED_DEVICE')
+                )
+                ->whereNotNull('configured_by')
+                ->whereNotNull('approval_reference')
+                ->exists();
         }
 
         return false;

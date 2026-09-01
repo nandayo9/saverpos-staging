@@ -4,6 +4,7 @@ namespace Modules\Recommerce\Http\Controllers;
 
 use App\User;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Schema;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\RepairJob;
 use Modules\Recommerce\Entities\SerializationProfile;
@@ -98,6 +99,7 @@ class DashboardController extends Controller
                 ->with(['product', 'variation'])
                 ->where('business_id', $businessId)
                 ->whereIn('variation_id', (array) config('recommerce.cohort.variation_ids', []))
+                ->when(Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'), fn ($query) => $query->where('inventory_tracking_mode', 'SERIALIZED_DEVICE'))
                 ->orderBy('product_id')
                 ->limit(12)
                 ->get()

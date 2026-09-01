@@ -228,7 +228,7 @@ $(document).ready(function() {
                             if (value) {
                                 var container = $('.quick_add_product_modal');
                                 $.ajax({
-                                    url: '/products/quick_add?product_name=' + term,
+                                    url: '/products/quick_add?product_for=purchase&product_name=' + encodeURIComponent(term),
                                     dataType: 'html',
                                     success: function(result) {
                                         $(container)
@@ -273,6 +273,10 @@ $(document).ready(function() {
     //On Change of quantity
     $(document).on('change', '.purchase_quantity', function() {
         var row = $(this).closest('tr');
+        var receivingHint = row.find('.saverpos-device-receiving-count');
+        if (receivingHint.length) {
+            receivingHint.text($(this).val() + ' ' + receivingHint.data('unit-label'));
+        }
         var quantity = __read_number($(this), true);
         var purchase_before_tax = __read_number(row.find('input.purchase_unit_cost'), true);
         var purchase_after_tax = __read_number(
@@ -1402,4 +1406,3 @@ $("#purchase_requisition_ids").on("select2:unselect", function (e) {
         }
     });
 });
-

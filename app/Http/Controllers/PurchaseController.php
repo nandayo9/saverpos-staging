@@ -22,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Recommerce\Services\DeviceReceivingProgressService;
+use Modules\Recommerce\Services\ProductTrackingPolicyService;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Spatie\Activitylog\Models\Activity;
 use Yajra\DataTables\Facades\DataTables;
@@ -72,6 +73,21 @@ class PurchaseController extends Controller
             [(int) config('recommerce.cohort.location_id')]
         ), fn ($locationId) => (int) $locationId > 0)));
         $cohortVariationIds = array_values(array_filter(array_map('intval', (array) config('recommerce.cohort.variation_ids', []))));
+        if (Schema::hasTable('recommerce_serialization_profiles')) {
+            $approvedVariationIds = DB::table('recommerce_serialization_profiles')
+                ->where('business_id', $business_id)
+                ->whereIn('mode', ['TRACKED_REQUIRED', 'LEGACY_MIXED'])
+                ->when(
+                    Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'),
+                    fn ($query) => $query->where('inventory_tracking_mode', DeviceReceivingProgressService::TRACKING_SERIALIZED_DEVICE)
+                )
+                ->whereNotNull('configured_by')
+                ->whereNotNull('approval_reference')
+                ->pluck('variation_id')
+                ->map(fn ($variationId) => (int) $variationId)
+                ->all();
+            $cohortVariationIds = array_values(array_unique(array_merge($cohortVariationIds, $approvedVariationIds)));
+        }
         $deviceReceivingEnabled = config('recommerce.enabled', false)
             && Schema::hasTable('recommerce_serialization_profiles')
             && Schema::hasTable('recommerce_device_purchase_assignments')
@@ -1187,6 +1203,10 @@ class PurchaseController extends Controller
                 }
 
                 $variations = $query->get();
+                $purchaseTrackingModes = app(ProductTrackingPolicyService::class)->modesForVariations(
+                    (int) $business_id,
+                    $variations->pluck('id')->map(fn ($id) => (int) $id)->all()
+                );
                 $taxes = TaxRate::where('business_id', $business_id)
                             ->ExcludeForTaxGroup()
                             ->get();
@@ -1204,7 +1224,8 @@ class PurchaseController extends Controller
                         'hide_tax',
                         'sub_units',
                         'is_purchase_order',
-                        'last_purchase_line'
+                        'last_purchase_line',
+                        'purchaseTrackingModes'
                     ));
             }
         }

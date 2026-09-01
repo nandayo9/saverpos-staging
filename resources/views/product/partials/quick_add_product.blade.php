@@ -7,6 +7,7 @@
 	      <h4 class="modal-title" id="modalTitle">@lang( 'product.add_new_product' )</h4>
     </div>
     <div class="modal-body">
+      @include('product.partials.tracking_policy')
       <div class="row">
         <div class="col-md-4">
           <div class="form-group">
@@ -155,7 +156,7 @@
               ['class' => 'form-control select2', 'required']); !!}
           </div>
         </div>
-        <div class="col-sm-4">
+        <div class="col-sm-4 @if(!empty($recommerceProductTrackingEnabled)) hide @endif">
           <div class="checkbox">
           <br>
             <label>
@@ -229,7 +230,7 @@
       @endif
     </div>
     <div class="modal-footer">
-      <button type="submit" class="tw-dw-btn tw-dw-btn-primary tw-text-white" id="submit_quick_product">@lang( 'messages.save' )</button>
+      <button type="submit" class="tw-dw-btn tw-dw-btn-primary tw-text-white" id="submit_quick_product">{{ $product_for === 'purchase' ? 'Create & Add to Purchase' : __('messages.save') }}</button>
       <button type="button" class="tw-dw-btn tw-dw-btn-neutral tw-text-white" data-dismiss="modal">@lang( 'messages.close' )</button>
     </div>
 

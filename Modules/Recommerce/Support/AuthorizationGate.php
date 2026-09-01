@@ -38,6 +38,12 @@ class AuthorizationGate
             && $this->cohortPolicy->allowsLocation($businessId, $locationId);
     }
 
+    public function allowsWriteBusiness($user, string $permission, $businessId): bool
+    {
+        return $this->hasPermission($user, $permission)
+            && $this->cohortPolicy->allowsBusiness($businessId);
+    }
+
     protected function hasPermission($user, string $permission): bool
     {
         $permissions = config('recommerce.permissions', []);
