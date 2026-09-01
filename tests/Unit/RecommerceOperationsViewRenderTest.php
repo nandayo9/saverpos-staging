@@ -222,7 +222,7 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $this->assertStringContainsString("lineProgressBar.style.width", $html);
         $this->assertStringContainsString("lineAction.textContent = 'View devices'", $html);
         $this->assertStringContainsString('Manufacturer identifier', $html);
-        $this->assertStringContainsString('Register &amp; Print Label', $html);
+        $this->assertStringContainsString('Register staged devices', $html);
         $this->assertStringNotContainsString('Serialization', $html);
         $this->assertStringNotContainsString('serialized product line', $html);
     }

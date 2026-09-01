@@ -31,6 +31,27 @@ function recommerce_device_codes(value) {
         });
 }
 
+// A resolved Device creates its own POS line. Keep a second scanner event
+// (or a delayed autocomplete response) from adding that same physical unit
+// twice before the server-side lifecycle guard rejects the checkout.
+function recommerce_device_is_already_in_cart(deviceCode) {
+    var expected = String(deviceCode || '').trim().toUpperCase();
+    if (!expected) {
+        return false;
+    }
+
+    var found = false;
+    $('.recommerce-device-codes').each(function() {
+        var codes = recommerce_device_codes($(this).val());
+        if (codes.some(function(code) { return String(code).trim().toUpperCase() === expected; })) {
+            found = true;
+            return false;
+        }
+    });
+
+    return found;
+}
+
 function recommerce_device_scan_state($row) {
     var $panel = $row.find('.recommerce-device-scan');
     var $field = $panel.find('.recommerce-device-codes');
@@ -398,6 +419,13 @@ $(document).ready(function() {
                             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
                         },
                     }).done(function(result) {
+                        if (recommerce_device_is_already_in_cart(result.device_code)) {
+                            $('#search_product').val('');
+                            toastr.warning('This Device is already in the current sale.');
+                            response([]);
+                            return;
+                        }
+
                         $('#search_product').val('');
                         var ac = $('#search_product').data('ui-autocomplete');
                         if (ac) {

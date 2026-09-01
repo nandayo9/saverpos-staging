@@ -13,6 +13,7 @@
     $overallComplete = $purchase && $trackedLines->isNotEmpty() && (int) data_get($purchaseContext, 'remaining_count', 0) === 0;
     $inspectionRequired = $trackedLines->contains(fn ($line) => (bool) $line->inspection_required);
     $canViewInspection = (bool) ($canViewInspection ?? false);
+    $receivingBatchLimit = max(1, (int) config('recommerce.receive_batch_limit', 50));
     $deviceStatusLabels = [
         'RECEIVED_PENDING_INSPECTION' => 'Waiting for inspection',
         'INSPECTION_IN_PROGRESS' => 'Inspection in progress',
@@ -110,7 +111,7 @@
                                     <input id="scan-identifier" type="text" class="form-control sb-scanner-input" maxlength="255" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type or scan serial, IMEI, or service tag">
                                     <span class="input-group-btn"><button id="stage-identifier" class="btn btn-default" type="button">Accept identifier</button></span>
                                 </div>
-                                <p class="help-block">Scan or enter one manufacturer identifier, then choose <strong>Accept identifier</strong> (or press Enter). SAVERPOS creates one Device Passport, then generates the SaverBro Device ID and label.</p>
+                                <p class="help-block">Scan or enter each manufacturer identifier, then choose <strong>Accept identifier</strong> (or press Enter). Stage the remaining units in one bounded batch, then register them together. Print and attach each Device label after registration.</p>
 
                                 <div id="scan-message" class="alert" style="display:none" role="status" aria-live="polite"></div>
                                 <div id="scan-exceptions" aria-live="polite"></div>
@@ -118,7 +119,7 @@
                                 <div id="staged-units" aria-live="polite"></div>
                                 <div id="empty-staged" class="text-muted" style="padding:12px 0">No devices staged yet.</div>
                                 <div class="btn-toolbar" style="margin-top:16px">
-                                    <button id="register-devices" class="btn btn-primary" type="button" disabled>Register &amp; Print Label</button>
+                                    <button id="register-devices" class="btn btn-primary" type="button" disabled>Register staged devices</button>
                                     <button id="clear-staged" class="btn btn-default" type="button" disabled>Clear entry</button>
                                 </div>
                                 <div id="recent-labels" style="margin-top:12px"></div>
@@ -204,9 +205,10 @@
         prepareUrl: @json(route('recommerce.receiving.prepare')),
         purchaseId: @json((int) $purchase->id), purchaseLineId: @json((int) $selectedLine->id),
         locationId: @json((int) $locationId), productId: @json((int) $selectedLine->product_id), variationId: @json((int) $selectedLine->variation_id),
-        // One Device per identity/label cycle is the default. The API still
-        // preserves its bounded batch contract for controlled integrations.
-        max: 1, remaining: @json((int) $selectedLine->remaining_count), registered: @json((int) $selectedLine->registered_count), expected: @json((int) $selectedLine->expected_count),
+        // Keep the browser within the same bounded contract as the API, while
+        // allowing a practical scanner-led receiving run (for example 20
+        // devices) rather than forcing one full registration cycle per unit.
+        max: @json($receivingBatchLimit), remaining: @json((int) $selectedLine->remaining_count), registered: @json((int) $selectedLine->registered_count), expected: @json((int) $selectedLine->expected_count),
         overallRegistered: @json((int) data_get($purchaseContext, 'registered_count', 0)), overallRemaining: @json((int) data_get($purchaseContext, 'remaining_count', 0)), overallExpected: @json((int) data_get($purchaseContext, 'expected_count', 0)), overallReady: @json((int) data_get($purchaseContext, 'inspection_cleared_count', 0)), overallAwaitingInspection: @json((int) data_get($purchaseContext, 'inspection_open_count', 0)),
         lineReady: @json((int) $selectedLine->inspection_cleared_count), lineAwaitingInspection: @json((int) $selectedLine->inspection_open_count), lineActionRequired: @json((int) $selectedLine->inspection_failed_count),
         inspectionRequired: @json((bool) $selectedLine->inspection_required), nextLineUrl: @json($nextIncompleteLine ? route('recommerce.receiving.index', ['purchase_id' => $purchase->id, 'purchase_line_id' => $nextIncompleteLine->id]) : null),
@@ -237,7 +239,9 @@
             row.append(remove); stagedTarget.append(row);
         });
         registerButton.disabled = staged.length === 0; clearButton.disabled = staged.length === 0;
-        registerButton.textContent = staged.length ? 'Register & Print Label' : 'Register & Print Label';
+        registerButton.textContent = staged.length
+            ? 'Register ' + staged.length + ' staged ' + (staged.length === 1 ? 'Device' : 'Devices')
+            : 'Register staged devices';
     }
     async function stageCurrent() {
         const value = scanner.value.trim(); const key = normalise(value); resetMessage();
@@ -262,6 +266,16 @@
         preview.document.open(); preview.document.write(html); preview.document.close(); preview.focus();
         return true;
     }
+    function buildLabelAction(device) {
+        const row = document.createElement('div'); row.className = 'sb-staged-unit';
+        const code = document.createElement('strong'); code.textContent = device.device_code;
+        const print = document.createElement('button'); print.type = 'button'; print.className = 'btn btn-primary btn-xs'; print.textContent = 'Print label';
+        const confirm = document.createElement('button'); confirm.type = 'button'; confirm.className = 'btn btn-success btn-xs'; confirm.textContent = 'Label attached'; confirm.disabled = true;
+        print.addEventListener('click', async () => { try { await openLabelView(device); print.textContent = 'Print view opened'; print.disabled = true; confirm.disabled = false; } catch (error) { notify(error.message || 'Label preview could not be opened.', 'warning'); } });
+        confirm.addEventListener('click', async () => { try { await request(config.labelConfirmPrefix.replace(/\/$/, '') + '/' + device.device_id + '/label/confirm', {}); confirm.textContent = 'Label attached'; confirm.disabled = true; notify('Label attachment recorded. The Device remains waiting for inspection.', 'success'); } catch (error) { notify(error.message || 'Label attachment could not be confirmed.', 'warning'); } });
+        row.append(code, print, confirm);
+        return row;
+    }
     function payload(commandUuid) { return { command_uuid: commandUuid, location_id: config.locationId, product_id: config.productId, variation_id: config.variationId, purchase_transaction_id: config.purchaseId, purchase_line_id: config.purchaseLineId, units: staged.map(unit => ({ identifier_type: unit.type, identifier_value: unit.value, unit_acquisition_cost: unit.cost, cost_override_reason_code: unit.costReason, intake_observations: unit.observationType ? [{ type: unit.observationType }] : [] })) }; }
     scanner.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); stageCurrent(); } });
     stageButton.addEventListener('click', stageCurrent);
@@ -271,6 +285,12 @@
         try {
             const data = await request(config.attachUrl, payload(commandUuid)); const devices = (data.result && data.result.devices) || [];
             const registered = document.getElementById('registered-count'); const remaining = document.getElementById('remaining-count'); config.registered += devices.length; config.remaining = Math.max(0, config.remaining - devices.length); config.overallRegistered += devices.length; config.overallRemaining = Math.max(0, config.overallRemaining - devices.length); if (registered) registered.textContent = config.overallRegistered; if (remaining) remaining.textContent = config.overallRemaining; if (overallProgressBar) overallProgressBar.style.width = (config.overallExpected ? Math.min(100, Math.round(config.overallRegistered / config.overallExpected * 100)) : 0) + '%'; const selectedProgress = document.getElementById('selected-line-progress'); if (selectedProgress) selectedProgress.textContent = config.registered + ' / ' + config.expected + ' registered · ' + config.remaining + ' remaining'; const lineProgress = document.getElementById('line-progress-' + config.purchaseLineId); if (lineProgress) lineProgress.textContent = config.registered + ' / ' + config.expected; const lineRemaining = document.getElementById('line-remaining-' + config.purchaseLineId); if (lineRemaining) lineRemaining.textContent = config.remaining ? ' · ' + config.remaining + ' remaining' : ' · Complete'; const emptyRegistered = document.getElementById('no-registered-devices'); if (emptyRegistered) emptyRegistered.remove(); const registeredList = document.getElementById('registered-device-list'); devices.forEach(device => { const row = document.createElement('tr'); [String(device.unit_ordinal), device.device_code, 'Protected identifier recorded', money(config.defaultCost), deviceStatusLabel(device.lifecycle_state || (config.inspectionRequired ? 'RECEIVED_PENDING_INSPECTION' : 'AVAILABLE'))].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); const action = document.createElement('td'); const link = document.createElement('a'); link.className = 'btn btn-default btn-xs'; link.href = root.dataset.labelPrintPrefix.replace(/\/$/, '') + '/' + device.device_code; link.textContent = 'Open device'; action.append(link); row.append(action); registeredList.append(row); }); recentLabels.replaceChildren(); if (devices.length) { const device = devices[0]; const heading = document.createElement('strong'); heading.textContent = 'Device Registered — ' + device.device_code; recentLabels.append(heading, document.createElement('br')); const note = document.createElement('span'); note.className = 'text-muted'; note.textContent = 'Waiting for inspection. Attach the SAVERBRO label to this exact device before operational use.'; recentLabels.append(note, document.createElement('br')); const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'btn btn-primary btn-sm'; retry.textContent = 'Print SAVERBRO Label'; retry.style.marginTop = '8px'; const confirm = document.createElement('button'); confirm.type = 'button'; confirm.className = 'btn btn-success btn-sm'; confirm.textContent = 'Label Attached'; confirm.style.margin = '8px 0 0 6px'; confirm.disabled = true; confirm.addEventListener('click', async () => { try { await request(config.labelConfirmPrefix.replace(/\/$/, '') + '/' + device.device_id + '/label/confirm', {}); confirm.textContent = 'Label attached'; confirm.disabled = true; notify('Label attachment recorded. The Device remains waiting for inspection.', 'success'); } catch (error) { notify(error.message || 'Label attachment could not be confirmed.', 'warning'); } }); retry.addEventListener('click', async () => { try { await openLabelView(device); retry.textContent = 'Label print view opened'; retry.disabled = true; confirm.disabled = false; } catch (error) { notify(error.message, 'warning'); } }); recentLabels.append(retry, confirm); try { await openLabelView(device, labelPreview); retry.textContent = 'Label print view opened'; retry.disabled = true; confirm.disabled = false; notify('Device Registered — Label print view opened. Confirm Label Attached only after attaching it to this exact device.', 'success'); } catch (error) { notify(error.message, 'warning'); } } staged = []; render(); if (config.overallRemaining === 0) { const count = document.getElementById('completion-count'); if (count) count.textContent = config.overallRegistered + ' / ' + config.overallExpected; receivingComplete.style.display = 'block'; receivingComplete.scrollIntoView({ behavior: 'smooth', block: 'start' }); } else if (config.remaining === 0 && config.nextLineUrl) { const next = document.createElement('a'); next.className = 'btn btn-primary btn-sm'; next.href = config.nextLineUrl; next.textContent = 'Receive next product'; recentLabels.append(document.createTextNode(' '), next); } else { scanner.focus(); }
+            if (devices.length > 1) {
+                const queueHeading = document.createElement('strong'); queueHeading.textContent = (devices.length - 1) + ' more labels need print and attachment';
+                const queueNote = document.createElement('p'); queueNote.className = 'text-muted'; queueNote.textContent = 'Open each print view, then confirm after attaching that exact label to its Device.';
+                recentLabels.append(document.createElement('hr'), queueHeading, queueNote);
+                devices.slice(1).forEach(device => recentLabels.append(buildLabelAction(device)));
+            }
             const lineProgressBar = document.getElementById('line-progress-bar-' + config.purchaseLineId); if (lineProgressBar) lineProgressBar.style.width = (config.expected ? Math.min(100, Math.round(config.registered / config.expected * 100)) : 0) + '%';
             const lineAction = document.getElementById('line-action-' + config.purchaseLineId); if (lineAction && config.remaining === 0) lineAction.textContent = 'View devices';
             const availableAdded = devices.filter(device => String(device.lifecycle_state || '') === 'AVAILABLE').length;

@@ -19,6 +19,8 @@ class RecommerceDeviceLifecycleUiContractTest extends TestCase
         $this->assertStringContainsString('Identify device', $row);
         $this->assertStringContainsString('recommerce-device-scan-count', $row);
         $this->assertStringContainsString('pos_validate_recommerce_device_scans', $script);
+        $this->assertStringContainsString('recommerce_device_is_already_in_cart', $script);
+        $this->assertStringContainsString('This Device is already in the current sale.', $script);
         $this->assertStringContainsString('Identify exactly ', $script);
     }
 
@@ -31,6 +33,18 @@ class RecommerceDeviceLifecycleUiContractTest extends TestCase
         $this->assertStringContainsString('products[{{$loop->index}}][variation_id]', $view);
         $this->assertStringContainsString('Scan the original SaverBro device code', $view);
         $this->assertStringContainsString('RETURNED_PENDING_INSPECTION', $view);
+    }
+
+    public function test_receiving_ui_uses_the_configured_bounded_batch_limit(): void
+    {
+        $view = file_get_contents(base_path('Modules/Recommerce/Resources/views/receiving/index.blade.php'));
+
+        $this->assertStringContainsString("\$receivingBatchLimit = max(1, (int) config('recommerce.receive_batch_limit', 50));", $view);
+        $this->assertStringContainsString('max: @json($receivingBatchLimit)', $view);
+        $this->assertStringNotContainsString('max: 1, remaining:', $view);
+        $this->assertStringContainsString('Register staged devices', $view);
+        $this->assertStringContainsString('more labels need print and attachment', $view);
+        $this->assertStringContainsString('buildLabelAction(device)', $view);
     }
 
     public function test_reconciliation_can_select_an_authorized_cohort_branch_and_timeline_keeps_history(): void

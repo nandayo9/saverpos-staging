@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Modules\Recommerce\Entities\CustodyPeriod;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\DeviceMovement;
+use Modules\Recommerce\Entities\DevicePurchaseAssignment;
 use Modules\Recommerce\Entities\OwnershipPeriod;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -99,7 +100,7 @@ class SaverposDemoRuntimeSeeder extends Seeder
                 'transaction_date' => $now, 'total_before_tax' => 1000, 'final_total' => 1000,
                 'exchange_rate' => 1, 'created_by' => $userId, 'created_at' => $now, 'updated_at' => $now,
             ]);
-            $this->insert('purchase_lines', [
+            $purchaseLineId = $this->insert('purchase_lines', [
                 'transaction_id' => $purchaseId, 'product_id' => $productId, 'variation_id' => $variationId,
                 'quantity' => 1, 'quantity_sold' => 0, 'purchase_price' => 1000, 'purchase_price_inc_tax' => 1000,
                 'created_at' => $now, 'updated_at' => $now,
@@ -137,6 +138,33 @@ class SaverposDemoRuntimeSeeder extends Seeder
                 'location_id' => $branchA, 'starts_at' => $now, 'open_period_key' => $device->id,
                 'source_movement_id' => $movement->id, 'reason' => 'DEMO_RECEIVE', 'recorded_by' => $userId,
             ]);
+            DevicePurchaseAssignment::create([
+                'device_id' => $device->id, 'business_id' => $businessId, 'transaction_id' => $purchaseId,
+                'purchase_line_id' => $purchaseLineId, 'unit_ordinal' => 1, 'unit_acquisition_cost' => 1000,
+                'assigned_at' => $now, 'assigned_by' => $userId,
+            ]);
+
+            // Keep a distinct, fully received purchase line open for browser
+            // intake testing. The seed Device above already consumes PO-001's
+            // one core unit; reusing that line would create an artificial
+            // tracked-versus-core mismatch. Twenty-one core units give the
+            // acceptance run a practical 20-device scanner batch plus one
+            // remaining unit, without fabricating stock inside Recommerce.
+            $intakePurchaseId = $this->insert('transactions', [
+                'business_id' => $businessId, 'location_id' => $branchA, 'type' => 'purchase', 'status' => 'received',
+                'payment_status' => 'due', 'contact_id' => $supplierId, 'ref_no' => 'PO-DEMO-003',
+                'transaction_date' => $now, 'total_before_tax' => 21000, 'final_total' => 21000,
+                'exchange_rate' => 1, 'created_by' => $userId, 'created_at' => $now, 'updated_at' => $now,
+            ]);
+            $this->insert('purchase_lines', [
+                'transaction_id' => $intakePurchaseId, 'product_id' => $productId, 'variation_id' => $variationId,
+                'quantity' => 21, 'quantity_sold' => 0, 'purchase_price' => 1000, 'purchase_price_inc_tax' => 1000,
+                'created_at' => $now, 'updated_at' => $now,
+            ]);
+            DB::table('variation_location_details')
+                ->where('variation_id', $variationId)
+                ->where('location_id', $branchA)
+                ->update(['qty_available' => 22, 'updated_at' => $now]);
 
             // Broader fictional catalog for ordinary POS, stock-transfer, and
             // reconciliation testing. All rows remain inside this disposable

@@ -970,6 +970,32 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame(2.0, (float) DB::table('purchase_lines')->where('id', 707)->value('quantity'));
     }
 
+    public function test_received_pos_purchase_line_accepts_a_practical_twenty_device_batch(): void
+    {
+        DB::table('purchase_lines')->where('id', 707)->update(['quantity' => 20]);
+        $units = array_map(static fn (int $unit): array => [
+            'identifier_type' => 'SERIAL',
+            'identifier_value' => sprintf('SN-TWENTY-UNIT-%02d', $unit),
+        ], range(1, 20));
+
+        $result = $this->service()->attachToExistingUltimatePosPurchase($this->authorizedUser(), [
+            'business_id' => 7,
+            'location_id' => 101,
+            'product_id' => 202,
+            'variation_id' => 303,
+            'purchase_transaction_id' => 606,
+            'purchase_line_id' => 707,
+            'command_uuid' => 'b1b1b1b1-b1b1-4b1b-8b1b-b1b1b1b1b1b1',
+            'units' => $units,
+        ]);
+
+        $this->assertSame(20, $result['unit_count']);
+        $this->assertSame(0, $result['remaining_unassigned_units']);
+        $this->assertSame(20, Device::query()->count());
+        $this->assertSame(20, DB::table('recommerce_device_purchase_assignments')->count());
+        $this->assertSame(range(1, 20), DB::table('recommerce_device_purchase_assignments')->orderBy('unit_ordinal')->pluck('unit_ordinal')->all());
+    }
+
     public function test_purchase_attachment_rejects_over_identification_with_operator_safe_guidance(): void
     {
         $base = [
