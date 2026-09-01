@@ -27,6 +27,7 @@ use Modules\Recommerce\Entities\RepairJob;
 use Modules\Recommerce\Exceptions\ReceivingInProgressException;
 use Modules\Recommerce\Exceptions\ReceivingReconciliationBlockedException;
 use Modules\Recommerce\Http\Controllers\LabelController;
+use Modules\Recommerce\Http\Controllers\PosDeviceLookupController;
 use Modules\Recommerce\Http\Controllers\ReconciliationController;
 use Modules\Recommerce\Http\Controllers\ReceivingController;
 use Modules\Recommerce\Http\Controllers\ScanController;
@@ -2000,6 +2001,79 @@ class RecommerceReceivingIntegrationTest extends TestCase
             $this->assertSame($device->id, $resolver->resolve(7, $identity)?->id);
         }
         $this->assertNull($resolver->resolve(7, 'ABC1235'), 'Exact identifier lookup must not fuzzy-match a serial.');
+    }
+
+    public function test_pos_search_resolves_qr_label_barcode_serial_and_imei_to_one_sellable_device(): void
+    {
+        $device = $this->availableDevice('SB-DV-00000045-7', 101);
+        foreach ([['SERIAL', 'POS-SERIAL-45'], ['IMEI', '356938035643811']] as [$type, $value]) {
+            DeviceIdentifier::create([
+                'device_id' => $device->id,
+                'business_id' => 7,
+                'identifier_type' => $type,
+                'raw_value_encrypted' => StrongIdentifierHasher::normalize($value),
+                'normalized_hash' => StrongIdentifierHasher::hash(StrongIdentifierHasher::normalize($value)),
+                'is_verified' => false,
+            ]);
+        }
+
+        $tokens = new OpaqueScanToken();
+        $issued = (new ScanTokenIssuanceService($this->gate(), $tokens))->issue($this->authorizedUser(), $device);
+        $controller = new PosDeviceLookupController();
+
+        foreach ([
+            $device->device_code, // Label Code128 and human-readable ID.
+            'pos-serial-45',
+            '356938035643811',
+            'https://scan.saverbro.example/s/d/'.$issued['raw_token'],
+        ] as $identity) {
+            $response = $controller->resolve(
+                Request::create('/recommerce/pos/resolve-device', 'POST', [
+                    'value' => $identity,
+                    'location_id' => 101,
+                ]),
+                $this->gate(),
+                new DeviceIdentityResolver($tokens)
+            );
+
+            $this->assertSame(200, $response->getStatusCode());
+            $this->assertSame([
+                'status' => 'MATCHED',
+                'variation_id' => 303,
+                'device_code' => $device->device_code,
+            ], $response->getData(true));
+            $this->assertSame('no-referrer', $response->headers->get('Referrer-Policy'));
+        }
+
+        $this->assertSame(1, Device::query()->count(), 'POS lookup must not create another Device.');
+        $this->assertSame('AVAILABLE', $device->fresh()->lifecycle_state);
+    }
+
+    public function test_pos_search_hides_unknown_or_out_of_branch_device_identity(): void
+    {
+        $device = $this->availableDevice('SB-DV-00000046-5', 102);
+        $controller = new PosDeviceLookupController();
+
+        $unknown = $controller->resolve(
+            Request::create('/recommerce/pos/resolve-device', 'POST', [
+                'value' => 'UNKNOWN-POS-DEVICE',
+                'location_id' => 101,
+            ]),
+            $this->gate(),
+            new DeviceIdentityResolver(new OpaqueScanToken())
+        );
+        $outOfBranch = $controller->resolve(
+            Request::create('/recommerce/pos/resolve-device', 'POST', [
+                'value' => $device->device_code,
+                'location_id' => 101,
+            ]),
+            $this->gate(),
+            new DeviceIdentityResolver(new OpaqueScanToken())
+        );
+
+        $this->assertSame(404, $unknown->getStatusCode());
+        $this->assertSame(422, $outOfBranch->getStatusCode());
+        $this->assertStringNotContainsString($device->device_code, $outOfBranch->getContent());
     }
 
     public function test_sale_selection_resolves_serial_imei_and_qr_through_the_same_exact_device_validator(): void

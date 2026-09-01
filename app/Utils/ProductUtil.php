@@ -2616,6 +2616,11 @@ class ProductUtil extends Util
         } else {
             $is_cg = !empty($cg->id) ? true : false;
 
+            // The staff POS lookup returns only the canonical Device code.
+            // Keep the value available to the serialized-row partial so an
+            // exact scan can add and identify a Device in one action.
+            $recommerceDeviceIdentity = request()->input('recommerce_device_identity');
+
             $discount = $this->getProductDiscount($product, $business_id, $location_id, $is_cg, $price_group, $variation_id);
 
             if ($is_direct_sell) {
@@ -2627,7 +2632,7 @@ class ProductUtil extends Util
             }
 
             $output['html_content'] = view('sale_pos.product_row')
-                ->with(compact('product', 'row_count', 'tax_dropdown', 'enabled_modules', 'pos_settings', 'sub_units', 'discount', 'waiters', 'edit_discount', 'edit_price', 'purchase_line_id', 'warranties', 'quantity', 'is_direct_sell', 'so_line', 'is_sales_order', 'last_sell_line', 'is_serial_no', 'waiters_enabled'))
+                ->with(compact('product', 'row_count', 'tax_dropdown', 'enabled_modules', 'pos_settings', 'sub_units', 'discount', 'waiters', 'edit_discount', 'edit_price', 'purchase_line_id', 'warranties', 'quantity', 'is_direct_sell', 'so_line', 'is_sales_order', 'last_sell_line', 'is_serial_no', 'waiters_enabled', 'recommerceDeviceIdentity'))
                 ->render();
         }
 

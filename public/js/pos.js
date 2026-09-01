@@ -284,6 +284,7 @@ $(document).ready(function() {
             .autocomplete({
                 delay: 1000,
                 source: function(request, response) {
+                    var search_native_products = function() {
                     var price_group = '';
                     var search_fields = [];
                     $('.search_fields:checked').each(function(i){
@@ -372,6 +373,54 @@ $(document).ready(function() {
                             }
                         }
                     );
+                    };
+
+                    // Try the exact Device resolver first so QR, label
+                    // barcode/Device ID, serial, and IMEI all work from this
+                    // one field. An unknown identity immediately falls back
+                    // to the unchanged UltimatePOS product search below.
+                    var device_resolve_url = $('#search_product').data('recommerce-device-resolve-url');
+                    var identity = $.trim(request.term || '');
+                    if (!device_resolve_url || identity.length < 2) {
+                        search_native_products();
+                        return;
+                    }
+
+                    $.ajax({
+                        method: 'POST',
+                        url: device_resolve_url,
+                        dataType: 'json',
+                        data: {
+                            value: identity,
+                            location_id: $('input#location_id').val(),
+                        },
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                        },
+                    }).done(function(result) {
+                        $('#search_product').val('');
+                        var ac = $('#search_product').data('ui-autocomplete');
+                        if (ac) {
+                            ac.cache = {};
+                            ac.term = '';
+                        }
+
+                        // Force a separate tracked row. Two physical Devices
+                        // can be the same variation, but must never be merged.
+                        pos_product_row(result.variation_id, null, null, 1, result.device_code);
+                        response([{auto_added: true}]);
+                    }).fail(function(xhr) {
+                        if (xhr.status === 404) {
+                            // Unknown Device identities may still be ordinary
+                            // UltimatePOS SKUs or product barcodes.
+                            search_native_products();
+                            return;
+                        }
+
+                        var message = (xhr.responseJSON && xhr.responseJSON.message) || 'Device scan could not be resolved.';
+                        toastr.error(message);
+                        response([]);
+                    });
                 },
                 minLength: 2,
                 response: function(event, ui) {
@@ -2174,7 +2223,7 @@ function pos_add_product_row_from_data(result) {
     }
 }
 
-function pos_product_row(variation_id = null, purchase_line_id = null, weighing_scale_barcode = null, quantity = 1) {
+function pos_product_row(variation_id = null, purchase_line_id = null, weighing_scale_barcode = null, quantity = 1, recommerce_device_identity = null) {
 
     //Get item addition method
     var item_addtn_method = 0;
@@ -2184,7 +2233,11 @@ function pos_product_row(variation_id = null, purchase_line_id = null, weighing_
         item_addtn_method = $('#item_addition_method').val();
     }
 
-    if (item_addtn_method == 0) {
+    if (recommerce_device_identity) {
+        // A resolved Device is an individual physical unit. It needs its own
+        // line and serialized identity even when its variation already exists.
+        add_via_ajax = true;
+    } else if (item_addtn_method == 0) {
         add_via_ajax = true;
     } else {
         var is_added = false;
@@ -2295,6 +2348,7 @@ function pos_product_row(variation_id = null, purchase_line_id = null, weighing_
                 purchase_line_id: purchase_line_id,
                 weighing_scale_barcode: weighing_scale_barcode,
                 quantity: quantity,
+                recommerce_device_identity: recommerce_device_identity,
                 is_sales_order: is_sales_order,
                 disable_qty_alert: disable_qty_alert,
                 is_draft: is_draft

@@ -60,6 +60,12 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->middleware('throttle:60,1')
         ->name('recommerce.scans.resolve');
 
+    // POS first attempts this exact Device lookup before falling back to its
+    // native product-name/SKU/barcode search. It never creates a Device.
+    Route::post('/pos/resolve-device', 'PosDeviceLookupController@resolve')
+        ->middleware('throttle:60,1')
+        ->name('recommerce.pos.resolve_device');
+
     Route::get('/receiving', 'ReceivingController@index')
         ->middleware('throttle:30,1')
         ->name('recommerce.receiving.index');

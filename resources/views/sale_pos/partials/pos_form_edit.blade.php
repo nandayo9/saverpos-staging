@@ -30,8 +30,9 @@
 					<button type="button" class="btn btn-default bg-white btn-flat" data-toggle="modal" data-target="#configure_search_modal" title="{{__('lang_v1.configure_product_search')}}"><i class="fas fa-search-plus"></i></button>
 				</div>
                 {{-- Removed mousetrap class as it was causing issue with barcode scanning --}}
-				{!! Form::text('search_product', null, ['class' => 'form-control', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder'),
+				{!! Form::text('search_product', null, ['class' => 'form-control', 'id' => 'search_product', 'placeholder' => __('lang_v1.search_product_placeholder').' — QR, barcode, serial or IMEI',
 				'autofocus' => true,
+				'data-recommerce-device-resolve-url' => config('recommerce.enabled') ? route('recommerce.pos.resolve_device') : '',
 				]); !!}
 				<span class="input-group-btn">
 

@@ -340,7 +340,7 @@
 					<label class="control-label" for="recommerce_device_codes_{{$row_count}}" style="margin:0;color:#075985;"><i class="fa fa-barcode"></i> Identify device</label>
 					<span class="recommerce-device-scan-count" aria-live="polite" style="font-size:11px;font-weight:700;color:#075985;white-space:nowrap;">0 of {{ @format_quantity($product->quantity_ordered) }} scanned</span>
 				</div>
-				<textarea id="recommerce_device_codes_{{$row_count}}" class="form-control input-sm recommerce-device-codes" rows="2" name="products[{{$row_count}}][recommerce_device_codes]" placeholder="Scan QR or enter SaverBro ID, serial, or IMEI" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="recommerce_device_help_{{$row_count}}"></textarea>
+				<textarea id="recommerce_device_codes_{{$row_count}}" class="form-control input-sm recommerce-device-codes" rows="2" name="products[{{$row_count}}][recommerce_device_codes]" placeholder="Scan QR or enter SaverBro ID, serial, or IMEI" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="recommerce_device_help_{{$row_count}}">{{ $recommerceDeviceIdentity ?? '' }}</textarea>
 				<small id="recommerce_device_help_{{$row_count}}" class="recommerce-device-scan-help" style="display:block;margin-top:5px;color:#475569;">Enter one unique Device identity per unit. QR, SaverBro Device ID, serial, and IMEI all resolve to the same Device Passport.</small>
 			</div>
 		@endif
