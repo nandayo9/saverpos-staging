@@ -1179,6 +1179,15 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertFalse((new CohortPolicy())->allowsReadVariation(7, 101, 305));
     }
 
+    public function test_authorised_product_policy_is_available_when_the_optional_environment_override_is_absent(): void
+    {
+        $this->assertTrue(config('recommerce.cohort.allow_approved_product_policies'));
+
+        $service = new ProductTrackingPolicyService($this->gate());
+
+        $this->assertTrue($service->availableFor($this->authorizedUser(), 7));
+    }
+
     public function test_product_tracking_mode_cannot_change_after_purchase_history_exists(): void
     {
         config(['recommerce.cohort.allow_approved_product_policies' => true]);

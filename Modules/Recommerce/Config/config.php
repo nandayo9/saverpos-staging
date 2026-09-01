@@ -110,6 +110,10 @@ return [
         )),
         // New configurations can join the cohort through the authorised
         // Product tracking form without an environment-file deployment.
-        'allow_approved_product_policies' => env('RECOMMERCE_ALLOW_APPROVED_PRODUCT_POLICIES', false),
+        // This remains constrained by the Recommerce cohort and the
+        // `recommerce.receiving.post` permission.  Defaulting to enabled
+        // makes the authorised product form usable on a deployed cohort when
+        // the optional environment override is absent.
+        'allow_approved_product_policies' => env('RECOMMERCE_ALLOW_APPROVED_PRODUCT_POLICIES', true),
     ],
 ];
