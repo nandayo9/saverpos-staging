@@ -93,6 +93,25 @@ class RecommerceIdentityTest extends TestCase
         $this->assertArrayNotHasKey('manufacturer_serial', $payload);
     }
 
+    public function test_label_and_scan_use_the_canonical_https_app_url_when_no_dedicated_host_is_set()
+    {
+        config([
+            'app.key' => 'test-only-app-key',
+            'app.url' => 'https://pos.kkcctv.com.my',
+            'recommerce.resolver_host' => null,
+        ]);
+
+        $device = Device::unguarded(fn () => new Device(['device_code' => 'SB-DV-00000001-9']));
+        $rawToken = (new OpaqueScanToken())->issue();
+        $payload = (new LabelPayloadBuilder())->forDevice($device, $rawToken);
+
+        $this->assertSame('https://pos.kkcctv.com.my/s/d/'.$rawToken, $payload['qr_url']);
+        $this->assertSame(
+            ['type' => 'DEVICE_TOKEN', 'value' => $rawToken],
+            ScanInput::parse($payload['qr_url'])
+        );
+    }
+
     public function test_label_description_is_sanitized_and_bounded()
     {
         config([

@@ -62,12 +62,15 @@ class ScanController extends Controller
             return $this->notFoundResponse();
         }
 
+        $device->loadMissing('currentLocation');
+
         return response()->json([
             'type' => 'DEVICE',
             'device_code' => $device->device_code,
             'product' => optional($device->product)->name,
             'lifecycle_state' => $device->lifecycle_state,
             'custody_kind' => $device->custody_kind,
+            'location_name' => $device->custody_kind === 'LOCATION' ? optional($device->currentLocation)->name : null,
             'transfer' => $this->transferContext($device),
             // Future workflow contexts can add a permitted target here; the
             // stable resolver is deliberately shared rather than per-module.
@@ -191,7 +194,7 @@ class ScanController extends Controller
     protected function notFoundResponse()
     {
         return response()->json([
-            'message' => 'Scan could not be resolved.',
+            'message' => 'No matching Device was found in your authorized scope. Check the code or QR label, then try the serial, IMEI, or service tag. No Device was created.',
         ], 404)
             ->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');

@@ -136,6 +136,12 @@ class Device extends Model
         return $this->belongsTo(\App\Variation::class, 'variation_id');
     }
 
+    /** The named branch currently holding a Device in LOCATION custody. */
+    public function currentLocation(): BelongsTo
+    {
+        return $this->belongsTo(\App\BusinessLocation::class, 'current_location_id');
+    }
+
     public function isStockParticipating(): bool
     {
         return in_array($this->stock_participation, ['ON_HAND', 'RESERVED', 'IN_TRANSFER'], true);

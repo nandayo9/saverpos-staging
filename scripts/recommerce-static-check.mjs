@@ -48,6 +48,7 @@ const ownershipMigration = read('Modules/Recommerce/Database/Migrations/2026_08_
 const custodyMigration = read('Modules/Recommerce/Database/Migrations/2026_08_28_000007_create_recommerce_custody_periods.php');
 const reconciliationRunService = read('Modules/Recommerce/Services/ReconciliationRunService.php');
 const labelView = read('Modules/Recommerce/Resources/views/labels/device.blade.php');
+const labelPrintClient = read('public/js/recommerce-label-print.js');
 const deviceView = read('Modules/Recommerce/Resources/views/device/show.blade.php');
 const routes = read('Modules/Recommerce/Routes/web.php');
 const env = fs.existsSync(path.join(checkout, '.env')) ? read('.env') : '';
@@ -235,6 +236,11 @@ assert(routes.includes("/reconciliation/{variationId}/runs"), 'reconciliation ev
 assert(labelView.includes("{!! $rendered['qr_svg'] !!}"), 'label view must include the QR SVG');
 assert(labelView.includes("{!! $rendered['code128_svg'] !!}"), 'label view must include the Code128 SVG');
 assert(!labelView.includes("$label['qr_url']"), 'label view must not print the opaque QR URL as text');
+assert(labelView.includes('Print this SAVERBRO label'), 'label view must expose the browser print action after it opens');
+assert(labelPrintClient.includes("method: 'POST'"), 'label print client must retain the protected POST request');
+assert(labelPrintClient.includes("credentials: 'same-origin'"), 'label print client must retain the authenticated session boundary');
+assert(labelPrintClient.includes('new URLSearchParams(new FormData(form))'), 'label print client must submit the CSRF form payload');
+assert(deviceView.includes('data-recommerce-label-print'), 'device detail must opt into the scoped label print client');
 assert(html.includes('class="barcode-placeholder" aria-label="Code 128 preview"'), 'static preview must show a Code 128 surface');
 assert(reconciliationController.includes('catch (InvalidArgumentException|LogicException'), 'reconciliation controller must hide service validation detail');
 assert(service.includes("$unit['identifier_type'].'|'.$identifierHash"), 'tracked receiving must use type-scoped identifier keys');
@@ -245,7 +251,7 @@ assert(html.includes('`${unit.type}|${normalizeIdentifierValue(unit.value)}`'), 
 assert(blade.includes('const commandUuid = uuid()'), 'purchase-led receiving must create one idempotency UUID per registration batch');
 assert(blade.includes('staged = []; render();'), 'purchase-led receiving must clear a completed staged batch');
 assert(blade.includes('recommerce.devices.label.print'), 'purchase-led receiving must expose the print-ready label action for registered Devices');
-assert(blade.includes('target="_blank"'), 'purchase-led receiving labels must open in a separate print target');
+assert(!blade.includes('target="_blank"'), 'purchase-led receiving labels must use the current tab so shared submit handling cannot strand the print request');
 assert(blade.includes("scanner.addEventListener('keydown'"), 'purchase-led receiving must remain scanner-first');
 assert(blade.includes('This identifier is already in the current batch.'), 'purchase-led receiving must reject duplicate batch scans');
 assert(blade.includes('lineAwaitingInspection += awaitingAdded'), 'purchase-led receiving must refresh inspection progress after each accepted batch');

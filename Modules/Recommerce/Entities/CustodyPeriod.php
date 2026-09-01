@@ -25,4 +25,10 @@ class CustodyPeriod extends Model
     {
         return $this->belongsTo(DeviceMovement::class, 'source_movement_id');
     }
+
+    /** The named branch for a LOCATION custody period. */
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(\App\BusinessLocation::class, 'location_id');
+    }
 }

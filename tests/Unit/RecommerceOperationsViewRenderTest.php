@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ViewErrorBag;
+use Modules\Recommerce\Entities\Device;
 use Tests\Fixtures\RendersRecommerceViews;
 use Tests\TestCase;
 
@@ -37,17 +38,18 @@ class RecommerceOperationsViewRenderTest extends TestCase
             'devices' => collect([
                 (object) [
                     'id' => 1, 'device_code' => 'SB-DV-00000001-9', 'lifecycle_state' => 'AVAILABLE',
-                    'custody_kind' => 'LOCATION', 'stock_participation' => 'ON_HAND',
+                    'custody_kind' => 'LOCATION', 'current_location_id' => 1, 'currentLocation' => (object) ['name' => 'Branch A'], 'stock_participation' => 'ON_HAND',
                     'product' => (object) ['name' => 'SaverBro Demo Device'],
                     'variation' => (object) ['name' => 'Default'],
                 ],
                 (object) [
                     'device_code' => 'SB-DV-00000002-1', 'lifecycle_state' => 'RESERVED',
-                    'custody_kind' => 'LOCATION', 'stock_participation' => 'ON_HAND',
+                    'custody_kind' => 'LOCATION', 'current_location_id' => 2, 'currentLocation' => (object) ['name' => 'Branch B'], 'stock_participation' => 'ON_HAND',
                     'product' => null, 'variation' => null,
                 ],
             ]),
             'locationId' => 1,
+            'locationName' => 'Branch A',
             'query' => '',
             'labelStatus' => 'NOT_PRINTED',
             'canReceive' => true,
@@ -61,7 +63,9 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $this->assertStringContainsString('Device Registry', $html);
         $this->assertStringContainsString('Find and investigate an existing physical device', $html);
         $this->assertStringContainsString('Ready for sale', $html);
-        $this->assertStringContainsString('SaverBro location', $html);
+        $this->assertStringContainsString('Branch A', $html);
+        $this->assertStringContainsString('Branch B', $html);
+        $this->assertStringNotContainsString('SaverBro location', $html);
         $this->assertStringContainsString('Print label', $html);
         $this->assertStringContainsString('/label/print', $html);
         $this->assertStringContainsString('Label status', $html);
@@ -80,6 +84,49 @@ class RecommerceOperationsViewRenderTest extends TestCase
         $this->assertStringContainsString('No authorized devices matched this search.', $html);
         $this->assertStringNotContainsString('Receive stock from Purchases', $html);
         $this->assertStringContainsString('Clear', $html);
+    }
+
+    public function test_device_detail_prioritises_safe_profile_and_technical_information(): void
+    {
+        $device = Device::unguarded(fn () => new Device([
+            'id' => 1, 'device_code' => 'SB-DV-00000001-9', 'category_code' => 'LAPTOP',
+            'lifecycle_state' => 'AVAILABLE', 'custody_kind' => 'LOCATION',
+            'current_location_id' => 1, 'stock_participation' => 'ON_HAND',
+            'manufacturer_serial_display' => 'PF82AXXX',
+        ]));
+        $device->setRelation('product', (object) ['name' => 'ThinkPad T14']);
+        $device->setRelation('variation', (object) ['name' => '16 GB / 512 GB']);
+        $device->setRelation('currentLocation', (object) ['name' => 'Branch A']);
+        $device->setRelation('purchaseAssignment', null);
+        $device->setRelation('inspection', null);
+        $device->setRelation('certification', null);
+        $device->setRelation('labelJobItems', collect());
+        $device->setRelation('ownershipPeriods', collect());
+        $device->setRelation('custodyPeriods', collect());
+
+        $html = $this->renderRecommerceView('recommerce::device.show', [
+            'device' => $device,
+            'deviceProfile' => [
+                'brand' => 'Lenovo', 'model' => 'ThinkPad T14 Gen 4', 'category' => 'Laptop',
+                'product' => 'ThinkPad T14', 'variation' => '16 GB / 512 GB', 'serial_hint' => 'Ending AXXX',
+            ],
+            'technicalSpecifications' => [
+                'Processor' => 'Core i7', 'Memory' => '16 GB', 'Storage' => '512 GB SSD',
+                'Operating system' => 'Windows 11 Pro',
+            ],
+            'auditVisible' => true, 'events' => collect(), 'labelPrintEnabled' => false,
+            'labelStatus' => 'Not printed', 'hasLabelPrintView' => false,
+            'certificationPublishEnabled' => false, 'acquisition' => null, 'economicsVisible' => false,
+        ]);
+
+        $this->assertStringContainsString('Device profile', $html);
+        $this->assertStringContainsString('Lenovo', $html);
+        $this->assertStringContainsString('ThinkPad T14 Gen 4', $html);
+        $this->assertStringContainsString('Technical specifications', $html);
+        $this->assertStringContainsString('Core i7', $html);
+        $this->assertStringContainsString('Windows 11 Pro', $html);
+        $this->assertStringContainsString('Ending AXXX', $html);
+        $this->assertStringNotContainsString('do-not-display', $html);
     }
 
     public function test_find_device_exposes_the_safe_phone_camera_qr_path(): void

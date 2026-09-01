@@ -27,8 +27,8 @@ class ScanInput
         }
 
         $parts = parse_url($value);
-        $resolverHost = config('recommerce.resolver_host');
-        $resolverParts = is_string($resolverHost) && $resolverHost !== ''
+        $resolverHost = ResolverHost::value();
+        $resolverParts = $resolverHost !== null
             ? parse_url('https://'.$resolverHost)
             : false;
 

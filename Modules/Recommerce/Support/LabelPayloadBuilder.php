@@ -5,6 +5,7 @@ namespace Modules\Recommerce\Support;
 use InvalidArgumentException;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Support\Identity\DeviceCode;
+use Modules\Recommerce\Support\Identity\ResolverHost;
 
 class LabelPayloadBuilder
 {
@@ -18,7 +19,7 @@ class LabelPayloadBuilder
             throw new InvalidArgumentException('Label requires a valid opaque scan token.');
         }
 
-        $resolverHost = config('recommerce.resolver_host');
+        $resolverHost = ResolverHost::value();
 
         if (! is_string($resolverHost) || $resolverHost === '') {
             throw new InvalidArgumentException('Resolver host is not configured.');

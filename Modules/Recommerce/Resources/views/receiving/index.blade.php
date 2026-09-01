@@ -137,7 +137,7 @@
                         <div class="box-body table-responsive">
                             <table class="table table-hover"><thead><tr><th>#</th><th>Device ID</th><th>Identifier</th><th>Unit cost</th><th>Status</th><th></th></tr></thead><tbody id="registered-device-list">
                                 @forelse ($registeredDevices as $device)
-                                    <tr><td>{{ $device->unit_ordinal }}</td><td><strong>{{ $device->device_code }}</strong></td><td>Protected identifier recorded</td><td>{{ $device->unit_acquisition_cost === null ? '—' : 'RM '.number_format((float) $device->unit_acquisition_cost, 2) }}</td><td>{{ $deviceStatusLabels[$device->lifecycle_state] ?? ucwords(strtolower(str_replace('_', ' ', $device->lifecycle_state))) }}</td><td><form method="post" action="{{ route('recommerce.devices.label.print', $device->device_id) }}" target="_blank"><input type="hidden" name="_token" value="{{ csrf_token() }}"><button class="btn btn-default btn-xs" type="submit">Print label</button></form></td></tr>
+                                    <tr><td>{{ $device->unit_ordinal }}</td><td><strong>{{ $device->device_code }}</strong></td><td>Protected identifier recorded</td><td>{{ $device->unit_acquisition_cost === null ? '—' : 'RM '.number_format((float) $device->unit_acquisition_cost, 2) }}</td><td>{{ $deviceStatusLabels[$device->lifecycle_state] ?? ucwords(strtolower(str_replace('_', ' ', $device->lifecycle_state))) }}</td><td><form method="post" action="{{ route('recommerce.devices.label.print', $device->device_id) }}" data-recommerce-label-print><input type="hidden" name="_token" value="{{ csrf_token() }}"><button class="btn btn-default btn-xs" type="button">Print label</button></form></td></tr>
                                 @empty
                                     <tr id="no-registered-devices"><td colspan="6" class="text-muted">No Devices have been registered for this purchase line.</td></tr>
                                 @endforelse
@@ -286,4 +286,8 @@
 })();
 </script>
 @endif
+@endsection
+
+@section('javascript')
+    <script src="{{ asset('js/recommerce-label-print.js') }}?v={{ config('constants.asset_version') }}"></script>
 @endsection

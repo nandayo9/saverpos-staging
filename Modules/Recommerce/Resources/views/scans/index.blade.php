@@ -98,8 +98,9 @@
                 const details = document.createElement('div');
                 details.style.marginTop = '8px';
                 const statusLabels = { RECEIVED_PENDING_INSPECTION: 'Waiting for inspection', INSPECTION_IN_PROGRESS: 'Inspection in progress', REFURBISHMENT_REQUIRED: 'Action required', AVAILABLE: 'Ready for sale', RESERVED: 'Reserved', SOLD: 'Sold' };
-                const holderLabels = { LOCATION: 'SaverBro location', CUSTOMER: 'Customer', IN_TRANSIT: 'In transit', EXTERNAL_PROVIDER: 'External provider' };
-                details.textContent = (device.product ? device.product + ' · ' : '') + 'Status: ' + (statusLabels[device.lifecycle_state] || device.lifecycle_state) + ' · Current holder: ' + (holderLabels[device.custody_kind] || device.custody_kind);
+                const holderLabels = { CUSTOMER: 'Customer', IN_TRANSIT: 'In transit', EXTERNAL_PROVIDER: 'External provider' };
+                const holder = device.custody_kind === 'LOCATION' ? (device.location_name || 'Branch not recorded') : (holderLabels[device.custody_kind] || device.custody_kind);
+                details.textContent = (device.product ? device.product + ' · ' : '') + 'Status: ' + (statusLabels[device.lifecycle_state] || device.lifecycle_state) + ' · Current holder: ' + holder;
                 result.appendChild(details);
 
                 if (device.transfer) {

@@ -130,6 +130,8 @@ class RecommercePublicViewRenderTest extends TestCase
         $this->assertStringContainsString('SaverBro Demo Device · Default', $html);
         $this->assertStringContainsString('<svg role="img" id="qr">', $html);
         $this->assertStringContainsString('QR destination is opaque and not printed as text', $html);
+        $this->assertStringContainsString('Print this SAVERBRO label', $html);
+        $this->assertStringContainsString('Back to device record', $html);
     }
 
     protected function tearDown(): void

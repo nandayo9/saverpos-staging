@@ -175,10 +175,17 @@ class RecommerceReceivingIntegrationTest extends TestCase
             $table->unsignedInteger('business_id');
             $table->string('name')->nullable();
         });
+        $schema->create('brands', function (Blueprint $table) {
+            $table->unsignedInteger('id')->primary();
+            $table->unsignedInteger('business_id');
+            $table->string('name')->nullable();
+            $table->timestamp('deleted_at')->nullable();
+        });
         $schema->create('products', function (Blueprint $table) {
             $table->unsignedInteger('id')->primary();
             $table->unsignedInteger('business_id');
             $table->string('name')->nullable();
+            $table->unsignedInteger('brand_id')->nullable();
         });
         $schema->create('variations', function (Blueprint $table) {
             $table->unsignedInteger('id')->primary();
@@ -257,7 +264,8 @@ class RecommerceReceivingIntegrationTest extends TestCase
         ]);
         DB::table('business_locations')->insert(['id' => 101, 'business_id' => 7, 'name' => 'Kota Kinabalu']);
         DB::table('business_locations')->updateOrInsert(['id' => 102], ['business_id' => 7, 'name' => 'Sandakan']);
-        DB::table('products')->insert(['id' => 202, 'business_id' => 7, 'name' => 'Refurbished laptop']);
+        DB::table('brands')->insert(['id' => 1, 'business_id' => 7, 'name' => 'SaverBro']);
+        DB::table('products')->insert(['id' => 202, 'business_id' => 7, 'brand_id' => 1, 'name' => 'Refurbished laptop']);
         DB::table('variations')->insert(['id' => 303, 'product_id' => 202]);
         DB::table('variations')->insert(['id' => 304, 'product_id' => 202]);
         DB::table('tax_rates')->insert(['id' => 505, 'business_id' => 7]);
@@ -1911,6 +1919,10 @@ class RecommerceReceivingIntegrationTest extends TestCase
             base_path('Modules/Recommerce/Resources/views')
         );
         $device = $this->receiveOneDevice();
+        config([
+            'app.url' => 'https://pos.kkcctv.com.my',
+            'recommerce.resolver_host' => null,
+        ]);
         (new RouteServiceProvider(app()))->map();
 
         $response = $this->actingAs($this->authorizedUser())
@@ -1959,6 +1971,10 @@ class RecommerceReceivingIntegrationTest extends TestCase
         $this->assertSame(200, $qrResponse->getStatusCode());
         $this->assertSame(200, $serialResponse->getStatusCode());
         $this->assertSame(404, $invalidResponse->getStatusCode());
+        $this->assertSame(
+            'No matching Device was found in your authorized scope. Check the code or QR label, then try the serial, IMEI, or service tag. No Device was created.',
+            $invalidResponse->getData(true)['message']
+        );
         $this->assertSame('no-referrer', $humanResponse->headers->get('Referrer-Policy'));
         $this->assertSame('no-referrer', $qrResponse->headers->get('Referrer-Policy'));
         $this->assertSame($device->device_code, $qrResponse->getData(true)['device_code']);

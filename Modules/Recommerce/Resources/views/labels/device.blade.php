@@ -39,6 +39,10 @@
         </div>
         <div class="footer">Permanent Device code · QR destination is opaque and not printed as text</div>
     </main>
-    <div class="screen-note">Print view opened. Confirm the printer and label stock, then attach the label to this exact device.</div>
+    <div class="screen-note">
+        <button type="button" onclick="window.print()">Print this SAVERBRO label</button>
+        <a href="{{ url('/recommerce/devices/'.$label['device_code']) }}">Back to device record</a>
+        <p>Confirm the printer and label stock, then attach the label to this exact device.</p>
+    </div>
 </body>
 </html>

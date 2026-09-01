@@ -3,6 +3,7 @@
 namespace Modules\Recommerce\Http\Controllers;
 
 use App\User;
+use App\BusinessLocation;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\Recommerce\Entities\Device;
@@ -34,7 +35,7 @@ class DeviceController extends Controller
         }
 
         $query = Device::query()
-            ->with(['product', 'variation', 'labelJobItems.job'])
+            ->with(['product', 'variation', 'currentLocation', 'labelJobItems.job'])
             ->where('business_id', $businessId)
             ->where(function ($builder) use ($locationId) {
                 $builder->where('current_location_id', $locationId)
@@ -103,6 +104,7 @@ class DeviceController extends Controller
         return response()->view('recommerce::device.index', [
             'devices' => $devices,
             'locationId' => $locationId,
+            'locationName' => BusinessLocation::query()->where('id', $locationId)->value('name'),
             'query' => $term,
             'state' => $state,
             'labelStatus' => $labelStatus,
@@ -142,8 +144,9 @@ class DeviceController extends Controller
 
         $device = Device::query()
             ->with([
-                'product',
+                'product.brand',
                 'variation',
+                'currentLocation',
                 'purchaseAssignment',
                 'inspection',
                 'intakeObservations',
@@ -151,7 +154,7 @@ class DeviceController extends Controller
                 'certification',
                 'labelJobItems.job',
                 'ownershipPeriods' => fn ($query) => $query->orderBy('starts_at')->orderBy('id'),
-                'custodyPeriods' => fn ($query) => $query->orderBy('starts_at')->orderBy('id'),
+                'custodyPeriods' => fn ($query) => $query->with('location')->orderBy('starts_at')->orderBy('id'),
             ])
             ->where('business_id', $businessId)
             ->where('device_code', $normalizedCode)
@@ -253,6 +256,51 @@ class DeviceController extends Controller
             $device->variation_id
         );
 
+        // The Device record is the operator's physical-unit view. Keep this
+        // summary limited to bounded, non-sensitive profile fields; hashed
+        // identifiers and QR token material never leave their protected
+        // stores just to make the detail screen more descriptive.
+        $specifications = (array) ($device->specifications_json ?: []);
+        $safeText = static function ($value): ?string {
+            if (! is_string($value) && ! is_numeric($value)) {
+                return null;
+            }
+
+            $value = preg_replace('/[\x00-\x1F\x7F]/', '', trim((string) $value));
+
+            if ($value === '') {
+                return null;
+            }
+
+            return function_exists('mb_substr') ? mb_substr($value, 0, 160) : substr($value, 0, 160);
+        };
+        $productName = $safeText(optional($device->product)->name);
+        $productBrand = $safeText(optional(optional($device->product)->brand)->name);
+        $category = $safeText($device->category_code);
+        $serialDisplay = $safeText($device->manufacturer_serial_display);
+        $serialSuffix = $serialDisplay === null ? null : (function_exists('mb_substr') ? mb_substr($serialDisplay, -4) : substr($serialDisplay, -4));
+
+        $deviceProfile = [
+            'brand' => $safeText($specifications['brand'] ?? null) ?: $productBrand ?: 'Not recorded',
+            'model' => $safeText($specifications['model'] ?? null) ?: $productName ?: 'Not recorded',
+            'category' => $category ? ucwords(strtolower(str_replace('_', ' ', $category))) : 'Not recorded',
+            'product' => $productName ?: 'Not recorded',
+            'variation' => $safeText(optional($device->variation)->name) ?: 'Not recorded',
+            'serial_hint' => $serialSuffix === null ? 'Not recorded' : 'Ending '.$serialSuffix,
+        ];
+        $technicalSpecificationLabels = [
+            'cpu' => 'Processor', 'ram' => 'Memory', 'storage' => 'Storage', 'gpu' => 'Graphics',
+            'display_size' => 'Display', 'operating_system' => 'Operating system', 'color' => 'Colour',
+            'screen_condition' => 'Screen condition', 'body_condition' => 'Body condition',
+        ];
+        $technicalSpecifications = [];
+        foreach ($technicalSpecificationLabels as $key => $label) {
+            $value = $safeText($specifications[$key] ?? null);
+            if ($value !== null) {
+                $technicalSpecifications[$label] = $value;
+            }
+        }
+
         $events = $auditVisible ? $timelineService->forDevice($device) : collect();
 
         return response()->view('recommerce::device.show', [
@@ -265,6 +313,8 @@ class DeviceController extends Controller
             'certificationPublishEnabled' => $certificationPublishEnabled,
             'acquisition' => $acquisition,
             'economicsVisible' => $economicsVisible,
+            'deviceProfile' => $deviceProfile,
+            'technicalSpecifications' => $technicalSpecifications,
         ])->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
     }

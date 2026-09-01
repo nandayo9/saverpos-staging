@@ -11,6 +11,7 @@ use Modules\Recommerce\Entities\ScanToken;
 use Modules\Recommerce\Services\DeviceEventRecorder;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Modules\Recommerce\Support\Identity\OpaqueScanToken;
+use Modules\Recommerce\Support\Identity\ResolverHost;
 
 class ScanTokenIssuanceService
 {
@@ -65,7 +66,7 @@ class ScanTokenIssuanceService
      */
     public function issueOrReuseForLabel(User $user, Device $device, callable $renderer): array
     {
-        if (! is_string(config('recommerce.resolver_host')) || config('recommerce.resolver_host') === '') {
+        if (ResolverHost::value() === null) {
             throw new InvalidArgumentException('Resolver host is required before token issuance.');
         }
 
@@ -120,7 +121,7 @@ class ScanTokenIssuanceService
         ?callable $renderer = null
     ): array
     {
-        if (! is_string(config('recommerce.resolver_host')) || config('recommerce.resolver_host') === '') {
+        if (ResolverHost::value() === null) {
             throw new InvalidArgumentException('Resolver host is required before token issuance.');
         }
 
