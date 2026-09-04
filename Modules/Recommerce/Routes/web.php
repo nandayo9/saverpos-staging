@@ -107,9 +107,32 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
     Route::get('/trade-ins', 'TradeInController@index')
         ->middleware('throttle:30,1')
         ->name('recommerce.tradeins.index');
+    Route::get('/trade-ins/acquisitions', 'TradeInController@acquisitions')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.tradeins.acquisitions');
+    Route::get('/trade-ins/approvals', 'TradeInController@approvals')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.tradeins.approvals');
+    Route::get('/trade-ins/reports', 'TradeInController@reports')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.tradeins.reports');
+    Route::get('/trade-ins/new', 'TradeInController@create')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.tradeins.create');
+    Route::get('/trade-ins/{valuationId}', 'TradeInController@show')
+        ->whereNumber('valuationId')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.tradeins.show');
     Route::post('/trade-ins', 'TradeInController@store')
         ->middleware('throttle:20,1')
         ->name('recommerce.tradeins.store');
+    Route::post('/trade-ins/quick-quotes', 'TradeInController@storeQuickQuote')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.tradeins.quick_quotes.store');
+    Route::post('/trade-ins/quick-quotes/{quoteId}/decline', 'TradeInController@declineQuickQuote')
+        ->whereNumber('quoteId')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.tradeins.quick_quotes.decline');
     Route::post('/trade-ins/rules', 'TradeInController@createRule')
         ->middleware('throttle:10,1')
         ->name('recommerce.tradeins.rules.store');
@@ -120,6 +143,10 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->whereNumber('valuationId')
         ->middleware('throttle:20,1')
         ->name('recommerce.tradeins.approve');
+    Route::post('/trade-ins/{valuationId}/return-for-revision', 'TradeInController@returnForRevision')
+        ->whereNumber('valuationId')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.tradeins.return_for_revision');
     Route::post('/trade-ins/{valuationId}/accept', 'TradeInController@accept')
         ->whereNumber('valuationId')
         ->middleware('throttle:10,1')

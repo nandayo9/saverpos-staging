@@ -28,6 +28,7 @@ return [
     // Product/legal teams own the final wording. V2 records the displayed
     // version and acknowledgement without exposing identity references in lists.
     'tradein_seller_declaration' => env('RECOMMERCE_TRADEIN_SELLER_DECLARATION', 'Seller declares that they have the right to offer this device and that the information provided is accurate.'),
+    'tradein_quote_valid_days' => env('RECOMMERCE_TRADEIN_QUOTE_VALID_DAYS', 7),
     'receive_batch_limit' => 50,
     // Bounded visible-page bulk printing. This is deliberately not a
     // server-side "select all matching" capability.

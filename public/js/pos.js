@@ -31,6 +31,15 @@ function recommerce_device_codes(value) {
         });
 }
 
+var active_recommerce_device_row = null;
+
+function pos_active_recommerce_device_row() {
+    if (!active_recommerce_device_row || !active_recommerce_device_row.length || !$.contains(document, active_recommerce_device_row[0])) {
+        active_recommerce_device_row = null;
+    }
+    return active_recommerce_device_row;
+}
+
 // A resolved Device creates its own POS line. Keep a second scanner event
 // (or a delayed autocomplete response) from adding that same physical unit
 // twice before the server-side lifecycle guard rejects the checkout.
@@ -82,25 +91,19 @@ function pos_sync_recommerce_device_scan($row) {
         return true;
     }
 
-    var countText = state.codes.length + ' of ' + state.required + ' scanned';
-    var helpText = 'Scan QR or enter one unique SaverBro Device ID, serial, or IMEI for each unit. Checkout stays unavailable until the count matches the quantity.';
+    var countText = state.codes.length + ' / ' + state.required;
+    var labelText = 'Device required';
     if (!state.hasWholeQuantity) {
         countText = 'Whole units required';
-        helpText = 'Serialized products must be sold in whole units so every physical device can be assigned.';
     } else if (state.complete) {
-        countText = state.required + ' of ' + state.required + ' scanned';
-        helpText = 'All Device identities are ready for checkout. The sale will resolve and assign each exact Device to this customer.';
-    } else if (state.codes.length > state.required) {
-        helpText = 'Too many codes scanned. Remove extras so this row has exactly one unique code per unit.';
+        labelText = 'Device identified';
     }
 
     state.panel.find('.recommerce-device-scan-count').text(countText);
-    state.panel.find('.recommerce-device-scan-help').text(helpText);
-    state.panel.toggleClass('recommerce-device-scan-complete', state.complete);
-    state.panel.css({
-        borderColor: state.complete ? '#22c55e' : '#38bdf8',
-        background: state.complete ? '#f0fdf4' : '#f0f9ff',
-    });
+    state.panel.find('.recommerce-device-state-label').text(labelText);
+    state.panel.find('.recommerce-device-scan-summary').text(state.complete && state.codes.length ? state.codes.join(' · ') : '');
+    state.panel.toggleClass('is-complete', state.complete);
+    state.panel.find('.recommerce-device-open').attr('aria-expanded', pos_active_recommerce_device_row() && pos_active_recommerce_device_row()[0] === $row[0] ? 'true' : 'false');
     state.field.attr('aria-invalid', state.complete ? 'false' : 'true');
 
     return state.complete;
@@ -109,6 +112,168 @@ function pos_sync_recommerce_device_scan($row) {
 function pos_sync_recommerce_device_scans() {
     $('#pos_table tbody .product_row').each(function() {
         pos_sync_recommerce_device_scan($(this));
+    });
+    pos_sync_checkout_readiness();
+    pos_sync_device_workbench();
+}
+
+function pos_checkout_readiness() {
+    var $rows = $('#pos_table tbody .product_row');
+    if (!$rows.length) {
+        return {state: 'empty', ready: false, title: 'Add products to begin', detail: 'Payment becomes available when the cart has an item.'};
+    }
+
+    var invalidState = null;
+    $rows.each(function() {
+        var state = recommerce_device_scan_state($(this));
+        if (state && !state.complete && !invalidState) {
+            invalidState = state;
+        }
+    });
+
+    if (invalidState) {
+        var productName = invalidState.panel.data('product-name') || 'serialized item';
+        var remainingDevices = invalidState.required - invalidState.codes.length;
+        var detail = !invalidState.hasWholeQuantity
+            ? 'Use a whole-unit quantity for ' + productName + '.'
+            : remainingDevices < 0
+                ? 'Remove ' + Math.abs(remainingDevices) + ' extra Device identity from ' + productName + '.'
+                : 'Identify ' + remainingDevices + ' Device for ' + productName + '.';
+        return {state: 'pending', ready: false, title: 'Device identification required', detail: detail};
+    }
+
+    return {state: 'ready', ready: true, title: 'Ready for payment', detail: 'All items and Device identities are complete.'};
+}
+
+function pos_sync_checkout_readiness() {
+    var readiness = pos_checkout_readiness();
+    var $status = $('#pos_checkout_status');
+    if ($status.length) {
+        $status.removeClass('is-ready is-pending is-empty').addClass('is-' + readiness.state);
+        $status.find('.pos-checkout-status__icon').attr('class', 'pos-checkout-status__icon fas ' + (readiness.state === 'ready' ? 'fa-check-circle' : readiness.state === 'pending' ? 'fa-exclamation-circle' : 'fa-shopping-basket'));
+        $status.find('.pos-checkout-status__title').text(readiness.title);
+        $status.find('.pos-checkout-status__detail').text(readiness.detail);
+    }
+    $('.pos-payment-action').prop('disabled', !readiness.ready);
+    return readiness;
+}
+
+function pos_device_feedback(message, type) {
+    var $feedback = $('#pos_device_workbench_feedback');
+    $feedback.removeClass('is-error is-success').addClass(type ? 'is-' + type : '').text(message || 'Scanner ready. One physical Device is required for each unit.');
+}
+
+function pos_sync_device_workbench() {
+    var $row = pos_active_recommerce_device_row();
+    var $workbench = $('#pos_device_workbench');
+    if (!$workbench.length || !$row) {
+        return;
+    }
+    var state = recommerce_device_scan_state($row);
+    if (!state) {
+        $workbench.attr('hidden', true);
+        active_recommerce_device_row = null;
+        return;
+    }
+    var productName = state.panel.data('product-name') || 'Device';
+    $workbench.find('#pos_device_workbench_title').text('Identify ' + state.required + ' Device' + (state.required === 1 ? '' : 's'));
+    $workbench.find('#pos_device_workbench_product').text(productName + ' · exact Device identity required');
+    $workbench.find('#pos_device_workbench_progress').toggleClass('is-complete', state.complete)
+        .find('strong').text(state.hasWholeQuantity ? state.codes.length + ' / ' + state.required + ' identified' : 'Whole units required');
+    $workbench.find('#pos_device_workbench_progress span').text(state.complete ? 'All required Devices are identified' : 'Device required before payment');
+    var $devices = $workbench.find('#pos_device_workbench_devices').empty();
+    state.codes.forEach(function(code) {
+        var $chip = $('<span class="pos-device-workbench__device"><i class="fas fa-check-circle" aria-hidden="true"></i><code></code><button type="button" class="recommerce-device-remove" title="Remove this Device" aria-label="Remove identified Device"><i class="fas fa-times" aria-hidden="true"></i></button></span>');
+        $chip.find('code').text(code);
+        $chip.find('.recommerce-device-remove').data('code', code);
+        $devices.append($chip);
+    });
+}
+
+function pos_open_device_workbench($row, focusScanner) {
+    if (!$row || !$row.length || !recommerce_device_scan_state($row)) {
+        return;
+    }
+    active_recommerce_device_row = $row;
+    $('#pos_device_workbench').removeAttr('hidden');
+    pos_device_feedback();
+    pos_sync_recommerce_device_scans();
+    if (focusScanner !== false) {
+        setTimeout(function() { $('#pos_device_scan_input').focus().select(); }, 0);
+    }
+}
+
+function pos_close_device_workbench(focusSearch) {
+    active_recommerce_device_row = null;
+    $('#pos_device_workbench').attr('hidden', true);
+    $('#pos_device_scan_input').val('');
+    pos_sync_recommerce_device_scans();
+    if (focusSearch !== false && !$('#__is_mobile').length) {
+        $('input#search_product').focus().select();
+    }
+}
+
+function pos_submit_recommerce_device_scan() {
+    var $row = pos_active_recommerce_device_row();
+    var scanValue = $.trim($('#pos_device_scan_input').val());
+    if (!$row || !$row.length) {
+        return;
+    }
+    if (!scanValue) {
+        pos_device_feedback('Scan a QR, serial, IMEI or SaverBro Device ID.', 'error');
+        $('#pos_device_scan_input').focus();
+        return;
+    }
+    if (recommerce_device_is_already_in_cart(scanValue)) {
+        pos_device_feedback('This Device has already been added to this sale.', 'error');
+        $('#pos_device_scan_input').focus().select();
+        return;
+    }
+    var state = recommerce_device_scan_state($row);
+    if (!state || !state.hasWholeQuantity || state.codes.length >= state.required) {
+        pos_device_feedback('This line already has the required Device identities. Adjust its quantity before adding another.', 'error');
+        return;
+    }
+    var resolveUrl = $('input#search_product').data('recommerce-device-resolve-url');
+    if (!resolveUrl) {
+        pos_device_feedback('Device resolution is unavailable. Try again or ask a supervisor.', 'error');
+        return;
+    }
+    var $input = $('#pos_device_scan_input');
+    $input.prop('disabled', true);
+    $('#pos_device_scan_submit').prop('disabled', true);
+    pos_device_feedback('Checking the exact Device…');
+    $.ajax({
+        method: 'POST',
+        url: resolveUrl,
+        data: {value: scanValue, location_id: $('#location_id').val()},
+        dataType: 'json',
+    }).done(function(result) {
+        if (!result || String(result.variation_id) !== String($row.find('input.row_variation_id').val())) {
+            pos_device_feedback('This Device belongs to a different product and cannot identify this sale line.', 'error');
+            return;
+        }
+        var current = recommerce_device_codes(state.field.val());
+        current.push(result.device_code || scanValue);
+        state.field.val(current.join('\n')).trigger('change');
+        $input.val('');
+        var nextState = recommerce_device_scan_state($row);
+        if (nextState.complete) {
+            pos_device_feedback('Device identified. This line is ready for payment.', 'success');
+            pos_play_success_sound();
+            setTimeout(function() { pos_close_device_workbench(true); }, 180);
+        } else {
+            pos_device_feedback('Device identified. Scan the next Device.', 'success');
+            $input.focus();
+        }
+    }).fail(function(xhr) {
+        var response = xhr.responseJSON || {};
+        var message = response.message || 'No sellable Device matched this scan. Scan the device label or select the matching product.';
+        pos_device_feedback(message, 'error');
+        $input.focus().select();
+    }).always(function() {
+        $input.prop('disabled', false);
+        $('#pos_device_scan_submit').prop('disabled', false);
     });
 }
 
@@ -133,7 +298,8 @@ function pos_validate_recommerce_device_scans() {
         : 'Use a whole-unit quantity for ' + productName + ' before checkout.';
 
     toastr.error(message);
-    invalidState.field.focus();
+    pos_open_device_workbench(invalidState.field.closest('.product_row'), true);
+    pos_device_feedback(message, 'error');
     return false;
 }
 $(document).ready(function() {
@@ -150,6 +316,45 @@ $(document).ready(function() {
 
     $(document).on('input change', '.recommerce-device-codes, input.pos_quantity', function() {
         pos_sync_recommerce_device_scan($(this).closest('.product_row'));
+        pos_sync_checkout_readiness();
+        pos_sync_device_workbench();
+    });
+
+    $(document).on('click', '.recommerce-device-open', function() {
+        pos_open_device_workbench($(this).closest('.product_row'), true);
+    });
+
+    $(document).on('click', '#pos_device_workbench_close', function() {
+        pos_close_device_workbench(true);
+    });
+
+    $(document).on('click', '#pos_device_scan_submit', function() {
+        pos_submit_recommerce_device_scan();
+    });
+
+    $(document).on('keydown', '#pos_device_scan_input', function(event) {
+        if (event.which === 13) {
+            event.preventDefault();
+            event.stopPropagation();
+            pos_submit_recommerce_device_scan();
+        }
+    });
+
+    $(document).on('click', '.recommerce-device-remove', function() {
+        var $row = pos_active_recommerce_device_row();
+        if (!$row) {
+            return;
+        }
+        var codeToRemove = String($(this).data('code') || '').toUpperCase();
+        var state = recommerce_device_scan_state($row);
+        if (!state) {
+            return;
+        }
+        state.field.val(state.codes.filter(function(code) {
+            return String(code).toUpperCase() !== codeToRemove;
+        }).join('\n')).trigger('change');
+        pos_device_feedback('Device removed. Scan the correct physical Device.', 'error');
+        $('#pos_device_scan_input').focus();
     });
 
     //For edit pos form
@@ -1770,10 +1975,29 @@ $(document).ready(function() {
             .focus();
     });
 
-    //Press enter on search product to jump into last quantty and vice-versa
+    // Barcode scanners usually act like a keyboard and finish with Enter. Do
+    // not make staff wait for the autocomplete delay: submit the complete scan
+    // immediately and prevent the surrounding POS form from being submitted.
+    // This still uses the existing autocomplete source, so Recommerce Device
+    // identities retain their exact lookup and normal barcodes continue to
+    // fall back to UltimatePOS's product search.
     $('#search_product').keydown(function(e) {
         var key = e.which;
-        if (key == 9) {
+        if (key == 13) {
+            var scanned_value = $.trim($(this).val());
+            if (scanned_value.length >= 2) {
+                e.preventDefault();
+
+                var autocomplete = $(this).data('ui-autocomplete');
+                if (autocomplete) {
+                    // Cancel the delayed keystroke search before requesting
+                    // the scanner value once. Without this, a fast scanner
+                    // can add the same single-match product twice.
+                    clearTimeout(autocomplete.searching);
+                    autocomplete.search(scanned_value);
+                }
+            }
+        } else if (key == 9) {
             // the tab key code
             e.preventDefault();
             if ($('#pos_table tbody tr').length > 0) {
@@ -2170,7 +2394,10 @@ function pos_insert_product_row(result) {
     round_row_to_iraqi_dinnar(this_row);
     __currency_convert_recursively(this_row);
 
-    if (!$('#__is_mobile').length) {
+    var deviceScanState = recommerce_device_scan_state(this_row);
+    if (deviceScanState && !deviceScanState.complete) {
+        pos_open_device_workbench(this_row, true);
+    } else if (!$('#__is_mobile').length) {
         $('input#search_product')
             .focus()
             .select();
@@ -2418,13 +2645,12 @@ function pos_each_row(row_obj) {
         discounted_unit_price + __calculate_amount('percentage', tax_rate, discounted_unit_price);
     __write_number(row_obj.find('input.pos_unit_price_inc_tax'), unit_price_inc_tax);
 
-    var discount = __read_number(row_obj.find('input.row_discount_amount'));
-
-    if (discount > 0) {
-        var qty = __read_number(row_obj.find('input.pos_quantity'));
-        var line_total = qty * unit_price_inc_tax;
-        __write_number(row_obj.find('input.pos_line_total'), line_total);
-    }
+    // Keep a scanner-added generic line financially complete before its first
+    // quantity-change event. The legacy branch only wrote a line total when a
+    // discount existed, leaving a normal scanned item visually at RM 0.00.
+    var qty = __read_number(row_obj.find('input.pos_quantity'));
+    var line_total = qty * unit_price_inc_tax;
+    __write_number(row_obj.find('input.pos_line_total'), line_total);
 
     //var unit_price_inc_tax = __read_number(row_obj.find('input.pos_unit_price_inc_tax'));
 
@@ -2459,6 +2685,8 @@ function pos_total_row() {
     }
     // store on any update
     saveFormDataToLocalStorage();
+    pos_sync_checkout_readiness();
+    pos_sync_device_workbench();
 
 }
 

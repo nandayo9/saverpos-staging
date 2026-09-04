@@ -50,6 +50,17 @@
 				<div class="tw-text-[11px] tw-text-slate-400 tw-leading-[1.3] tw-truncate">{{ $product_sku_brand }}@if($product->enable_stock) &nbsp;·&nbsp; {{ @num_format($product->qty_available) }} {{$product->unit}}@endif</div>
 			</div>
 		</div>
+		@if(!empty($product->recommerce_tracking_required))
+			<div class="recommerce-device-scan" data-product-name="{{ e($product->product_name) }}">
+				<button type="button" class="recommerce-device-open" aria-controls="pos_device_workbench" aria-expanded="false" title="Identify the exact physical Device for this sale line">
+					<i class="fas fa-barcode" aria-hidden="true"></i>
+					<span class="recommerce-device-state-label">Device required</span>
+					<span class="recommerce-device-scan-count" aria-live="polite">0 / {{ @format_quantity($product->quantity_ordered) }}</span>
+				</button>
+				<span class="recommerce-device-scan-summary"></span>
+				<textarea id="recommerce_device_codes_{{$row_count}}" class="recommerce-device-codes pos-device-code-store" name="products[{{$row_count}}][recommerce_device_codes]" aria-hidden="true" tabindex="-1">{{ $recommerceDeviceIdentity ?? '' }}</textarea>
+			</div>
+		@endif
 
 
 		<input type="hidden" class="enable_sr_no" value="{{$product->enable_sr_no}}">
@@ -333,16 +344,6 @@
 					@endif
 
 			@endforeach
-		@endif
-		@if(!empty($product->recommerce_tracking_required))
-			<div class="recommerce-device-scan" data-product-name="{{ e($product->product_name) }}" style="margin-top:10px;padding:9px 10px;border:1px solid #38bdf8;border-radius:7px;background:#f0f9ff;">
-				<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
-					<label class="control-label" for="recommerce_device_codes_{{$row_count}}" style="margin:0;color:#075985;"><i class="fa fa-barcode"></i> Identify device</label>
-					<span class="recommerce-device-scan-count" aria-live="polite" style="font-size:11px;font-weight:700;color:#075985;white-space:nowrap;">0 of {{ @format_quantity($product->quantity_ordered) }} scanned</span>
-				</div>
-				<textarea id="recommerce_device_codes_{{$row_count}}" class="form-control input-sm recommerce-device-codes" rows="2" name="products[{{$row_count}}][recommerce_device_codes]" placeholder="Scan QR or enter SaverBro ID, serial, or IMEI" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="recommerce_device_help_{{$row_count}}">{{ $recommerceDeviceIdentity ?? '' }}</textarea>
-				<small id="recommerce_device_help_{{$row_count}}" class="recommerce-device-scan-help" style="display:block;margin-top:5px;color:#475569;">Enter one unique Device identity per unit. QR, SaverBro Device ID, serial, and IMEI all resolve to the same Device Passport.</small>
-			</div>
 		@endif
 	</td>
 	@if(!empty($is_direct_sell))

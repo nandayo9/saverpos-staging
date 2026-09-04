@@ -11,17 +11,22 @@ class RecommerceDeviceLifecycleUiContractTest extends TestCase
         $productUtil = file_get_contents(base_path('app/Utils/ProductUtil.php'));
         $row = file_get_contents(base_path('resources/views/sale_pos/product_row.blade.php'));
         $script = file_get_contents(base_path('public/js/pos.js'));
+        $workbench = file_get_contents(base_path('resources/views/sale_pos/partials/device_identification_panel.blade.php'));
 
         $this->assertStringContainsString('recommerce_tracking_required', $productUtil);
         $this->assertStringContainsString("Schema::hasTable('recommerce_serialization_profiles')", $productUtil);
         $this->assertStringContainsString("where('mode', 'TRACKED_REQUIRED')", $productUtil);
         $this->assertStringContainsString("@if(!empty(\$product->recommerce_tracking_required))", $row);
-        $this->assertStringContainsString('Identify device', $row);
+        $this->assertStringContainsString('recommerce-device-open', $row);
         $this->assertStringContainsString('recommerce-device-scan-count', $row);
         $this->assertStringContainsString('pos_validate_recommerce_device_scans', $script);
+        $this->assertStringContainsString('pos_open_device_workbench', $script);
+        $this->assertStringContainsString('pos_submit_recommerce_device_scan', $script);
         $this->assertStringContainsString('recommerce_device_is_already_in_cart', $script);
-        $this->assertStringContainsString('This Device is already in the current sale.', $script);
-        $this->assertStringContainsString('Identify exactly ', $script);
+        $this->assertStringContainsString('This Device has already been added to this sale.', $script);
+        $this->assertStringContainsString('Device identification required', $script);
+        $this->assertStringContainsString('id="pos_device_scan_input"', $workbench);
+        $this->assertStringContainsString('Scan QR, serial, IMEI or Device ID', $workbench);
     }
 
     public function test_sale_return_form_collects_the_exact_original_device_code(): void

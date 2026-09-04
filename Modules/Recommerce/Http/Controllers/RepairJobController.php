@@ -13,6 +13,7 @@ use LogicException;
 use Modules\Recommerce\Entities\RepairJob;
 use Modules\Recommerce\Entities\WarrantyClaim;
 use Modules\Recommerce\Entities\Device;
+use Modules\Recommerce\Entities\TradeInValuation;
 use Modules\Recommerce\Services\RepairJobIntakeService;
 use Modules\Recommerce\Services\RepairJobTransitionService;
 use Modules\Recommerce\Support\AuthorizationGate;
@@ -309,6 +310,32 @@ class RepairJobController extends Controller
             }
         }
 
+        $tradeInContext = null;
+        if ($job->isInternalRefurbishment() && $job->source_type === 'TRADE_IN_VALUATION' && $job->source_id) {
+            $tradeInValuation = TradeInValuation::query()
+                ->with(['customer', 'acquisition'])
+                ->where('business_id', $businessId)
+                ->find($job->source_id);
+            if ($tradeInValuation) {
+                $inspection = (array) $tradeInValuation->inspection_json;
+                $failures = collect((array) data_get($inspection, 'functional_observations', []))
+                    ->filter(fn ($item) => in_array(data_get($item, 'outcome'), ['FAIL', 'CONDITIONAL'], true))
+                    ->map(fn ($item) => trim((string) data_get($item, 'key')).': '.(data_get($item, 'notes') ?: data_get($item, 'outcome')))
+                    ->values()->all();
+                $tradeInContext = [
+                    'current_owner' => 'SaverBro',
+                    'acquired_from' => optional($tradeInValuation->customer)->name ?: 'Seller record unavailable',
+                    'seller_phone' => $tradeInValuation->seller_phone_snapshot,
+                    'acquisition_amount' => optional($tradeInValuation->acquisition)->acquisition_amount ?: $tradeInValuation->final_acquisition_amount,
+                    'acquired_at' => optional($tradeInValuation->acquisition)->posted_at ?: $tradeInValuation->accepted_at,
+                    'valuation_id' => $tradeInValuation->id,
+                    'cosmetic_grade' => data_get($inspection, 'cosmetic_grade'),
+                    'battery_health' => data_get($inspection, 'battery_health_percent'),
+                    'failures' => $failures,
+                ];
+            }
+        }
+
         return response()->view('recommerce::repair.show', [
             'job' => $job,
             'allowedTransitions' => RepairJobStateMachine::allowedTransitions($job->state),
@@ -337,6 +364,7 @@ class RepairJobController extends Controller
                 $job->location_id
             ),
             'financialEvidence' => $financialEvidence,
+            'tradeInContext' => $tradeInContext,
             'collectionSummary' => $this->collectionSummary($job, $user, $authorizationGate),
             'warrantyClaims' => $this->warrantyClaims($job),
             'canClaimWarranty' => $this->canClaimWarranty($job, $user, $authorizationGate),

@@ -11,9 +11,14 @@ use LogicException;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\DeviceAcquisition;
 use Modules\Recommerce\Entities\TradeInRuleSet;
+use Modules\Recommerce\Entities\TradeInQuickQuote;
 use Modules\Recommerce\Entities\TradeInValuation;
 use Modules\Recommerce\Services\DeviceEventRecorder;
 use Modules\Recommerce\Services\TradeInPricingService;
+use Modules\Recommerce\Services\TradeInQuickQuoteService;
+use Modules\Recommerce\Services\TradeInRuleResolver;
+use Modules\Recommerce\Services\TradeInNegotiationService;
+use Modules\Recommerce\Services\TradeInAuthorityService;
 use Modules\Recommerce\Services\TradeInService;
 use Modules\Recommerce\Services\UltimatePosPurchaseWriter;
 use Modules\Recommerce\Support\AuthorizationGate;
@@ -56,7 +61,7 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         $schema->create('roles', function (Blueprint $table) { $table->increments('id'); $table->string('name'); $table->string('guard_name')->default('web'); $table->unsignedInteger('business_id')->nullable(); });
         $schema->create('model_has_roles', function (Blueprint $table) { $table->unsignedInteger('role_id'); $table->string('model_type'); $table->unsignedInteger('model_id'); });
         $schema->create('products', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('business_id'); $table->string('name')->nullable(); });
-        $schema->create('variations', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('product_id'); $table->timestamp('deleted_at')->nullable(); });
+        $schema->create('variations', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('product_id'); $table->decimal('sell_price_inc_tax', 22, 4)->default(0); $table->timestamp('deleted_at')->nullable(); });
         $schema->create('transactions', function (Blueprint $table) {
             $table->increments('id'); $table->unsignedInteger('business_id'); $table->unsignedInteger('location_id')->nullable();
             $table->string('type'); $table->string('status')->nullable(); $table->string('payment_status')->nullable();
@@ -78,7 +83,7 @@ class RecommerceTradeInAcquisitionTest extends TestCase
             ['id' => 406, 'business_id' => 7, 'type' => 'supplier', 'name' => 'Supplier counterpart'],
         ]);
         DB::table('products')->insert(['id' => 202, 'business_id' => 7, 'name' => 'Refurbished laptop']);
-        DB::table('variations')->insert(['id' => 303, 'product_id' => 202]);
+        DB::table('variations')->insert(['id' => 303, 'product_id' => 202, 'sell_price_inc_tax' => 1950]);
 
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_27_000002_create_recommerce_alpha_tables.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_28_000004_harden_recommerce_event_identity.php'))->up();
@@ -86,6 +91,7 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_28_000007_create_recommerce_custody_periods.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000031_create_recommerce_trade_in_tables.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000033_extend_trade_in_for_branch_v2.php'))->up();
+        (require base_path('Modules/Recommerce/Database/Migrations/2026_09_04_000001_create_recommerce_trade_in_quick_quotes.php'))->up();
 
         DB::table('recommerce_devices')->insert([
             'id' => 11, 'business_id' => 7, 'device_uuid' => 'b4068cc7-0f29-4d22-8f45-4f9a29de1101', 'device_code' => 'SB-DV-00000001-9',
@@ -230,6 +236,170 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         $this->service()->createValuation($this->user(), $this->valuationCommand($this->ruleSet()->id, [
             'seller_declaration_text' => 'Seller owns the laptop.', 'seller_declaration_accepted' => false,
         ]));
+    }
+
+    public function test_quick_quote_uses_pricing_policy_without_creating_a_device_or_purchase(): void
+    {
+        $this->ruleSet();
+        $service = new TradeInQuickQuoteService(
+            new AuthorizationGate(new CohortPolicy()),
+            new TradeInRuleResolver(),
+            new TradeInPricingService()
+        );
+        $quote = $service->create($this->user(), [
+            'location_id' => 101,
+            'variation_id' => 303,
+            'command_uuid' => '12121212-1212-4212-8212-121212121212',
+            'customer_contact_id' => 405,
+            'acquisition_type' => 'SELL_TO_SAVERBRO',
+            'brand' => 'Fixture',
+            'model' => 'QuoteBook',
+            'cpu' => 'Intel i5',
+            'ram' => '16 GB',
+            'storage' => '512 GB SSD',
+            'cosmetic_grade' => 'B',
+            'battery_health_percent' => 82,
+            'customer_expected_amount' => 1200,
+            'expected_resale_amount' => 1950,
+        ]);
+
+        $this->assertSame(TradeInQuickQuote::STATUS_CONSIDERING, $quote->status);
+        $this->assertSame('QuoteBook', $quote->specifications_json['model']);
+        $this->assertSame(1, TradeInQuickQuote::query()->count());
+        $this->assertSame(1, Device::query()->count(), 'Quick Quote must not create a Device.');
+        $this->assertSame(0, DB::table('transactions')->count(), 'Quick Quote must not post a purchase.');
+        $this->assertGreaterThan((float) $quote->estimated_low_amount, (float) $quote->estimated_high_amount);
+        $this->assertTrue($quote->expires_at->isFuture());
+
+        $declined = $service->decline($this->user(), $quote, 'OFFER_TOO_LOW', 'Customer wants RM 1,200.');
+        $this->assertSame(TradeInQuickQuote::STATUS_CUSTOMER_DECLINED, $declined->status);
+        $this->assertSame('OFFER_TOO_LOW', $declined->lost_reason_code);
+    }
+
+    public function test_staff_offer_updates_active_amount_and_approval_state_but_customer_counter_does_not(): void
+    {
+        $valuation = $this->service()->createValuation($this->user(), $this->valuationCommand($this->ruleSet()->id));
+        $service = new TradeInNegotiationService(
+            new AuthorizationGate(new CohortPolicy()),
+            new TradeInAuthorityService(new AuthorizationGate(new CohortPolicy()))
+        );
+        $service->record($this->user(), $valuation, 'CUSTOMER_COUNTER', 1100, 'Customer countered.');
+        $this->assertSame(900.0, (float) $valuation->fresh()->staff_proposed_amount);
+
+        $service->record($this->user(), $valuation->fresh(), 'STAFF_OFFER', 1020, 'Requested manager approval.');
+        $updated = $valuation->fresh();
+        $this->assertSame(1020.0, (float) $updated->staff_proposed_amount);
+        $this->assertSame(1020.0, (float) $updated->final_acquisition_amount);
+        $this->assertSame(TradeInValuation::STATUS_PENDING_APPROVAL, $updated->status);
+        $this->assertSame(4, $updated->negotiationEvents()->count());
+
+        $returned = $this->service()->returnForRevision($this->user(), $updated, 'Reduce the offer or add stronger evidence.');
+        $this->assertSame(TradeInValuation::STATUS_READY_TO_ACCEPT, $returned->status);
+        $this->assertTrue((bool) $returned->approval_required);
+        $this->assertSame('MANAGER_REVISION_REQUESTED', $returned->negotiationEvents()->get()->last()->event_type);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('requires recorded approval');
+        $this->service()->accept($this->user(), $returned, '13131313-1313-4313-8313-131313131313');
+    }
+
+    public function test_quick_quote_continuation_links_the_formal_valuation_once(): void
+    {
+        $this->ruleSet();
+        $quoteService = new TradeInQuickQuoteService(
+            new AuthorizationGate(new CohortPolicy()),
+            new TradeInRuleResolver(),
+            new TradeInPricingService()
+        );
+        $quote = $quoteService->create($this->user(), [
+            'location_id' => 101,
+            'variation_id' => 303,
+            'command_uuid' => '14141414-1414-4414-8414-141414141414',
+            'customer_contact_id' => 405,
+            'brand' => 'Fixture',
+            'model' => 'QuoteBook',
+            'cosmetic_grade' => 'B',
+            'expected_resale_amount' => 1950,
+        ]);
+        $valuation = $this->service()->createValuation(
+            $this->user(),
+            $this->valuationCommand(TradeInRuleSet::query()->value('id'))
+        );
+
+        $quoteService->continueToValuation($quote, $valuation);
+        $quoteService->continueToValuation($quote->fresh(), $valuation);
+
+        $continued = $quote->fresh();
+        $this->assertSame(TradeInQuickQuote::STATUS_CONTINUED, $continued->status);
+        $this->assertSame($valuation->id, $continued->continued_to_valuation_id);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('still under consideration');
+        $quoteService->decline($this->user(), $continued, 'OFFER_TOO_LOW', 'Too low after formal valuation.');
+    }
+
+    public function test_expired_quick_quote_requires_a_linked_revaluation_version(): void
+    {
+        $this->ruleSet();
+        $quoteService = new TradeInQuickQuoteService(
+            new AuthorizationGate(new CohortPolicy()),
+            new TradeInRuleResolver(),
+            new TradeInPricingService()
+        );
+        $base = [
+            'location_id' => 101,
+            'variation_id' => 303,
+            'customer_contact_id' => 405,
+            'brand' => 'Fixture',
+            'model' => 'Expiring QuoteBook',
+            'cosmetic_grade' => 'B',
+            'expected_resale_amount' => 1950,
+        ];
+        $expired = $quoteService->create($this->user(), $base + [
+            'command_uuid' => '15151515-1515-4515-8515-151515151515',
+        ]);
+        $expired->update(['expires_at' => now()->subMinute()]);
+        $valuation = $this->service()->createValuation(
+            $this->user(),
+            $this->valuationCommand(TradeInRuleSet::query()->value('id'))
+        );
+
+        try {
+            $quoteService->continueToValuation($expired->fresh(), $valuation);
+            $this->fail('An expired quote must not continue to a formal valuation.');
+        } catch (LogicException $exception) {
+            $this->assertStringContainsString('expired', $exception->getMessage());
+        }
+
+        $replacement = $quoteService->create($this->user(), $base + [
+            'command_uuid' => '16161616-1616-4616-8616-161616161616',
+            'supersedes_quote_id' => $expired->id,
+        ]);
+        $this->assertSame($expired->id, (int) $replacement->supersedes_quote_id);
+        $this->assertSame(TradeInQuickQuote::STATUS_CONSIDERING, $replacement->status);
+        $this->assertSame(2, TradeInQuickQuote::query()->count());
+        $this->assertNotSame($expired->quote_uuid, $replacement->quote_uuid);
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('Only an expired quote');
+        $quoteService->create($this->user(), $base + [
+            'command_uuid' => '17171717-1717-4717-8717-171717171717',
+            'supersedes_quote_id' => $replacement->id,
+        ]);
+    }
+
+    public function test_rejection_preserves_customer_outcome_and_competitor_context(): void
+    {
+        $valuation = $this->service()->createValuation($this->user(), $this->valuationCommand($this->ruleSet()->id));
+        $rejected = $this->service()->reject($this->user(), $valuation, 'Competitor offered more.', [
+            'reason_code' => 'COMPETITOR_OFFERED_MORE',
+            'competitor_name' => 'Fictional Devices',
+            'competitor_offer_amount' => 980,
+        ]);
+
+        $this->assertSame('COMPETITOR_OFFERED_MORE', $rejected->rejection_reason_code);
+        $this->assertSame('Fictional Devices', $rejected->competitor_name);
+        $this->assertSame(980.0, (float) $rejected->competitor_offer_amount);
     }
 
     public function test_rejected_trade_in_returns_customer_custody_and_creates_no_purchase(): void

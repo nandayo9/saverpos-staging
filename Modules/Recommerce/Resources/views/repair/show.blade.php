@@ -3,7 +3,10 @@
 @section('title', 'Repair record '.$job->job_code)
 
 @section('content')
-@php($quoteManageEnabled = $quoteManageEnabled ?? false)
+@php
+    $quoteManageEnabled = $quoteManageEnabled ?? false;
+    $tradeInContext = $tradeInContext ?? null;
+@endphp
 <style>
     /* Screen styling follows the shared dark POS palette; the print block at
        the end restores a light record for white stock. Each fallback is the
@@ -60,12 +63,50 @@
 
 <section class="container-fluid sb-record" aria-labelledby="repair-record-title">
     <div class="record-header">
-        <div><p class="text-muted" style="margin:0 0 5px">SAVERPOS Recommerce · Customer service record</p><h1 id="repair-record-title">{{ $job->job_code }}</h1><span class="badge">{{ str_replace('_', ' ', $job->state) }}</span> <span class="text-muted">Lock version {{ $job->lock_version }}</span></div>
+        <div><p class="text-muted" style="margin:0 0 5px">SAVERPOS Recommerce · {{ $tradeInContext ? 'Acquisition QC record' : 'Customer service record' }}</p><h1 id="repair-record-title">{{ $job->job_code }}</h1><span class="badge">{{ str_replace('_', ' ', $job->state) }}</span> <span class="text-muted">Lock version {{ $job->lock_version }}</span></div>
         <div class="toolbar no-print"><button type="button" class="btn btn-primary" onclick="window.print()"><i class="fa fa-print"></i> Print service record</button><a class="btn btn-default" href="{{ route('recommerce.repair.index') }}">Back to Repair</a></div>
     </div>
 
     <div class="grid">
-        <div class="record-card"><h2>Customer and device</h2><div class="card-body"><dl><dt>Customer</dt><dd>{{ optional($job->contact)->name ?: 'Unavailable' }}</dd><dt>Device</dt><dd>{{ $job->device->device_code }}</dd><dt>Category</dt><dd>{{ $job->device->category_code ?: '—' }}</dd><dt>Brand / model</dt><dd>{{ data_get($job->device->specifications_json, 'brand', '—') }} {{ data_get($job->device->specifications_json, 'model', '') }}</dd><dt>Identifier</dt><dd>{{ $job->device->identifiers->count() ? 'Verified on secure device record' : 'Not supplied' }}</dd><dt>Location</dt><dd>{{ $job->location_id }}</dd></dl></div></div>
+        <div class="record-card">
+            <h2>{{ $tradeInContext ? 'Acquisition and device' : 'Customer and device' }}</h2>
+            <div class="card-body">
+                <dl>
+                    @if($tradeInContext)
+                        <dt>Current owner</dt><dd>{{ $tradeInContext['current_owner'] }}</dd>
+                        <dt>Acquired from</dt>
+                        <dd>
+                            {{ $tradeInContext['acquired_from'] }}
+                            @if($tradeInContext['seller_phone'])
+                                <small class="text-muted">· {{ $tradeInContext['seller_phone'] }}</small>
+                            @endif
+                        </dd>
+                        <dt>Acquisition</dt><dd>RM {{ number_format((float) $tradeInContext['acquisition_amount'], 2) }} · {{ optional($tradeInContext['acquired_at'])->format('d M Y H:i') ?: 'Date unavailable' }}</dd>
+                    @else
+                        <dt>Customer</dt><dd>{{ optional($job->contact)->name ?: 'Unavailable' }}</dd>
+                    @endif
+                    <dt>Device</dt><dd>{{ $job->device->device_code }}</dd>
+                    <dt>Category</dt><dd>{{ $job->device->category_code ?: '—' }}</dd>
+                    <dt>Brand / model</dt><dd>{{ data_get($job->device->specifications_json, 'brand', '—') }} {{ data_get($job->device->specifications_json, 'model', '') }}</dd>
+                    <dt>Identifier</dt><dd>{{ $job->device->identifiers->count() ? 'Verified on secure device record' : 'Not supplied' }}</dd>
+                    <dt>Location</dt><dd>{{ $job->location_id }}</dd>
+                </dl>
+                @if($tradeInContext)
+                    <hr>
+                    <strong>Intake findings carried forward</strong>
+                    <p class="text-muted" style="margin:7px 0 0">Grade {{ $tradeInContext['cosmetic_grade'] ?: 'not recorded' }} · Battery {{ $tradeInContext['battery_health'] !== null ? $tradeInContext['battery_health'].'%' : 'not verified' }}</p>
+                    @if($tradeInContext['failures'])
+                        <ul style="margin:7px 0 0">
+                            @foreach($tradeInContext['failures'] as $failure)
+                                <li>{{ $failure }}</li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p class="text-muted" style="margin:7px 0 0">No failed or conditional functional checks were recorded at intake.</p>
+                    @endif
+                @endif
+            </div>
+        </div>
         <div class="record-card"><h2>Work plan</h2><div class="card-body"><dl><dt>Received</dt><dd>{{ optional($job->opened_at)->format('d M Y H:i') }}</dd><dt>Due</dt><dd>{{ $job->due_at ? $job->due_at->format('d M Y') : 'Not set' }}</dd><dt>Priority</dt><dd>{{ $job->priority }}</dd><dt>Technician</dt><dd>{{ trim((string) optional($job->assignee)->user_full_name) ?: 'Assign later' }}</dd><dt>Access</dt><dd>{{ str_replace('_', ' ', $job->access_status) }}</dd><dt>Quote</dt><dd>{{ $job->estimated_quote_amount !== null ? 'RM '.number_format((float) $job->estimated_quote_amount, 2) : 'Not estimated' }}</dd></dl></div></div>
     </div>
 

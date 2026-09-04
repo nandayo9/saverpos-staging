@@ -301,6 +301,45 @@ class TradeInService
         });
     }
 
+    public function returnForRevision(User $user, TradeInValuation $valuation, string $reason): TradeInValuation
+    {
+        $this->assertActorBusiness($user, (int) $valuation->business_id);
+        $this->assertWrite($user, self::PERMISSION_APPROVE, [
+            'business_id' => (int) $valuation->business_id,
+            'location_id' => (int) $valuation->location_id,
+            'variation_id' => (int) $valuation->variation_id,
+        ]);
+        if (trim($reason) === '') {
+            throw new LogicException('Return for revision requires a clear reason.');
+        }
+
+        return DB::transaction(function () use ($user, $valuation, $reason): TradeInValuation {
+            $locked = TradeInValuation::query()->whereKey($valuation->id)->lockForUpdate()->first();
+            if (! $locked || $locked->status !== TradeInValuation::STATUS_PENDING_APPROVAL) {
+                throw new LogicException('Only a pending approval can be returned for revision.');
+            }
+            $locked->status = TradeInValuation::STATUS_READY_TO_ACCEPT;
+            // Keep the offer blocked until the buyer records a revised offer and
+            // the authority service recalculates its approval requirement.
+            $locked->approval_required = true;
+            $locked->approved_by = null;
+            $locked->approved_at = null;
+            $locked->approval_reason = null;
+            $locked->lock_version = (int) $locked->lock_version + 1;
+            $locked->save();
+            $this->recordNegotiation(
+                $locked,
+                TradeInNegotiationEvent::MANAGER_REVISION_REQUESTED,
+                'MANAGER',
+                (float) $locked->staff_proposed_amount,
+                (int) $user->id,
+                $reason
+            );
+
+            return $locked;
+        });
+    }
+
     /** Post exactly one native UltimatePOS purchase, then append physical evidence. */
     public function accept(User $user, TradeInValuation $valuation, string $commandUuid): DeviceAcquisition
     {
@@ -330,6 +369,9 @@ class TradeInService
             $locked = TradeInValuation::query()->whereKey($valuation->id)->lockForUpdate()->first();
             if (! $locked || ! in_array($locked->status, [TradeInValuation::STATUS_READY_TO_ACCEPT, TradeInValuation::STATUS_APPROVED], true)) {
                 throw new LogicException('This trade-in valuation is not approved for acceptance.');
+            }
+            if ($locked->approval_required && $locked->status !== TradeInValuation::STATUS_APPROVED) {
+                throw new LogicException('The proposed amount requires recorded approval before acceptance.');
             }
             if ((float) $locked->staff_proposed_amount > (float) $locked->negotiation_ceiling_amount
                 && $locked->status !== TradeInValuation::STATUS_APPROVED) {
@@ -463,7 +505,7 @@ class TradeInService
             'variation_id' => (int) $valuation->variation_id,
         ]);
 
-        return DB::transaction(function () use ($user, $valuation, $reason): TradeInValuation {
+        return DB::transaction(function () use ($user, $valuation, $reason, $context): TradeInValuation {
             $locked = TradeInValuation::query()->whereKey($valuation->id)->lockForUpdate()->first();
             if (! $locked || ! in_array($locked->status, [TradeInValuation::STATUS_READY_TO_ACCEPT, TradeInValuation::STATUS_PENDING_APPROVAL, TradeInValuation::STATUS_APPROVED], true)) {
                 throw new LogicException('Only an open trade-in valuation can be rejected.');
@@ -482,7 +524,7 @@ class TradeInService
             $locked->rejection_reason = mb_substr(trim($reason), 0, 255);
             if (Schema::hasColumn('recommerce_trade_in_valuations', 'rejection_reason_code')) {
                 $code = strtoupper(trim((string) ($context['reason_code'] ?? 'OTHER')));
-                if (! in_array($code, ['OFFER_TOO_LOW', 'CUSTOMER_EXPECTED_MORE', 'COMPETITOR_OFFERED_MORE', 'CUSTOMER_DECIDED_NOT_TO_SELL', 'FAILED_INSPECTION', 'OWNERSHIP_OR_FRAUD_CONCERN', 'NO_SUITABLE_UPGRADE', 'PRICE_CHECK_ONLY', 'INVENTORY_TOO_HIGH', 'OTHER'], true)) {
+                if (! in_array($code, ['OFFER_TOO_LOW', 'CUSTOMER_EXPECTED_MORE', 'COMPETITOR_OFFERED_MORE', 'CUSTOMER_DECIDED_NOT_TO_SELL', 'CUSTOMER_OTHER', 'FAILED_INSPECTION', 'OWNERSHIP_OR_FRAUD_CONCERN', 'NO_SUITABLE_UPGRADE', 'PRICE_CHECK_ONLY', 'INVENTORY_TOO_HIGH', 'MDM_LOCK', 'TOO_DAMAGED', 'LOW_DEMAND', 'MARGIN_UNACCEPTABLE', 'CATALOGUE_MISMATCH', 'SAVERBRO_OTHER', 'OTHER'], true)) {
                     throw new LogicException('Choose a supported lost-acquisition reason.');
                 }
                 $locked->rejection_reason_code = $code;

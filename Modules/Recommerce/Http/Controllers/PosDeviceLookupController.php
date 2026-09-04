@@ -96,7 +96,7 @@ class PosDeviceLookupController extends Controller
     private function notFoundResponse()
     {
         return response()->json([
-            'message' => 'Device scan could not be resolved.',
+            'message' => 'No sellable Device matched this scan. Scan its QR label, Device ID, serial or IMEI, or select the matching product first.',
         ], 404)->header('Cache-Control', 'no-store')
             ->header('Referrer-Policy', 'no-referrer');
     }
