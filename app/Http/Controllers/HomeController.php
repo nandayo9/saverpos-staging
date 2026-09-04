@@ -531,27 +531,19 @@ class HomeController extends Controller
                 ->get()
                 ->keyBy('location_id');
 
-            $allocated_quantity = 'COALESCE(tspl.quantity, tsl.quantity, 0) - COALESCE(tspl.qty_returned, tsl.quantity_returned, 0)';
-            $unit_cost = 'COALESCE(pl.purchase_price_inc_tax, v.dpp_inc_tax, 0)';
-            $gross_profit = DB::table('transaction_sell_lines as tsl')
-                ->join('transactions as t', 'tsl.transaction_id', '=', 't.id')
-                ->leftJoin('transaction_sell_lines_purchase_lines as tspl', 'tspl.sell_line_id', '=', 'tsl.id')
-                ->leftJoin('purchase_lines as pl', 'pl.id', '=', 'tspl.purchase_line_id')
-                ->leftJoin('variations as v', 'v.id', '=', 'tsl.variation_id')
-                ->where('t.business_id', $business_id)
-                ->where('t.type', 'sell')
-                ->where('t.status', 'final')
-                ->whereBetween('t.transaction_date', [$start, $end])
-                ->when($permitted_locations != 'all', function ($query) use ($permitted_locations) {
-                    $query->whereIn('t.location_id', $permitted_locations);
-                })
-                ->select(
-                    't.location_id',
-                    DB::raw('SUM(('.$allocated_quantity.') * (COALESCE(tsl.unit_price_inc_tax, 0) - '.$unit_cost.')) as gross_profit')
-                )
-                ->groupBy('t.location_id')
-                ->get()
-                ->keyBy('location_id');
+            // Keep the dashboard aligned with UltimatePOS's financial source of truth.
+            // The core utility handles stock/non-stock products, returns and combo lines;
+            // a simplified sell-line join can silently report zero for valid branch sales.
+            $gross_profit_by_location = $locations->keys()->mapWithKeys(function ($location_id) use ($business_id, $start, $end, $permitted_locations) {
+                return [(int) $location_id => (float) $this->transactionUtil->getGrossProfit(
+                    $business_id,
+                    $start->toDateString(),
+                    $end->toDateString(),
+                    (int) $location_id,
+                    null,
+                    $permitted_locations
+                )];
+            });
 
             $walk_ins = DB::table('walk_ins as wi')
                 ->where('wi.business_id', $business_id)
@@ -568,7 +560,7 @@ class HomeController extends Controller
                 ->get()
                 ->keyBy('location_id');
 
-            $branches = $locations->map(function ($name, $location_id) use ($sales, $gross_profit, $walk_ins) {
+            $branches = $locations->map(function ($name, $location_id) use ($sales, $gross_profit_by_location, $walk_ins) {
                 $sales_total = (float) ($sales->get($location_id)->sales ?? 0);
                 $walk_in_total = (int) ($walk_ins->get($location_id)->walk_ins ?? 0);
                 $sold_total = (int) ($walk_ins->get($location_id)->sold ?? 0);
@@ -580,7 +572,7 @@ class HomeController extends Controller
                     'walk_ins' => $walk_in_total,
                     'sold' => $sold_total,
                     'conversion' => $conversion,
-                    'gross_profit' => (float) ($gross_profit->get($location_id)->gross_profit ?? 0),
+                    'gross_profit' => (float) $gross_profit_by_location->get((int) $location_id, 0),
                 ];
             })->sortByDesc('sales')->values();
 

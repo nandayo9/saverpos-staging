@@ -60,6 +60,8 @@ class DashboardDarkThemeTest extends TestCase
         $this->assertStringContainsString('getRecentSellTransactions', $controller);
         $this->assertStringContainsString('getMostAvailableModels', $controller);
         $this->assertStringContainsString('getBranchPerformance', $controller);
+        $this->assertStringContainsString('$this->transactionUtil->getGrossProfit(', $controller);
+        $this->assertStringNotContainsString('$allocated_quantity = \'COALESCE(tspl.quantity', $controller);
         $this->assertStringContainsString("$('.walk_in_total').text", $javascript);
         $this->assertStringContainsString("$('.total_sell_transactions').text", $javascript);
         $this->assertStringContainsString('/home/top-selling-products', $javascript);
