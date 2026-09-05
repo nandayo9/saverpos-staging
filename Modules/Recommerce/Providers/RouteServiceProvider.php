@@ -18,5 +18,10 @@ class RouteServiceProvider extends ServiceProvider
         Route::middleware('web')
             ->namespace($this->moduleNamespace)
             ->group(module_path('Recommerce', 'Routes/web.php'));
+
+        Route::prefix('api')
+            ->middleware('api')
+            ->namespace($this->moduleNamespace)
+            ->group(module_path('Recommerce', 'Routes/api.php'));
     }
 }

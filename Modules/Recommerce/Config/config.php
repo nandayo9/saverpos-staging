@@ -15,6 +15,24 @@ return [
     'enabled' => env('RECOMMERCE_ENABLED', false),
     'writes_enabled' => env('RECOMMERCE_WRITES_ENABLED', false),
     'resolver_host' => env('RECOMMERCE_RESOLVER_HOST'),
+    // Staging-only, server-to-server customer listing projection. There is no
+    // default token, cohort or production fallback; all conditions must be
+    // explicitly configured before the API exposes any data.
+    'customer_projection' => [
+        'enabled' => env('RECOMMERCE_CUSTOMER_PROJECTION_ENABLED', false),
+        'bearer_token' => env('RECOMMERCE_CUSTOMER_PROJECTION_BEARER_TOKEN'),
+        'contract_version' => env('RECOMMERCE_CUSTOMER_PROJECTION_CONTRACT_VERSION', '1.0'),
+        'business_id' => env('RECOMMERCE_CUSTOMER_PROJECTION_BUSINESS_ID'),
+        'location_ids' => array_values(array_filter(
+            array_map('intval', explode(',', (string) env('RECOMMERCE_CUSTOMER_PROJECTION_LOCATION_IDS', ''))),
+            fn (int $locationId): bool => $locationId > 0
+        )),
+        'variation_ids' => array_values(array_filter(
+            array_map('intval', explode(',', (string) env('RECOMMERCE_CUSTOMER_PROJECTION_VARIATION_IDS', ''))),
+            fn (int $variationId): bool => $variationId > 0
+        )),
+        'currency' => env('RECOMMERCE_CUSTOMER_PROJECTION_CURRENCY', 'MYR'),
+    ],
     // Public QR pages never infer an action URL from an untrusted request.
     // Configure one approved HTTPS customer-support endpoint before exposing
     // the warranty-service button.
