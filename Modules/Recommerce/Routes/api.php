@@ -6,6 +6,7 @@ use Modules\Recommerce\Http\Middleware\CustomerProjectionToken;
 Route::middleware([CustomerProjectionToken::class, 'throttle:60,1'])
     ->prefix('customer-projection/v1')
     ->group(function (): void {
+        Route::get('/listings', 'CustomerProjectionController@listings');
         Route::get('/models', 'CustomerProjectionController@models');
         Route::get('/models/{slug}', 'CustomerProjectionController@model')
             ->where('slug', '[a-z0-9-]+');

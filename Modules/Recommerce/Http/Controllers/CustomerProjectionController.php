@@ -3,6 +3,7 @@
 namespace Modules\Recommerce\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Modules\Recommerce\Services\CustomerDeviceListingProjection;
 use Modules\Recommerce\Services\CustomerProjectionAccess;
 
@@ -17,6 +18,16 @@ final class CustomerProjectionController
     public function models(): JsonResponse
     {
         return $this->response($this->projection->models());
+    }
+
+    public function listings(Request $request): JsonResponse
+    {
+        $result = $this->projection->listings($request->only([
+            'page', 'per_page', 'sort', 'category', 'brand', 'model_slug',
+            'cpu', 'ram', 'storage', 'branch', 'min_price', 'max_price',
+        ]));
+
+        return $this->response($result['records'], ['pagination' => $result['pagination']]);
     }
 
     public function model(string $slug): JsonResponse
@@ -53,7 +64,7 @@ final class CustomerProjectionController
     }
 
     /** @param array<string, mixed>|list<array<string, mixed>> $data */
-    private function response(array $data): JsonResponse
+    private function response(array $data, array $extraMeta = []): JsonResponse
     {
         $refreshedAt = now()->toAtomString();
         $sourceVersion = 0;
@@ -66,13 +77,13 @@ final class CustomerProjectionController
 
         return response()->json([
             'data' => $data,
-            'meta' => [
+            'meta' => array_merge([
                 'contract_version' => $this->access->contractVersion(),
                 'authoritative_source' => 'SAVERPOS',
                 'projection_kind' => 'staging_device_listing_projection',
                 'source_version' => $sourceVersion,
                 'refreshed_at' => $refreshedAt,
-            ],
+            ], $extraMeta),
         ])->header('Cache-Control', 'private, no-store')
             ->header('X-Robots-Tag', 'noindex, nofollow, noarchive');
     }

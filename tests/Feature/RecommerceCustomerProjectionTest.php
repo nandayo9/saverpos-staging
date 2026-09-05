@@ -158,6 +158,41 @@ class RecommerceCustomerProjectionTest extends TestCase
         $this->assertNull(app(CustomerDeviceListingProjection::class)->device((string) $device->public_device_id));
     }
 
+    public function test_listings_are_source_filtered_sorted_and_paginated_without_internal_identifiers(): void
+    {
+        $first = $this->device([
+            'listing_price' => 999.00,
+            'listing_model_slug' => 'lenovo-thinkpad-t14-gen-2',
+            'specifications_json' => ['brand' => 'Lenovo', 'model' => 'ThinkPad T14 Gen 2', 'ram' => '8GB', 'storage' => '256GB SSD'],
+            'updated_at' => now()->subHour(),
+        ]);
+        $second = $this->device([
+            'listing_price' => 1499.00,
+            'listing_model_slug' => 'lenovo-thinkpad-t14-gen-2',
+            'specifications_json' => ['brand' => 'Lenovo', 'model' => 'ThinkPad T14 Gen 2', 'ram' => '16GB', 'storage' => '512GB SSD'],
+            'updated_at' => now(),
+        ]);
+        $this->device(['listing_publication_state' => 'DRAFT', 'listing_price' => 799.00]);
+
+        $result = app(CustomerDeviceListingProjection::class)->listings([
+            'brand' => 'Lenovo', 'ram' => '16GB', 'sort' => 'price_high', 'per_page' => 1, 'page' => 1,
+        ]);
+
+        $this->assertSame(1, $result['pagination']['total']);
+        $this->assertSame(1, $result['pagination']['total_pages']);
+        $this->assertSame((string) $second->public_device_id, $result['records'][0]['public_device_id']);
+        $this->assertStringNotContainsString('device_code', json_encode($result, JSON_THROW_ON_ERROR));
+
+        $page = app(CustomerDeviceListingProjection::class)->listings(['sort' => 'price_low', 'per_page' => 1, 'page' => 1]);
+        $this->assertSame(2, $page['pagination']['total']);
+        $this->assertSame((string) $first->public_device_id, $page['records'][0]['public_device_id']);
+
+        $controller = app(CustomerProjectionController::class);
+        $response = $controller->listings(Request::create('/api/customer-projection/v1/listings', 'GET', ['per_page' => 1, 'sort' => 'price_low']));
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame(2, $response->getData(true)['meta']['pagination']['total']);
+    }
+
     public function test_token_guard_is_staging_only_and_never_accepts_a_missing_or_wrong_secret(): void
     {
         $middleware = app(CustomerProjectionToken::class);
@@ -213,6 +248,12 @@ class RecommerceCustomerProjectionTest extends TestCase
             ->assertJsonPath('data.public_device_id', $device->public_device_id)
             ->assertJsonMissingPath('data.device_code')
             ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+        $this->withHeader('Authorization', 'Bearer ' . str_repeat('s', 48))
+            ->getJson('/api/customer-projection/v1/listings?per_page=1&sort=price_low')
+            ->assertOk()
+            ->assertJsonPath('meta.pagination.per_page', 1)
+            ->assertJsonPath('meta.pagination.total', 1)
+            ->assertJsonMissingPath('data.0.device_code');
     }
 
     /** @param array<string, mixed> $overrides */

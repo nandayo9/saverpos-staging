@@ -87,6 +87,34 @@ final class CustomerDeviceListingProjection
         );
     }
 
+    /**
+     * @param array<string, mixed> $filters
+     * @return array{records:list<array<string, mixed>>,pagination:array<string, int>}
+     */
+    public function listings(array $filters): array
+    {
+        if (! $this->access->enabled()) {
+            return ['records' => [], 'pagination' => $this->pagination(1, 12, 0)];
+        }
+
+        $filters = $this->filters($filters);
+        $query = $this->eligibleQuery();
+        $this->applyFilters($query, $filters);
+        $total = (int) $query->count();
+        $page = min($filters['page'], max(1, (int) ceil($total / $filters['per_page'])));
+        $this->applySort($query, $filters['sort']);
+        $records = $query->forPage($page, $filters['per_page'])->get()
+            ->map(fn (Device $device): ?array => $this->record($device))
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            'records' => $records,
+            'pagination' => $this->pagination($page, $filters['per_page'], $total),
+        ];
+    }
+
     /** @return Collection<int, array<string, mixed>> */
     private function eligibleRecords(): Collection
     {
@@ -119,7 +147,87 @@ final class CustomerDeviceListingProjection
             ->whereNotNull('public_device_id')
             ->whereNotNull('listing_model_slug')
             ->whereNotNull('listing_specification_id')
-            ->whereHas('currentLocation', fn (Builder $query) => $query->where('business_id', $this->access->businessId()));
+            ->whereHas('currentLocation', fn (Builder $query) => $query->where('business_id', $this->access->businessId()))
+            ->whereHas('product', fn (Builder $query) => $query->where('business_id', $this->access->businessId()))
+            ->whereHas('variation', fn (Builder $query) => $query->whereColumn('variations.product_id', 'recommerce_devices.product_id'));
+    }
+
+    /** @param array<string, mixed> $input @return array{page:int,per_page:int,sort:string,category:?string,brand:?string,model_slug:?string,cpu:?string,ram:?string,storage:?string,branch:?string,min_price:?float,max_price:?float} */
+    private function filters(array $input): array
+    {
+        $choice = fn (string $key, int $limit = 160): ?string => $this->text($input[$key] ?? null, $limit);
+        $decimal = function (string $key) use ($input): ?float {
+            if (! array_key_exists($key, $input) || $input[$key] === '') {
+                return null;
+            }
+            if (! is_numeric($input[$key]) || (float) $input[$key] < 0) {
+                return null;
+            }
+
+            return round((float) $input[$key], 2);
+        };
+        $sort = $choice('sort', 24) ?? 'newest';
+
+        return [
+            'page' => max(1, min(100000, (int) ($input['page'] ?? 1))),
+            'per_page' => max(1, min(48, (int) ($input['per_page'] ?? 12))),
+            'sort' => in_array($sort, ['newest', 'price_low', 'price_high'], true) ? $sort : 'newest',
+            'category' => $choice('category', 48),
+            'brand' => $choice('brand', 120),
+            'model_slug' => $this->slug($input['model_slug'] ?? null),
+            'cpu' => $choice('cpu', 160),
+            'ram' => $choice('ram', 80),
+            'storage' => $choice('storage', 120),
+            'branch' => $choice('branch', 160),
+            'min_price' => $decimal('min_price'),
+            'max_price' => $decimal('max_price'),
+        ];
+    }
+
+    /** @param Builder<Device> $query @param array<string, mixed> $filters */
+    private function applyFilters(Builder $query, array $filters): void
+    {
+        foreach (['brand', 'cpu', 'ram', 'storage'] as $key) {
+            if ($filters[$key] !== null) {
+                $query->where('specifications_json->' . $key, $filters[$key]);
+            }
+        }
+        if ($filters['category'] !== null) {
+            $query->where('category_code', $filters['category']);
+        }
+        if ($filters['model_slug'] !== null) {
+            $query->where('listing_model_slug', $filters['model_slug']);
+        }
+        if ($filters['branch'] !== null) {
+            $query->whereHas('currentLocation', fn (Builder $location): Builder => $location->where('name', $filters['branch']));
+        }
+        if ($filters['min_price'] !== null) {
+            $query->where('listing_price', '>=', $filters['min_price']);
+        }
+        if ($filters['max_price'] !== null) {
+            $query->where('listing_price', '<=', $filters['max_price']);
+        }
+    }
+
+    /** @param Builder<Device> $query */
+    private function applySort(Builder $query, string $sort): void
+    {
+        match ($sort) {
+            'price_low' => $query->orderBy('listing_price')->orderBy('public_device_id'),
+            'price_high' => $query->orderByDesc('listing_price')->orderBy('public_device_id'),
+            default => $query->orderByDesc('updated_at')->orderBy('public_device_id'),
+        };
+    }
+
+    /** @return array{page:int,per_page:int,total:int,total_pages:int} */
+    private function pagination(int $page, int $perPage, int $total): array
+    {
+        return [
+            'page' => $page,
+            'per_page' => $perPage,
+            'total' => $total,
+            'total_pages' => max(1, (int) ceil($total / $perPage)),
+        ];
     }
 
     /** @return array<string, mixed>|null */
