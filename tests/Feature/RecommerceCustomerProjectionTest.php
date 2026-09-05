@@ -193,6 +193,26 @@ class RecommerceCustomerProjectionTest extends TestCase
         $this->assertSame(2, $response->getData(true)['meta']['pagination']['total']);
     }
 
+    public function test_an_exact_device_disappears_after_its_authoritative_availability_changes(): void
+    {
+        $device = $this->device();
+        $projection = app(CustomerDeviceListingProjection::class);
+        $this->assertSame(1, $projection->listings(['per_page' => 12])['pagination']['total']);
+        $this->assertNotNull($projection->device((string) $device->public_device_id));
+
+        DB::table('recommerce_devices')->where('id', $device->id)->update([
+            'lifecycle_state' => 'SOLD',
+            'sold_at' => now(),
+        ]);
+
+        $this->assertSame(0, $projection->listings(['per_page' => 12])['pagination']['total']);
+        $this->assertNull($projection->device((string) $device->public_device_id));
+        $this->assertSame(
+            404,
+            app(CustomerProjectionController::class)->device((string) $device->public_device_id)->getStatusCode()
+        );
+    }
+
     public function test_token_guard_is_staging_only_and_never_accepts_a_missing_or_wrong_secret(): void
     {
         $middleware = app(CustomerProjectionToken::class);
