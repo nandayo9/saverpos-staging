@@ -306,12 +306,14 @@ class DeviceController extends Controller
             $device->variation_id
         ) && ! empty($device->sold_at);
 
+        $tradeInAcquisition = $device->acquisitions()->latest('id')->first();
         $acquisition = null;
-        if ($device->purchaseAssignment) {
+        $sourceTransactionId = $device->purchaseAssignment?->transaction_id ?: $tradeInAcquisition?->transaction_id;
+        if ($sourceTransactionId) {
             $acquisition = DB::table('transactions as t')
                 ->leftJoin('contacts as c', 'c.id', '=', 't.contact_id')
                 ->leftJoin('business_locations as l', 'l.id', '=', 't.location_id')
-                ->where('t.id', $device->purchaseAssignment->transaction_id)
+                ->where('t.id', $sourceTransactionId)
                 ->select(['t.id', 't.ref_no', 't.invoice_no', 't.transaction_date', 'c.name as supplier_name', 'c.supplier_business_name', 'l.name as location_name'])
                 ->first();
         }
@@ -379,6 +381,7 @@ class DeviceController extends Controller
             'hasLabelPrintView' => $latestLabelItem !== null,
             'certificationPublishEnabled' => $certificationPublishEnabled,
             'acquisition' => $acquisition,
+            'tradeInAcquisition' => $tradeInAcquisition,
             'economicsVisible' => $economicsVisible,
             'deviceProfile' => $deviceProfile,
             'technicalSpecifications' => $technicalSpecifications,

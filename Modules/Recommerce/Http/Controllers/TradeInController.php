@@ -20,17 +20,21 @@ use Modules\Recommerce\Entities\TradeInQuickQuote;
 use Modules\Recommerce\Entities\TradeInRuleSet;
 use Modules\Recommerce\Entities\TradeInAuthorityRule;
 use Modules\Recommerce\Entities\TradeInSellerRepresentation;
+use Modules\Recommerce\Entities\TradeInIntake;
 use Modules\Recommerce\Entities\TradeInValuation;
 use Modules\Recommerce\Services\TradeInService;
 use Modules\Recommerce\Services\TradeInDeviceIntakeService;
 use Modules\Recommerce\Services\TradeInNegotiationService;
 use Modules\Recommerce\Services\TradeInPhotoService;
 use Modules\Recommerce\Services\TradeInQuickQuoteService;
+use Modules\Recommerce\Services\TradeInCatalogueService;
 use Modules\Recommerce\Services\TradeInAuthorityService;
 use Modules\Recommerce\Services\TradeInQcReleaseService;
 use Modules\Recommerce\Services\TradeInRefurbishmentService;
 use Modules\Recommerce\Services\TradeInRuleResolver;
 use Modules\Recommerce\Services\TradeInSellerService;
+use Modules\Recommerce\Services\TradeInWebsiteCaseService;
+use Modules\Recommerce\Services\TradeInWebsiteEvidenceClient;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Throwable;
 
@@ -68,12 +72,69 @@ class TradeInController extends Controller
         return $this->renderWorkspace('show', $request, $authorizationGate, $valuation);
     }
 
-    public function store(Request $request, TradeInService $service, TradeInSellerService $sellerService, TradeInDeviceIntakeService $deviceIntake, TradeInRuleResolver $ruleResolver, TradeInPhotoService $photoService, TradeInQuickQuoteService $quickQuoteService): RedirectResponse
+    public function websiteIntake(int $intakeId, Request $request, AuthorizationGate $authorizationGate)
+    {
+        $intake = TradeInIntake::query()->where('business_id', auth()->user()->business_id)->findOrFail($intakeId);
+        return $this->renderWorkspace('website', $request, $authorizationGate, null, $intake);
+    }
+
+    public function linkWebsiteIntakeValuation(int $intakeId, Request $request, TradeInWebsiteCaseService $cases): RedirectResponse
+    {
+        $intake = TradeInIntake::query()->where('business_id', auth()->user()->business_id)->findOrFail($intakeId);
+        $valuation = TradeInValuation::query()->where('business_id', auth()->user()->business_id)->findOrFail((int) $request->input('valuation_id'));
+        try {
+            $cases->linkValuation(auth()->user(), $intake, $valuation);
+            return back()->with('status', ['success' => true, 'msg' => 'Website intake linked to the native Trade-In valuation.']);
+        } catch (AuthorizationException $exception) { abort(403); }
+        catch (LogicException $exception) { return back()->with('status', ['success' => false, 'msg' => $exception->getMessage()]); }
+    }
+
+    public function publishWebsiteIntakeOffer(int $intakeId, TradeInWebsiteCaseService $cases): RedirectResponse
+    {
+        $intake = TradeInIntake::query()->where('business_id', auth()->user()->business_id)->findOrFail($intakeId);
+        try {
+            $offer = $cases->publish(auth()->user(), $intake);
+            return back()->with('status', ['success' => true, 'msg' => 'Approved offer v'.$offer->offer_version.' published to the website projection.']);
+        } catch (AuthorizationException $exception) { abort(403); }
+        catch (LogicException $exception) { return back()->with('status', ['success' => false, 'msg' => $exception->getMessage()]); }
+    }
+
+    public function websiteIntakeEvidence(int $intakeId, string $evidenceId, AuthorizationGate $authorizationGate, TradeInWebsiteEvidenceClient $evidence)
+    {
+        $user = auth()->user();
+        $intake = TradeInIntake::query()->where('business_id', $user->business_id)->findOrFail($intakeId);
+        $locationId = (int) ($intake->location_id ?: config('recommerce.cohort.location_id'));
+        if (! User::can_access_this_location($locationId, (int) $user->business_id)
+            || ! $authorizationGate->allowsRead($user, TradeInService::PERMISSION_VIEW, (int) $user->business_id, $locationId)) {
+            abort(403);
+        }
+        try { $file = $evidence->fetch($intake, $evidenceId); }
+        catch (LogicException $exception) { abort(404); }
+        return response($file['bytes'], 200, [
+            'Content-Type' => $file['mime_type'], 'Content-Disposition' => 'inline', 'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff', 'X-Robots-Tag' => 'noindex, nofollow, noarchive', 'Referrer-Policy' => 'no-referrer',
+        ]);
+    }
+
+    public function store(Request $request, TradeInService $service, TradeInSellerService $sellerService, TradeInDeviceIntakeService $deviceIntake, TradeInRuleResolver $ruleResolver, TradeInPhotoService $photoService, TradeInQuickQuoteService $quickQuoteService, TradeInCatalogueService $catalogue): RedirectResponse
     {
         try {
-            $valuation = DB::transaction(function () use ($request, $service, $sellerService, $deviceIntake, $ruleResolver, $photoService, $quickQuoteService): TradeInValuation {
-                $variation = $this->scopedVariation((int) $request->input('variation_id'));
+            $valuation = DB::transaction(function () use ($request, $service, $sellerService, $deviceIntake, $ruleResolver, $photoService, $quickQuoteService, $catalogue): TradeInValuation {
                 $user = auth()->user();
+                if ($request->filled('quick_quote_id') && Schema::hasTable('recommerce_trade_in_quick_quotes')) {
+                    $quickQuoteId = (int) $request->input('quick_quote_id');
+                    $quote = TradeInQuickQuote::query()
+                        ->where('business_id', $user->business_id)
+                        ->where('location_id', config('recommerce.cohort.location_id'))
+                        ->lockForUpdate()->findOrFail($quickQuoteId);
+                    if (! $quote->variation_id) {
+                        throw new LogicException('Match this Quick Quote to an existing SKU or create a Trade-In SKU before formal assessment.');
+                    }
+                    if ((int) $quote->variation_id !== (int) $request->input('variation_id')) {
+                        throw new LogicException('The selected catalogue SKU does not match this Quick Quote. Reopen catalogue matching before continuing.');
+                    }
+                }
+                $variation = $this->scopedVariation((int) $request->input('variation_id'));
                 $customer = $sellerService->resolveOrCreateCustomer(
                     $user,
                     $request->filled('customer_contact_id') ? (int) $request->input('customer_contact_id') : null,
@@ -158,6 +219,7 @@ class TradeInController extends Controller
                         ->findOrFail((int) $request->input('quick_quote_id'));
                     $quickQuoteService->continueToValuation($quote, $valuation);
                 }
+                $catalogue->attachToValuation($valuation);
 
                 return $valuation;
             });
@@ -266,6 +328,38 @@ class TradeInController extends Controller
         }
     }
 
+    /** Match an active Quick Quote to an existing SKU or create its permanent TN SKU. */
+    public function resolveQuickQuoteCatalogue(int $quoteId, Request $request, TradeInCatalogueService $catalogue): RedirectResponse
+    {
+        $quote = TradeInQuickQuote::query()
+            ->where('business_id', auth()->user()->business_id)
+            ->where('location_id', config('recommerce.cohort.location_id'))
+            ->findOrFail($quoteId);
+        try {
+            if ($request->input('catalogue_action') === 'use_existing') {
+                $variation = $catalogue->assignExistingToQuickQuote(auth()->user(), $quote, (int) $request->input('variation_id'));
+                return redirect()->route('recommerce.tradeins.create', ['quote' => $quote->id])->with('status', [
+                    'success' => true, 'msg' => 'Existing SKU '.$variation->sub_sku.' selected. Continue the formal assessment.',
+                ]);
+            }
+            $result = $catalogue->createForQuickQuote(
+                auth()->user(),
+                $quote,
+                $request->boolean('override_similar'),
+                $request->input('duplicate_override_reason'),
+                $request->input('duplicate_override_note')
+            );
+            return redirect()->route('recommerce.tradeins.create', ['quote' => $quote->id])->with('status', [
+                'success' => true,
+                'msg' => $result['created'] ? 'Trade-In SKU created: '.$result['variation']->sub_sku.'. Continue the formal assessment.' : 'Existing exact SKU '.$result['variation']->sub_sku.' reused. Continue the formal assessment.',
+            ]);
+        } catch (AuthorizationException $exception) {
+            abort(404);
+        } catch (LogicException $exception) {
+            return back()->with('status', ['success' => false, 'msg' => $exception->getMessage()]);
+        }
+    }
+
     public function approve(int $valuationId, Request $request, TradeInService $service): RedirectResponse
     {
         return $this->action($valuationId, fn (TradeInValuation $valuation) => $service->approve(auth()->user(), $valuation, (string) $request->input('reason')));
@@ -324,7 +418,7 @@ class TradeInController extends Controller
         catch (LogicException $exception) { return back()->with('status', ['success' => false, 'msg' => $exception->getMessage()]); }
     }
 
-    protected function renderWorkspace(string $page, Request $request, AuthorizationGate $authorizationGate, ?TradeInValuation $selectedValuation = null)
+    protected function renderWorkspace(string $page, Request $request, AuthorizationGate $authorizationGate, ?TradeInValuation $selectedValuation = null, ?TradeInIntake $selectedIntake = null)
     {
         $user = auth()->user();
         $businessId = (int) $user->business_id;
@@ -335,8 +429,15 @@ class TradeInController extends Controller
             abort(404);
         }
 
+        $profileVariationIds = Schema::hasTable('recommerce_serialization_profiles')
+            ? DB::table('recommerce_serialization_profiles')->where('business_id', $businessId)
+                ->whereIn('mode', ['TRACKED_REQUIRED', 'LEGACY_MIXED'])
+                ->when(Schema::hasColumn('recommerce_serialization_profiles', 'inventory_tracking_mode'), fn ($query) => $query->where('inventory_tracking_mode', 'SERIALIZED_DEVICE'))
+                ->pluck('variation_id')->map(fn ($id) => (int) $id)->all()
+            : [];
+        $eligibleVariationIds = array_values(array_unique(array_merge($variationIds, $profileVariationIds)));
         $variations = Variation::query()->with('product')
-            ->whereIn('id', $variationIds)
+            ->whereIn('id', $eligibleVariationIds)
             ->whereHas('product', fn ($query) => $query->where('business_id', $businessId))
             ->orderBy('id')->get()
             ->filter(fn (Variation $variation) => $authorizationGate->allowsRead(
@@ -345,13 +446,21 @@ class TradeInController extends Controller
         $firstVariation = $variations->first();
 
         $valuations = TradeInValuation::query()
-            ->with(['device', 'customer', 'createdBy', 'marketEvidence', 'ruleSet', 'laptopInspection', 'negotiationEvents', 'acquisition'])
+            ->with(['device', 'customer', 'createdBy', 'marketEvidence', 'ruleSet', 'laptopInspection', 'negotiationEvents', 'acquisition', 'variation.product', 'variation.tradeInCatalogueOrigin.createdBy', 'variation.tradeInCatalogueOrigin.quickQuote'])
             ->where('business_id', $businessId)->where('location_id', $locationId)
             ->latest('id')->limit(500)->get();
         $quickQuotes = Schema::hasTable('recommerce_trade_in_quick_quotes')
             ? TradeInQuickQuote::query()->with(['customer', 'variation.product', 'createdBy', 'valuation'])
                 ->where('business_id', $businessId)->where('location_id', $locationId)->latest('id')->limit(500)->get()
             : collect();
+        $websiteIntakes = Schema::hasTable('recommerce_trade_in_intakes')
+            ? TradeInIntake::query()->with(['valuation.device', 'valuation.acquisition', 'offers.decision'])
+                ->where('business_id', $businessId)->latest('submitted_at')->limit(500)->get()
+            : collect();
+        if ($selectedIntake) {
+            $selectedIntake = $websiteIntakes->firstWhere('id', $selectedIntake->id)
+                ?: $selectedIntake->load(['valuation.device', 'valuation.acquisition', 'offers.decision']);
+        }
         $qcJobsByValuation = Schema::hasTable('recommerce_repair_jobs')
             ? RepairJob::query()->where('business_id', $businessId)->where('source_type', 'TRADE_IN_VALUATION')
                 ->whereIn('source_id', $valuations->pluck('id'))->latest('id')->get()->keyBy('source_id')
@@ -389,6 +498,12 @@ class TradeInController extends Controller
         if ($selectedValuation) {
             $selectedValuation = $valuations->firstWhere('id', $selectedValuation->id) ?: $selectedValuation;
         }
+        $catalogueMatch = $page === 'create' && $selectedQuote && ! $selectedQuote->variation_id
+            ? app(TradeInCatalogueService::class)->match($businessId, (array) $selectedQuote->specifications_json)
+            : null;
+        $cataloguePreview = $page === 'create' && $selectedQuote && ! $selectedQuote->variation_id
+            ? app(TradeInCatalogueService::class)->preview($businessId, (array) $selectedQuote->specifications_json)
+            : null;
 
         $data = [
             'workspacePage' => $page,
@@ -401,8 +516,12 @@ class TradeInController extends Controller
                 ->with(['identifiers', 'product'])->orderBy('device_code')->limit(200)->get(),
             'valuations' => $valuations,
             'quickQuotes' => $quickQuotes,
+            'websiteIntakes' => $websiteIntakes,
+            'selectedIntake' => $selectedIntake,
             'selectedValuation' => $selectedValuation,
             'selectedQuote' => $selectedQuote,
+            'catalogueMatch' => $catalogueMatch,
+            'cataloguePreview' => $cataloguePreview,
             'qcJobsByValuation' => $qcJobsByValuation,
             'customerLostCodes' => $customerLostCodes,
             'metrics' => [
@@ -452,6 +571,8 @@ class TradeInController extends Controller
             'canAccept' => (bool) ($firstVariation && $authorizationGate->allowsWrite($user, TradeInService::PERMISSION_ACCEPT, $businessId, $locationId, $firstVariation->id)),
             'canOverrideEconomic' => (bool) ($firstVariation && $authorizationGate->allowsWrite($user, TradeInService::PERMISSION_OVERRIDE_ECONOMIC, $businessId, $locationId, $firstVariation->id)),
             'canReverse' => (bool) ($firstVariation && $authorizationGate->allowsWrite($user, TradeInService::PERMISSION_REVERSE, $businessId, $locationId, $firstVariation->id)),
+            'canCreateCatalogue' => $authorizationGate->allowsWriteLocation($user, TradeInCatalogueService::PERMISSION_CREATE, $businessId, $locationId),
+            'canOverrideCatalogueDuplicate' => $authorizationGate->allowsWriteLocation($user, TradeInCatalogueService::PERMISSION_OVERRIDE_DUPLICATE, $businessId, $locationId),
             'sellerDeclarationText' => (string) config('recommerce.tradein_seller_declaration'),
         ];
 

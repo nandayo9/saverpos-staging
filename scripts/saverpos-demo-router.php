@@ -22,12 +22,12 @@ putenv('DB_PASSWORD=');
 putenv('DB_SOCKET='.$socket);
 putenv('RECOMMERCE_ENABLED=(true)');
 putenv('RECOMMERCE_WRITES_ENABLED=(true)');
-putenv('RECOMMERCE_COHORT_BUSINESS_ID=1');
-putenv('RECOMMERCE_COHORT_LOCATION_ID=1');
-putenv('RECOMMERCE_COHORT_LOCATION_IDS=1,2');
+putenv('RECOMMERCE_COHORT_BUSINESS_ID='.(getenv('RECOMMERCE_COHORT_BUSINESS_ID') ?: '1'));
+putenv('RECOMMERCE_COHORT_LOCATION_ID='.(getenv('RECOMMERCE_COHORT_LOCATION_ID') ?: '1'));
+putenv('RECOMMERCE_COHORT_LOCATION_IDS='.(getenv('RECOMMERCE_COHORT_LOCATION_IDS') ?: '1,2'));
 // The fresh demo fixture includes a tracked laptop at variation 3 for
 // exact-device transfer proof, alongside its primary and holding variations.
-putenv('RECOMMERCE_COHORT_VARIATION_IDS=1,3,6');
+putenv('RECOMMERCE_COHORT_VARIATION_IDS='.(getenv('RECOMMERCE_COHORT_VARIATION_IDS') ?: '1,3,6'));
 // QR labels require an HTTPS resolver. The local fixture never exposes its
 // temporary host in a Device label, so use the canonical public resolver.
 putenv('RECOMMERCE_RESOLVER_HOST=pos.kkcctv.com.my');

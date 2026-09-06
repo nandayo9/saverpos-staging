@@ -22,6 +22,7 @@ use Modules\Recommerce\Entities\DeviceMovement;
 use Modules\Recommerce\Entities\OwnershipPeriod;
 use Modules\Recommerce\Entities\TradeInMarketEvidence;
 use Modules\Recommerce\Entities\TradeInRuleSet;
+use Modules\Recommerce\Entities\TradeInIntake;
 use Modules\Recommerce\Entities\TradeInValuation;
 use Modules\Recommerce\Entities\TradeInLaptopInspection;
 use Modules\Recommerce\Entities\TradeInNegotiationEvent;
@@ -344,6 +345,11 @@ class TradeInService
     public function accept(User $user, TradeInValuation $valuation, string $commandUuid): DeviceAcquisition
     {
         $this->assertUuid($commandUuid, 'Trade-in acceptance');
+        if (Schema::hasTable('recommerce_trade_in_intakes')
+            && TradeInIntake::query()->where('valuation_id', $valuation->id)->exists()
+            && request()->attributes->get('recommerce.approved_customer_decision') !== true) {
+            throw new LogicException('A website-origin Trade-In can only be acquired from its exact POS-approved customer decision.');
+        }
         $this->assertActorBusiness($user, (int) $valuation->business_id);
         $this->assertWrite($user, self::PERMISSION_ACCEPT, [
             'business_id' => (int) $valuation->business_id,

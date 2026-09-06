@@ -18,6 +18,16 @@
 </div>
 
 <div class="sb-ti-panel">
+    <div class="sb-ti-panel-head"><div><h2>Website requests</h2><p>Submitted customer requests inside this Trade-In Acquisition workspace. No purchase, Device, stock, or payment is created at intake.</p></div><span class="sb-ti-badge info">Source: Website</span></div>
+    <div class="sb-ti-table-wrap"><table class="table"><thead><tr><th>Source</th><th>Request</th><th>Customer device</th><th>Status</th><th>Submitted</th><th>Next action</th></tr></thead><tbody>
+    @forelse($websiteIntakes as $intake)
+        <tr><td><span class="sb-ti-badge info">Website</span></td><td><strong>{{ $intake->external_case_reference }}</strong><br><small class="text-muted">POS {{ $intake->intake_uuid }}</small></td><td>{{ trim($intake->brand.' '.$intake->model) }}</td><td>{{ ucwords(strtolower(str_replace('_',' ',$intake->status))) }}</td><td>{{ optional($intake->submitted_at)->diffForHumans() }}</td><td><a class="sb-ti-next" href="{{ route('recommerce.tradeins.intakes.show',$intake->id) }}">Open request <i class="fa fa-arrow-right"></i></a></td></tr>
+    @empty<tr><td colspan="6"><div class="sb-ti-empty"><i class="fa fa-inbox"></i>No website requests have been submitted.</div></td></tr>
+    @endforelse
+    </tbody></table></div>
+</div>
+
+<div class="sb-ti-panel">
     <div class="sb-ti-panel-head"><div><h2>Active Acquisitions</h2><p>Live work ordered by newest activity. “Next action” is the operational priority.</p></div><a href="{{ route('recommerce.tradeins.acquisitions') }}">View all</a></div>
     <div class="sb-ti-table-wrap"><table class="table"><thead><tr><th>Device</th><th>Seller</th><th>Stage</th><th>Latest offer</th><th>Expected value</th><th>Staff</th><th>Age</th><th>Next action</th></tr></thead><tbody>
 

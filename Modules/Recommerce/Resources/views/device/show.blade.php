@@ -141,7 +141,17 @@
                                 @endforeach
                             @endif
                         @else
-                            <p class="text-muted">No native supplier-purchase assignment is recorded for this Device.</p>
+                            @if (!empty($tradeInAcquisition))
+                                <dl class="dl-horizontal">
+                                    <dt>Source purchase</dt><dd>{{ optional($acquisition)->ref_no ?: optional($acquisition)->invoice_no ?: 'Purchase #'.$tradeInAcquisition->transaction_id }}</dd>
+                                    <dt>Acquisition source</dt><dd>{{ $tradeInAcquisition->acquisition_source === 'TRADE_IN' ? 'Sell-to-SaverBro Trade-In' : str_replace('_', ' ', $tradeInAcquisition->acquisition_source) }}</dd>
+                                    <dt>Acquired</dt><dd>{{ $tradeInAcquisition->posted_at?->format('d M Y') ?: 'Not recorded' }}</dd>
+                                    <dt>Receiving location</dt><dd>{{ optional($acquisition)->location_name ?: 'Location #'.$tradeInAcquisition->location_id }}</dd>
+                                    <dt>Purchase line</dt><dd>#{{ $tradeInAcquisition->purchase_line_id }}</dd>
+                                </dl>
+                            @else
+                                <p class="text-muted">No native purchase provenance is recorded for this Device.</p>
+                            @endif
                         @endif
 
                         @if ($device->inspection)

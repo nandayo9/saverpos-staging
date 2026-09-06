@@ -163,7 +163,9 @@ class UltimatePosPurchaseWriter
         $value = trim($value);
         $originalValue = $value;
 
-        $dateFormat = session('business.date_format');
+        $commandDateFormat = request()->attributes->get('recommerce.business_date_format');
+        $dateFormat = $commandDateFormat ?: session('business.date_format');
+        $timeFormat = request()->attributes->get('recommerce.business_time_format', session('business.time_format'));
 
         // The Recommerce browser form submits the native ISO date value. In
         // a normal business session it is converted to the configured display
@@ -173,6 +175,17 @@ class UltimatePosPurchaseWriter
         // fallback so the isolated browser demo remains usable. Tests and
         // non-local environments still fail closed when the session is absent.
         $isIsoDate = preg_match('/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/', $value) === 1;
+        // The staging command submits the native ISO date but intentionally
+        // has no browser session. Its controller supplies this request-local
+        // marker after resolving the authoritative Business; avoid asking the
+        // shared UI date helper for a session it cannot safely create.
+        if ($isIsoDate && is_string($commandDateFormat) && $commandDateFormat !== '') {
+            try {
+                return Carbon::parse($value)->format('Y-m-d H:i:s');
+            } catch (\Throwable $exception) {
+                throw new LogicException('Core purchase writer received an invalid ISO transaction date.', 0, $exception);
+            }
+        }
         if ($isIsoDate && app()->environment('local') && (bool) config('recommerce.enabled')) {
             try {
                 return Carbon::parse($value)->format('Y-m-d H:i:s');
@@ -215,7 +228,7 @@ class UltimatePosPurchaseWriter
 
         if (is_string($dateFormat) && $dateFormat !== ''
             && preg_match('/\d{1,2}:\d{2}/', $value) !== 1) {
-            $value .= session('business.time_format') == 12 ? ' 12:00 AM' : ' 00:00';
+            $value .= (int) $timeFormat === 12 ? ' 12:00 AM' : ' 00:00';
         }
 
         try {

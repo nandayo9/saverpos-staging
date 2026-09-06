@@ -195,6 +195,12 @@ class RecommerceServiceProvider extends ServiceProvider
             return;
         }
 
+        \App\Transaction::updated(function (\App\Transaction $transaction): void {
+            if ($transaction->wasChanged('payment_status')) {
+                app(\Modules\Recommerce\Services\TradeInOutboxService::class)->recordSettlementChange($transaction);
+            }
+        });
+
         $this->loadViewsFrom(
             module_path($this->moduleName, 'Resources/views'),
             $this->moduleNameLower

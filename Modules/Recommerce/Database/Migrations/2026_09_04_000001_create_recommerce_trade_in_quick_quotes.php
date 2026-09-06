@@ -15,8 +15,11 @@ return new class extends Migration
             $table->unsignedInteger('business_id');
             $table->unsignedInteger('location_id');
             $table->unsignedInteger('customer_contact_id')->nullable();
-            $table->unsignedInteger('product_id');
-            $table->unsignedInteger('variation_id');
+            // A Quick Quote may be prepared for a Device that has not yet
+            // been catalogued. Formal valuation remains catalogued and is the
+            // only path that can create stock or a native purchase.
+            $table->unsignedInteger('product_id')->nullable();
+            $table->unsignedInteger('variation_id')->nullable();
             $table->unsignedBigInteger('rule_set_id');
             $table->unsignedBigInteger('supersedes_quote_id')->nullable();
             $table->unsignedBigInteger('continued_to_valuation_id')->nullable();

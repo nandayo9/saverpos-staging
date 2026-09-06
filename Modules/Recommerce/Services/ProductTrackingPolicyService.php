@@ -3,6 +3,7 @@
 namespace Modules\Recommerce\Services;
 
 use App\Product;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
@@ -104,22 +105,35 @@ class ProductTrackingPolicyService
         }
 
         foreach ($variationIds as $variationId) {
-            SerializationProfile::query()->updateOrCreate(
-                [
-                    'business_id' => $product->business_id,
-                    'variation_id' => $variationId,
-                ],
-                [
-                    'product_id' => $product->id,
-                    'mode' => 'TRACKED_REQUIRED',
-                    'inventory_tracking_mode' => $requestedMode,
-                    'inspection_required' => $requestedMode === self::INDIVIDUAL_DEVICE,
-                    'version' => 1,
-                    'effective_at' => now(),
-                    'configured_by' => (int) $configuredBy->id,
-                    'approval_reference' => 'PRODUCT_TRACKING_POLICY',
-                ]
-            );
+            $this->syncVariation($product, (int) $variationId, $requestedMode, $configuredBy);
         }
+    }
+
+    /** Configure one newly-created configuration without changing sibling variants. */
+    public function syncVariation(Product $product, int $variationId, string $requestedMode, $configuredBy): void
+    {
+        if (! $this->availableFor($configuredBy, (int) $product->business_id)) {
+            throw new AuthorizationException('Serialized Device tracking policy is not authorised for this catalogue entry.');
+        }
+        $requestedMode = strtoupper(trim($requestedMode));
+        if (! in_array($requestedMode, [self::INDIVIDUAL_DEVICE, self::QUANTITY], true)) {
+            throw new InvalidArgumentException('Choose Individual Device or Quantity tracking.');
+        }
+        $variation = $product->variations()->whereKey($variationId)->first();
+        if (! $variation) {
+            throw new LogicException('The new catalogue configuration is unavailable for tracking.');
+        }
+
+        SerializationProfile::query()->updateOrCreate(
+            ['business_id' => $product->business_id, 'variation_id' => $variationId],
+            [
+                'product_id' => $product->id, 'mode' => 'TRACKED_REQUIRED',
+                'inventory_tracking_mode' => $requestedMode,
+                'inspection_required' => $requestedMode === self::INDIVIDUAL_DEVICE,
+                'version' => 1, 'effective_at' => now(),
+                'configured_by' => (int) $configuredBy->id,
+                'approval_reference' => 'PRODUCT_TRACKING_POLICY',
+            ]
+        );
     }
 }

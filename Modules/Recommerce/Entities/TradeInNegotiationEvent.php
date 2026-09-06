@@ -13,6 +13,7 @@ class TradeInNegotiationEvent extends Model
     public const MANAGER_REVISION_REQUESTED = 'MANAGER_REVISION_REQUESTED';
     public const FINAL_ACCEPTED = 'FINAL_ACCEPTED';
     public const FINAL_REJECTED = 'FINAL_REJECTED';
+    public const NATIVE_MAPPING_REJECTED = 'NATIVE_MAPPING_REJECTED';
 
     protected $table = 'recommerce_trade_in_negotiation_events';
 

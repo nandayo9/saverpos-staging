@@ -62,6 +62,8 @@ class DataController extends Controller
             'recommerce.tradein.override_economic_ceiling' => 'Override trade-in economic ceiling',
             'recommerce.tradein.accept' => 'Accept trade-ins and post native purchases',
             'recommerce.tradein.reverse' => 'Record native trade-in reversals',
+            'recommerce.tradein.catalogue_create' => 'Create permanent Trade-In catalogue SKUs',
+            'recommerce.tradein.catalogue_override_duplicate' => 'Override Trade-In catalogue duplicate warning',
         ];
 
         return collect(config('recommerce.permissions', []))

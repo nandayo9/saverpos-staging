@@ -7,7 +7,7 @@
         $snapshot=(array)$valuation->pricing_snapshot_json;
         $requested=(float)$valuation->staff_proposed_amount;
         $resale=(float)$valuation->expected_resale_amount;
-        $fixed=(float)$valuation->expected_refurbishment_amount+(float)data_get($snapshot,'components.warranty_reserve_amount',0)+(float)data_get($snapshot,'components.hidden_defect_reserve_amount',0)+(float)data_get($snapshot,'components.markdown_reserve_amount',0);
+        $fixed=(float)$valuation->expected_refurbishment_amount+(float)data_get($snapshot,'components.warranty_reserve_amount',0)+(float)data_get($snapshot,'components.logistics_handling_amount',0)+(float)data_get($snapshot,'components.inventory_risk_amount',0);
         $contribution=max(0,$resale-$fixed-$requested);
         $margin=$resale>0?round(($contribution/$resale)*100,1):0;
         $normalCeiling=$valuation->authority_limit_amount===null?(float)$valuation->negotiation_ceiling_amount:min((float)$valuation->authority_limit_amount,(float)$valuation->negotiation_ceiling_amount);

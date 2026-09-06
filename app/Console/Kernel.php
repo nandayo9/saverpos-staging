@@ -42,6 +42,10 @@ class Kernel extends ConsoleKernel
                     //->everyThirtyMinutes()
                     ->emailOutputTo($email);
         }
+
+        if (config('recommerce.enabled') === true && config('recommerce.tradein_outbox.enabled') === true) {
+            $schedule->command('recommerce:tradein-outbox:dispatch --limit=50')->everyMinute()->withoutOverlapping();
+        }
     }
 
     /**

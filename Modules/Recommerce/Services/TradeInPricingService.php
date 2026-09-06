@@ -12,29 +12,25 @@ use Modules\Recommerce\Entities\TradeInRuleSet;
  */
 class TradeInPricingService
 {
+    public function __construct(protected ?SaverValueService $saverValue = null)
+    {
+        $this->saverValue = $this->saverValue ?: new SaverValueService();
+    }
+
     /** @return array<string, mixed> */
     public function calculate(TradeInRuleSet $ruleSet, array $input): array
     {
+        // Legacy rule rows remain immutable provenance. All monetary output is
+        // delegated to the single versioned SAVER Value implementation.
         $parameters = $this->normaliseParameters((array) $ruleSet->parameters_json);
-        $expectedResale = $this->money($input['expected_resale_amount'] ?? null, 'Expected resale amount');
-        $refurbishment = $this->money($input['expected_refurbishment_amount'] ?? 0, 'Expected refurbishment amount');
-
-        $warrantyReserve = round($expectedResale * $parameters['warranty_reserve_percent'], 4);
-        $hiddenDefectReserve = round($expectedResale * $parameters['hidden_defect_reserve_percent'], 4);
-        $markdownReserve = round($expectedResale * $parameters['markdown_reserve_percent'], 4);
-        $requiredContribution = round($expectedResale * $parameters['target_margin_percent'], 4);
-        $economicCeiling = max(0, round(
-            $expectedResale
-            - $refurbishment
-            - $warrantyReserve
-            - $hiddenDefectReserve
-            - $markdownReserve
-            - $requiredContribution,
-            4
-        ));
+        $valuation = $this->saverValue->final($input);
+        $byCode = collect($valuation['breakdown'])->keyBy('code');
+        $economicCeiling = ((int) $valuation['recommended_acquisition_minor']) / 100;
 
         return [
-            'calculation_version' => 'SAVERPOS_ACQUISITION_INTELLIGENCE_V1',
+            'calculation_version' => $valuation['engine_version'],
+            'engine_version' => $valuation['engine_version'],
+            'policy_version' => $valuation['pricing_policy_version'],
             'rule' => [
                 'id' => (int) $ruleSet->id,
                 'code' => (string) $ruleSet->rule_code,
@@ -42,21 +38,24 @@ class TradeInPricingService
                 'parameters' => $parameters,
             ],
             'inputs' => [
-                'expected_resale_amount' => $expectedResale,
-                'expected_refurbishment_amount' => $refurbishment,
+                'expected_resale_amount' => ((int) $valuation['expected_resale_minor']) / 100,
+                'expected_refurbishment_amount' => $this->money($input['expected_refurbishment_amount'] ?? 0, 'Expected refurbishment amount'),
             ],
             'components' => [
-                'warranty_reserve_amount' => $warrantyReserve,
-                'hidden_defect_reserve_amount' => $hiddenDefectReserve,
-                'markdown_reserve_amount' => $markdownReserve,
-                'required_contribution_amount' => $requiredContribution,
+                'warranty_reserve_amount' => abs((int) data_get($byCode, 'WARRANTY_RESERVE.amount_minor', 0)) / 100,
+                'hidden_defect_reserve_amount' => 0.0,
+                'markdown_reserve_amount' => 0.0,
+                'logistics_handling_amount' => abs((int) data_get($byCode, 'LOGISTICS_HANDLING.amount_minor', 0)) / 100,
+                'inventory_risk_amount' => abs((int) data_get($byCode, 'INVENTORY_RISK.amount_minor', 0)) / 100,
+                'required_contribution_amount' => abs((int) data_get($byCode, 'REQUIRED_MARGIN.amount_minor', 0)) / 100,
             ],
             'recommendation' => [
-                'opening_offer_amount' => round($economicCeiling * $parameters['opening_offer_ratio'], 4),
-                'target_acquisition_amount' => round($economicCeiling * $parameters['target_acquisition_ratio'], 4),
-                'negotiation_ceiling_amount' => round($economicCeiling * $parameters['negotiation_ceiling_ratio'], 4),
+                'opening_offer_amount' => ((int) $valuation['estimate_min_minor']) / 100,
+                'target_acquisition_amount' => $economicCeiling,
+                'negotiation_ceiling_amount' => $economicCeiling,
                 'economic_ceiling_amount' => $economicCeiling,
             ],
+            'saver_value' => $valuation,
         ];
     }
 

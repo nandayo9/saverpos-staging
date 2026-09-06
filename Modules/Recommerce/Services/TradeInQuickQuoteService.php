@@ -31,12 +31,15 @@ class TradeInQuickQuoteService
         if (! Str::isUuid($commandUuid)) {
             throw new LogicException('Quick Quote requires a valid idempotency reference.');
         }
-        if (! $this->authorizationGate->allowsWrite($user, TradeInService::PERMISSION_MANAGE, $businessId, $locationId, $variationId)) {
+        $canManage = $variationId > 0
+            ? $this->authorizationGate->allowsWrite($user, TradeInService::PERMISSION_MANAGE, $businessId, $locationId, $variationId)
+            : $this->authorizationGate->allowsWriteLocation($user, TradeInService::PERMISSION_MANAGE, $businessId, $locationId);
+        if (! $canManage) {
             throw new AuthorizationException('Trade-in Quick Quote scope denied.');
         }
 
-        $variation = Variation::query()->with('product')->find($variationId);
-        if (! $variation || ! $variation->product || (int) $variation->product->business_id !== $businessId) {
+        $variation = $variationId > 0 ? Variation::query()->with('product')->find($variationId) : null;
+        if ($variationId > 0 && (! $variation || ! $variation->product || (int) $variation->product->business_id !== $businessId)) {
             throw new LogicException('Choose an approved catalogue match for this quote.');
         }
         $brand = $this->requiredText($input['brand'] ?? null, 'Brand', 100);
@@ -51,9 +54,9 @@ class TradeInQuickQuoteService
         }
         $resale = isset($input['expected_resale_amount']) && $input['expected_resale_amount'] !== ''
             ? $input['expected_resale_amount']
-            : $variation->sell_price_inc_tax;
+            : optional($variation)->sell_price_inc_tax;
         if (! is_numeric($resale) || (float) $resale <= 0) {
-            throw new LogicException('A positive expected resale amount is required to calculate this quote.');
+            throw new LogicException('Enter a positive expected resale amount for an unlisted Device.');
         }
         $customerId = isset($input['customer_contact_id']) && (int) $input['customer_contact_id'] > 0 ? (int) $input['customer_contact_id'] : null;
         $customer = $customerId ? Contact::query()
@@ -104,8 +107,8 @@ class TradeInQuickQuoteService
                 'business_id' => $businessId,
                 'location_id' => $locationId,
                 'customer_contact_id' => optional($customer)->id,
-                'product_id' => $variation->product_id,
-                'variation_id' => $variation->id,
+                'product_id' => optional($variation)->product_id,
+                'variation_id' => optional($variation)->id,
                 'rule_set_id' => $rule->id,
                 'supersedes_quote_id' => $supersedesQuoteId,
                 'status' => TradeInQuickQuote::STATUS_CONSIDERING,
@@ -137,7 +140,10 @@ class TradeInQuickQuoteService
 
     public function decline(User $user, TradeInQuickQuote $quote, string $reasonCode, string $reason): TradeInQuickQuote
     {
-        if (! $this->authorizationGate->allowsWrite($user, TradeInService::PERMISSION_MANAGE, $quote->business_id, $quote->location_id, $quote->variation_id)) {
+        $canManage = $quote->variation_id
+            ? $this->authorizationGate->allowsWrite($user, TradeInService::PERMISSION_MANAGE, $quote->business_id, $quote->location_id, $quote->variation_id)
+            : $this->authorizationGate->allowsWriteLocation($user, TradeInService::PERMISSION_MANAGE, $quote->business_id, $quote->location_id);
+        if (! $canManage) {
             throw new AuthorizationException('Trade-in Quick Quote scope denied.');
         }
         $allowed = ['OFFER_TOO_LOW', 'CUSTOMER_EXPECTED_MORE', 'COMPETITOR_OFFERED_MORE', 'CUSTOMER_DECIDED_NOT_TO_SELL', 'PRICE_CHECK_ONLY', 'NO_SUITABLE_UPGRADE', 'OTHER'];
@@ -177,7 +183,7 @@ class TradeInQuickQuoteService
             }
             if ((int) $locked->business_id !== (int) $valuation->business_id
                 || (int) $locked->location_id !== (int) $valuation->location_id
-                || (int) $locked->variation_id !== (int) $valuation->variation_id) {
+                || ($locked->variation_id !== null && (int) $locked->variation_id !== (int) $valuation->variation_id)) {
                 throw new LogicException('Quick Quote and valuation scope do not match.');
             }
             $locked->update([

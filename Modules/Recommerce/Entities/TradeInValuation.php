@@ -56,6 +56,11 @@ class TradeInValuation extends Model
         return $this->belongsTo(\App\Contact::class, 'customer_contact_id');
     }
 
+    public function variation(): BelongsTo
+    {
+        return $this->belongsTo(\App\Variation::class, 'variation_id');
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(\App\User::class, 'created_by');

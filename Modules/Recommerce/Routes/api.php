@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Recommerce\Http\Middleware\CustomerProjectionToken;
+use Modules\Recommerce\Http\Middleware\TradeInAcquisitionCommandToken;
 
 Route::middleware([CustomerProjectionToken::class, 'throttle:60,1'])
     ->prefix('customer-projection/v1')
@@ -18,4 +19,15 @@ Route::middleware([CustomerProjectionToken::class, 'throttle:60,1'])
             ->where('publicId', '[A-Za-z0-9-]+');
         Route::get('/devices/{publicDeviceId}', 'CustomerProjectionController@device')
             ->where('publicDeviceId', '[A-Za-z0-9-]+');
+    });
+
+Route::middleware([TradeInAcquisitionCommandToken::class, 'throttle:10,1'])
+    ->prefix('trade-in/v2')
+    ->group(function (): void {
+        Route::post('/valuations/indicative', 'TradeInWebsiteApiController@indicative');
+        Route::post('/intakes', 'TradeInWebsiteApiController@intake');
+        Route::get('/intakes/{externalCaseReference}/projection', 'TradeInWebsiteApiController@projection')
+            ->where('externalCaseReference', 'SB-TI-[0-9]{8}-[0-9]{5}');
+        Route::post('/intakes/{externalCaseReference}/decisions', 'TradeInWebsiteApiController@decide')
+            ->where('externalCaseReference', 'SB-TI-[0-9]{8}-[0-9]{5}');
     });

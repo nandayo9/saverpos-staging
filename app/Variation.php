@@ -35,6 +35,12 @@ class Variation extends Model
         return $this->belongsTo(\App\Product::class, 'product_id');
     }
 
+    /** Optional Recommerce provenance; native catalogue data remains authoritative. */
+    public function tradeInCatalogueOrigin()
+    {
+        return $this->hasOne(\Modules\Recommerce\Entities\TradeInCatalogueOrigin::class, 'variation_id');
+    }
+
     /**
      * Get the sell lines associated with the variation.
      */

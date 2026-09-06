@@ -119,6 +119,18 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
     Route::get('/trade-ins/new', 'TradeInController@create')
         ->middleware('throttle:30,1')
         ->name('recommerce.tradeins.create');
+    Route::get('/trade-ins/intakes/{intakeId}', 'TradeInController@websiteIntake')
+        ->whereNumber('intakeId')->middleware('throttle:30,1')
+        ->name('recommerce.tradeins.intakes.show');
+    Route::post('/trade-ins/intakes/{intakeId}/link-valuation', 'TradeInController@linkWebsiteIntakeValuation')
+        ->whereNumber('intakeId')->middleware('throttle:20,1')
+        ->name('recommerce.tradeins.intakes.link_valuation');
+    Route::post('/trade-ins/intakes/{intakeId}/publish-offer', 'TradeInController@publishWebsiteIntakeOffer')
+        ->whereNumber('intakeId')->middleware('throttle:10,1')
+        ->name('recommerce.tradeins.intakes.publish_offer');
+    Route::get('/trade-ins/intakes/{intakeId}/evidence/{evidenceId}', 'TradeInController@websiteIntakeEvidence')
+        ->whereNumber('intakeId')->where('evidenceId', '[a-f0-9-]{36}')->middleware('throttle:60,1')
+        ->name('recommerce.tradeins.intakes.evidence');
     Route::get('/trade-ins/{valuationId}', 'TradeInController@show')
         ->whereNumber('valuationId')
         ->middleware('throttle:30,1')
@@ -133,6 +145,10 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
         ->whereNumber('quoteId')
         ->middleware('throttle:20,1')
         ->name('recommerce.tradeins.quick_quotes.decline');
+    Route::post('/trade-ins/quick-quotes/{quoteId}/catalogue', 'TradeInController@resolveQuickQuoteCatalogue')
+        ->whereNumber('quoteId')
+        ->middleware('throttle:10,1')
+        ->name('recommerce.tradeins.quick_quotes.catalogue');
     Route::post('/trade-ins/rules', 'TradeInController@createRule')
         ->middleware('throttle:10,1')
         ->name('recommerce.tradeins.rules.store');

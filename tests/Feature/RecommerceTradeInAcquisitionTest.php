@@ -3,23 +3,36 @@
 namespace Tests\Feature;
 
 use App\User;
+use App\Transaction;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use LogicException;
 use Modules\Recommerce\Entities\Device;
 use Modules\Recommerce\Entities\DeviceAcquisition;
 use Modules\Recommerce\Entities\TradeInRuleSet;
 use Modules\Recommerce\Entities\TradeInQuickQuote;
+use Modules\Recommerce\Entities\TradeInIntake;
+use Modules\Recommerce\Entities\TradeInApprovedOffer;
+use Modules\Recommerce\Entities\TradeInCustomerDecision;
+use Modules\Recommerce\Entities\TradeInOutboxMessage;
 use Modules\Recommerce\Entities\TradeInValuation;
+use Modules\Recommerce\Http\Middleware\TradeInAcquisitionCommandToken;
 use Modules\Recommerce\Services\DeviceEventRecorder;
 use Modules\Recommerce\Services\TradeInPricingService;
 use Modules\Recommerce\Services\TradeInQuickQuoteService;
 use Modules\Recommerce\Services\TradeInRuleResolver;
 use Modules\Recommerce\Services\TradeInNegotiationService;
 use Modules\Recommerce\Services\TradeInAuthorityService;
+use Modules\Recommerce\Services\TradeInAcquisitionCommandAccess;
 use Modules\Recommerce\Services\TradeInService;
+use Modules\Recommerce\Services\TradeInWebsiteCaseService;
+use Modules\Recommerce\Services\TradeInOutboxDispatcher;
+use Modules\Recommerce\Services\TradeInOutboxService;
+use Modules\Recommerce\Services\SaverValueService;
 use Modules\Recommerce\Services\UltimatePosPurchaseWriter;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Modules\Recommerce\Support\CohortPolicy;
@@ -55,7 +68,7 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         DB::purge('sqlite');
         $schema = Schema::connection('sqlite');
         $schema->create('business', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); });
-        $schema->create('users', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('business_id'); });
+        $schema->create('users', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('business_id'); $table->timestamp('deleted_at')->nullable(); });
         $schema->create('business_locations', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('business_id'); });
         $schema->create('contacts', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); $table->unsignedInteger('business_id'); $table->string('type'); $table->string('name')->nullable(); $table->string('mobile')->nullable(); $table->timestamp('deleted_at')->nullable(); });
         $schema->create('roles', function (Blueprint $table) { $table->increments('id'); $table->string('name'); $table->string('guard_name')->default('web'); $table->unsignedInteger('business_id')->nullable(); });
@@ -92,6 +105,8 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000031_create_recommerce_trade_in_tables.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_08_31_000033_extend_trade_in_for_branch_v2.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_09_04_000001_create_recommerce_trade_in_quick_quotes.php'))->up();
+        (require base_path('Modules/Recommerce/Database/Migrations/2026_09_06_000001_create_recommerce_trade_in_website_intakes.php'))->up();
+        (require base_path('Modules/Recommerce/Database/Migrations/2026_09_06_000002_create_recommerce_trade_in_outbox_messages.php'))->up();
 
         DB::table('recommerce_devices')->insert([
             'id' => 11, 'business_id' => 7, 'device_uuid' => 'b4068cc7-0f29-4d22-8f45-4f9a29de1101', 'device_code' => 'SB-DV-00000001-9',
@@ -129,8 +144,8 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         $this->assertSame(2200.0, (float) $valuation->market_low_amount);
         $this->assertSame(2400.0, (float) $valuation->market_high_amount);
         $this->assertSame(195.0, (float) $valuation->inspection_json['battery_replacement_estimate_amount']);
-        $this->assertSame(390.0, (float) $valuation->pricing_snapshot_json['components']['required_contribution_amount']);
-        $this->assertSame(1056.25, (float) $valuation->economic_ceiling_amount);
+        $this->assertSame(429.0, (float) $valuation->pricing_snapshot_json['components']['required_contribution_amount']);
+        $this->assertSame(960.0, (float) $valuation->economic_ceiling_amount);
         $this->assertSame('CUSTOMER', Device::query()->findOrFail(11)->ownership_kind);
         $this->assertSame('LOCATION', Device::query()->findOrFail(11)->custody_kind);
         $this->assertSame(101, (int) Device::query()->findOrFail(11)->current_location_id);
@@ -274,6 +289,34 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         $declined = $service->decline($this->user(), $quote, 'OFFER_TOO_LOW', 'Customer wants RM 1,200.');
         $this->assertSame(TradeInQuickQuote::STATUS_CUSTOMER_DECLINED, $declined->status);
         $this->assertSame('OFFER_TOO_LOW', $declined->lost_reason_code);
+    }
+
+    public function test_unlisted_device_can_receive_a_non_posting_quick_quote_before_catalogue_confirmation(): void
+    {
+        $this->ruleSet();
+        $service = new TradeInQuickQuoteService(
+            new AuthorizationGate(new CohortPolicy()),
+            new TradeInRuleResolver(),
+            new TradeInPricingService()
+        );
+
+        $quote = $service->create($this->user(), [
+            'location_id' => 101,
+            'command_uuid' => '18181818-1818-4818-8818-181818181818',
+            'brand' => 'Fictional',
+            'model' => 'Unlisted New Device',
+            'cosmetic_grade' => 'A',
+            'expected_resale_amount' => 3200,
+        ]);
+
+        $this->assertNull($quote->product_id);
+        $this->assertNull($quote->variation_id);
+        $this->assertSame(0, DB::table('transactions')->count(), 'An unlisted Quick Quote must not post a purchase.');
+        $this->assertSame(1, Device::query()->count(), 'An unlisted Quick Quote must not create a Device.');
+
+        $valuation = $this->service()->createValuation($this->user(), $this->valuationCommand($this->ruleSet()->id));
+        $service->continueToValuation($quote, $valuation);
+        $this->assertSame(TradeInQuickQuote::STATUS_CONTINUED, $quote->fresh()->status);
     }
 
     public function test_staff_offer_updates_active_amount_and_approval_state_but_customer_counter_does_not(): void
@@ -677,6 +720,277 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         $this->assertNotNull($priorCustody, 'The prior customer custody period must survive as closed history.');
         $this->assertNotNull($priorCustody->ends_at, 'The prior customer custody period must be closed.');
         $this->assertSame(1, DB::table('recommerce_device_events')->where('event_type', 'ACQUISITION_POSTED')->count());
+    }
+
+    public function test_website_intake_offer_decision_mapping_and_replay_are_pos_authoritative(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'staging');
+        config(['recommerce.tradein_acquisition_command' => [
+            'enabled' => true, 'bearer_token' => str_repeat('w', 48), 'contract_version' => '1.0',
+            'actor_user_id' => 900, 'business_id' => 7, 'location_ids' => [101], 'variation_ids' => [303],
+        ]]);
+        $access = app(TradeInAcquisitionCommandAccess::class);
+        $middleware = app(TradeInAcquisitionCommandToken::class);
+        $next = fn (): string => 'allowed';
+        $this->assertSame(401, $middleware->handle(Request::create('/api/trade-in/v2/intakes', 'POST'), $next)->getStatusCode());
+        $this->assertSame('allowed', $middleware->handle(Request::create('/api/trade-in/v2/intakes', 'POST', [], [], [], ['HTTP_AUTHORIZATION' => 'Bearer '.str_repeat('w', 48)]), $next));
+
+        $native = $this->service();
+        $cases = new TradeInWebsiteCaseService(new AuthorizationGate(new CohortPolicy()), $native);
+        $submission = [
+            'source_system' => 'SAVERBRO_WEBSITE', 'external_case_reference' => 'SB-TI-20260906-00001',
+            'submission_id' => 'website-SB-TI-20260906-00001', 'submission_version' => 1,
+            'category' => 'LAPTOP', 'brand' => 'Fixture', 'model' => 'Fixture L1',
+            'specifications' => ['cpu' => 'i5'], 'declared_condition' => ['screen' => 'minor'],
+            'indicative_snapshot' => ['estimate_min_minor' => 80000, 'estimate_max_minor' => 100000, 'pricing_policy_version' => 'SAVER-VALUE-POLICY-1.0'],
+            'evidence_references' => [['evidence_id' => '11111111-1111-4111-8111-111111111111', 'evidence_type' => 'FRONT', 'source' => 'CUSTOMER', 'mime_type' => 'image/png']],
+            'customer' => ['name' => 'Synthetic Customer', 'email' => 'customer@example.test', 'phone' => '0123456789'],
+            'preferred_branch' => 'Fixture Branch', 'submitted_at' => now()->toDateTimeString(),
+        ];
+        $first = $cases->receive($submission, $access);
+        $replay = $cases->receive($submission, $access);
+        $this->assertFalse($first['replayed']);
+        $this->assertTrue($replay['replayed']);
+        $this->assertSame($first['intake']->id, $replay['intake']->id);
+        $this->assertSame(1, TradeInIntake::query()->count());
+        $this->assertSame(0, DB::table('transactions')->count());
+        $this->assertSame(1, Device::query()->count(), 'Intake must not create a Device.');
+        try { $cases->receive(array_replace($submission, ['model' => 'Tampered']), $access); $this->fail('Changed intake replay was accepted.'); }
+        catch (LogicException $error) { $this->assertStringContainsString('different submission', $error->getMessage()); }
+
+        $valuation = $native->createValuation($this->user(), $this->valuationCommand($this->ruleSet()->id));
+        $cases->linkValuation($this->user(), $first['intake'], $valuation);
+        try { $native->accept($this->user(), $valuation, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'); $this->fail('Website-origin valuation bypassed customer decision.'); }
+        catch (LogicException $error) { $this->assertStringContainsString('exact POS-approved customer decision', $error->getMessage()); }
+        $offer = $cases->publish($this->user(), $first['intake']->fresh());
+        $this->assertSame('PUBLISHED', $offer->status);
+        $this->assertSame(1, $offer->offer_version);
+        $sameOffer = $cases->publish($this->user(), $first['intake']->fresh());
+        $this->assertSame($offer->id, $sameOffer->id, 'Repeating publication for the same valuation must be idempotent.');
+        $this->assertSame(1, TradeInApprovedOffer::query()->count());
+        $mock = \Mockery::mock(TradeInService::class);
+        $mock->shouldReceive('accept')->once()->andReturnUsing(
+            fn (User $ignored, TradeInValuation $requested, string $key) => $native->accept($this->user(), $requested, $key)
+        );
+        $cases = new TradeInWebsiteCaseService(new AuthorizationGate(new CohortPolicy()), $mock);
+        $base = [
+            'offer_id' => $offer->offer_uuid, 'offer_version' => 1, 'decision' => 'ACCEPTED',
+            'idempotency_key' => 'edededed-eded-4ded-8ded-edededededed',
+            'native_mapping' => ['location_id' => 101, 'product_id' => 202, 'variation_id' => 303, 'device_id' => 11],
+        ];
+        $before = ['transactions' => DB::table('transactions')->count(), 'devices' => Device::query()->count(), 'acquisitions' => DeviceAcquisition::query()->count(), 'movements' => DB::table('recommerce_device_movements')->count()];
+        foreach ([
+            ['offer_id' => 'ffffffff-ffff-4fff-8fff-ffffffffffff', 'offer_version' => 1],
+            ['offer_id' => $offer->offer_uuid, 'offer_version' => 2],
+        ] as $wrongOffer) {
+            $invalid = array_replace($base, $wrongOffer, ['idempotency_key' => (string) \Illuminate\Support\Str::uuid()]);
+            try { $cases->decide($first['intake']->fresh(), $invalid, $access); $this->fail('A wrong or stale offer was accepted.'); }
+            catch (LogicException $error) { $this->assertStringContainsString('stale', $error->getMessage()); }
+        }
+        $this->assertSame(0, TradeInCustomerDecision::query()->count());
+        $logger = Log::getFacadeRoot(); Log::spy();
+        foreach (['location_id' => 102, 'product_id' => 203, 'variation_id' => 304, 'device_id' => 12] as $field => $value) {
+            $tampered = $base; $tampered['idempotency_key'] = (string) \Illuminate\Support\Str::uuid(); $tampered['native_mapping'][$field] = $value;
+            try { $cases->decide($first['intake']->fresh(), $tampered, $access); $this->fail($field.' mismatch was accepted.'); }
+            catch (LogicException $error) { $this->assertSame('native_mapping_mismatch', $error->getMessage()); }
+            $this->assertSame($before['transactions'], DB::table('transactions')->count());
+            $this->assertSame($before['devices'], Device::query()->count());
+            $this->assertSame($before['acquisitions'], DeviceAcquisition::query()->count());
+            $this->assertSame($before['movements'], DB::table('recommerce_device_movements')->count());
+        }
+        $multiple = $base;
+        $multiple['idempotency_key'] = (string) \Illuminate\Support\Str::uuid();
+        $multiple['native_mapping']['location_id'] = 102;
+        $multiple['native_mapping']['product_id'] = 203;
+        try { $cases->decide($first['intake']->fresh(), $multiple, $access); $this->fail('Multiple mismatches were accepted.'); }
+        catch (LogicException $error) { $this->assertSame('native_mapping_mismatch', $error->getMessage()); }
+        $missing = $base;
+        $missing['idempotency_key'] = (string) \Illuminate\Support\Str::uuid();
+        unset($missing['native_mapping']['device_id']);
+        try { $cases->decide($first['intake']->fresh(), $missing, $access); $this->fail('A missing required mapping was accepted.'); }
+        catch (LogicException $error) { $this->assertSame('native_mapping_mismatch', $error->getMessage()); }
+        $this->assertSame($before['transactions'], DB::table('transactions')->count());
+        $this->assertSame($before['devices'], Device::query()->count());
+        $this->assertSame($before['acquisitions'], DeviceAcquisition::query()->count());
+        $this->assertSame($before['movements'], DB::table('recommerce_device_movements')->count());
+        Log::shouldHaveReceived('warning')->times(6); Log::swap($logger);
+        $this->assertSame(6, DB::table('recommerce_trade_in_negotiation_events')->where('event_type', 'NATIVE_MAPPING_REJECTED')->count());
+        $accepted = $cases->decide($first['intake']->fresh(), $base, $access);
+        $again = $cases->decide($first['intake']->fresh(), $base, $access);
+        $this->assertFalse($accepted['replayed']); $this->assertTrue($again['replayed']);
+        $this->assertSame($accepted['decision']->id, $again['decision']->id);
+        $this->assertSame(1, TradeInCustomerDecision::query()->count());
+        $this->assertSame(1, DeviceAcquisition::query()->count());
+        $this->assertSame(1, DB::table('transactions')->where('type', 'purchase')->count());
+        $this->assertSame(1, Device::query()->count());
+        $this->assertCount(1, $this->writer->commands);
+        $projection = $cases->projection($first['intake']->fresh());
+        $this->assertSame('ACQUIRED', $projection['status']);
+        $this->assertSame(1, $projection['acquisition']['purchase_id']);
+        $this->assertSame('PENDING', $projection['settlement']['status']);
+        $this->assertSame(90000, $projection['settlement']['amount_minor']);
+        $this->assertSame(4, TradeInOutboxMessage::query()->count(), 'Each authoritative customer-visible version must have one outbox event.');
+        $this->assertSame(
+            ['INTAKE_ACKNOWLEDGED', 'VALUATION_LINKED', 'APPROVED_OFFER_PUBLISHED', 'ACQUISITION_COMMITTED'],
+            TradeInOutboxMessage::query()->orderBy('aggregate_version')->pluck('event_type')->all()
+        );
+        DB::transaction(function (): void {
+            $transaction = Transaction::query()->findOrFail(1);
+            $transaction->payment_status = 'paid';
+            $transaction->save();
+            (new TradeInOutboxService())->recordSettlementChange($transaction);
+        });
+        $this->assertSame(5, TradeInOutboxMessage::query()->count());
+        $this->assertSame('SETTLEMENT_UPDATED', TradeInOutboxMessage::query()->latest('aggregate_version')->value('event_type'));
+        $this->assertSame('PAID', $cases->projection($first['intake']->fresh())['settlement']['status']);
+        try { $cases->publish($this->user(), $first['intake']->fresh()); $this->fail('A decided intake published another offer.'); }
+        catch (LogicException $error) { $this->assertStringContainsString('decided', $error->getMessage()); }
+        $this->assertSame(1, TradeInApprovedOffer::query()->count());
+
+        $routes = file_get_contents(base_path('Modules/Recommerce/Routes/api.php'));
+        $this->assertStringNotContainsString("'/commit'", $routes);
+        $this->assertStringContainsString("'/intakes'", $routes);
+        $this->app->detectEnvironment(fn (): string => 'production');
+        $this->assertSame(404, $middleware->handle(Request::create('/api/trade-in/v2/intakes', 'POST', [], [], [], ['HTTP_AUTHORIZATION' => 'Bearer '.str_repeat('w', 48)]), $next)->getStatusCode());
+    }
+
+    public function test_one_saver_value_implementation_prices_indicative_and_native_final_snapshots(): void
+    {
+        $engine = new SaverValueService();
+        $indicative = $engine->indicative([
+            'category' => 'LAPTOP', 'model_id' => 'DISC-MODEL-T14-G2', 'model_label' => 'ThinkPad T14 Gen 2',
+            'configuration' => ['processor' => 'Intel Core i5', 'ram' => '16GB', 'storage' => '512GB', 'charger' => 'yes'],
+            'condition' => ['power' => 'yes', 'screen' => 'minor', 'battery' => 'good', 'physical' => 'good'],
+        ]);
+        $native = (new TradeInPricingService($engine))->calculate($this->ruleSet(), $this->valuationCommand($this->ruleSet()->id));
+
+        $this->assertSame('SAVER-VALUE-ENGINE-1.0', $indicative['engine_version']);
+        $this->assertSame($indicative['engine_version'], $native['engine_version']);
+        $this->assertSame('SAVER-VALUE-POLICY-1.0', $indicative['pricing_policy_version']);
+        $this->assertSame($indicative['pricing_policy_version'], $native['policy_version']);
+        $this->assertSame(93000, $indicative['recommended_acquisition_minor']);
+        $this->assertSame(960, $native['recommendation']['economic_ceiling_amount']);
+
+        $changedRule = $this->ruleSet()->replicate();
+        $changedRule->id = 999;
+        $parameters = $changedRule->parameters_json;
+        $parameters['target_margin_percent'] = 0.99;
+        $changedRule->parameters_json = $parameters;
+        $same = (new TradeInPricingService($engine))->calculate($changedRule, $this->valuationCommand($this->ruleSet()->id));
+        $this->assertSame($native['recommendation'], $same['recommendation'], 'Legacy rule parameters must not create a second monetary formula.');
+    }
+
+    public function test_trade_in_state_and_outbox_commit_or_roll_back_together(): void
+    {
+        $attributes = [
+            'intake_uuid' => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'business_id' => 7,
+            'source_system' => 'SAVERBRO_WEBSITE', 'external_case_reference' => 'SB-TI-20260906-10001',
+            'submission_id' => 'website-SB-TI-20260906-10001', 'submission_version' => 1,
+            'submission_fingerprint' => str_repeat('a', 64), 'category_code' => 'LAPTOP', 'model' => 'Fixture',
+            'customer_name' => 'Synthetic', 'customer_email' => 'synthetic@example.test', 'customer_phone' => '0100000000',
+            'submitted_at' => now(), 'status' => 'SUBMITTED', 'projection_version' => 1,
+        ];
+        try {
+            DB::transaction(function () use ($attributes): void {
+                $intake = TradeInIntake::create($attributes);
+                (new TradeInOutboxService())->record($intake, 'INTAKE_ACKNOWLEDGED', [
+                    'contract_version' => 'trade-in-pos-authority.v2', 'website_case_reference' => $intake->external_case_reference,
+                    'projection_version' => 1,
+                ]);
+                throw new LogicException('Injected rollback.');
+            });
+        } catch (LogicException $error) {
+            $this->assertSame('Injected rollback.', $error->getMessage());
+        }
+        $this->assertSame(0, TradeInIntake::query()->count());
+        $this->assertSame(0, TradeInOutboxMessage::query()->count());
+
+        DB::transaction(function () use ($attributes): void {
+            $intake = TradeInIntake::create($attributes);
+            (new TradeInOutboxService())->record($intake, 'INTAKE_ACKNOWLEDGED', [
+                'contract_version' => 'trade-in-pos-authority.v2', 'website_case_reference' => $intake->external_case_reference,
+                'projection_version' => 1,
+            ]);
+        });
+        $this->assertSame(1, TradeInIntake::query()->count());
+        $this->assertSame(1, TradeInOutboxMessage::query()->count());
+    }
+
+    public function test_outbox_delivery_retries_authenticates_and_acknowledges_the_same_event(): void
+    {
+        config(['recommerce.tradein_outbox' => [
+            'enabled' => true, 'website_url' => 'http://127.0.0.1/wp-json/saverbro-tradein/v1/integration/projection-events',
+            'hmac_secret' => str_repeat('h', 48), 'allowed_hosts' => ['127.0.0.1'],
+            'website_basic_authorization' => 'staging-user:staging-password',
+            'allow_insecure_local' => true, 'timeout_seconds' => 1,
+        ]]);
+        $intake = TradeInIntake::create([
+            'intake_uuid' => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'business_id' => 7,
+            'source_system' => 'SAVERBRO_WEBSITE', 'external_case_reference' => 'SB-TI-20260906-10002',
+            'submission_id' => 'website-SB-TI-20260906-10002', 'submission_version' => 1,
+            'submission_fingerprint' => str_repeat('b', 64), 'category_code' => 'LAPTOP', 'model' => 'Fixture',
+            'customer_name' => 'Synthetic', 'customer_email' => 'synthetic@example.test', 'customer_phone' => '0100000000',
+            'submitted_at' => now(), 'status' => 'SUBMITTED', 'projection_version' => 1,
+        ]);
+        $message = (new TradeInOutboxService())->record($intake, 'INTAKE_ACKNOWLEDGED', [
+            'contract_version' => 'trade-in-pos-authority.v2', 'website_case_reference' => $intake->external_case_reference,
+            'projection_version' => 1,
+        ]);
+        $attempt = 0;
+        $seenHeaders = [];
+        $dispatcher = new TradeInOutboxDispatcher(function (string $url, array $headers, string $body) use (&$attempt, &$seenHeaders, $message): array {
+            $attempt++;
+            $seenHeaders = $headers;
+            if ($attempt === 1) return ['status' => 503, 'body' => '{}'];
+            return ['status' => 200, 'body' => json_encode(['event_id' => $message->event_uuid, 'status' => $attempt === 2 ? 'APPLIED' : 'DUPLICATE'])];
+        });
+        $this->assertSame('PENDING', $dispatcher->dispatchOne($message));
+        $this->assertSame('UPSTREAM', $message->fresh()->last_error_code);
+        $this->assertSame(['delivered' => 1, 'pending' => 0, 'failed' => 0], $dispatcher->dispatchPending(1, (string) $message->event_uuid));
+        $delivered = $message->fresh();
+        $this->assertSame(2, $delivered->attempt_count);
+        $this->assertNotNull($delivered->delivered_at);
+        $this->assertSame($message->event_uuid, $seenHeaders['X-SaverBro-Event-Id']);
+        $this->assertStringStartsWith('sha256=', $seenHeaders['X-SaverBro-Signature']);
+        $this->assertSame('Basic '.base64_encode('staging-user:staging-password'), $seenHeaders['Authorization']);
+        $payload = json_encode($delivered->payload_json);
+        foreach (['customer_email', 'warranty_reserve', 'bearer', 'hmac_secret', 'staff_notes'] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $payload);
+        }
+        $this->assertSame('DELIVERED', $dispatcher->dispatchOne($delivered), 'A delivered event must not be sent again.');
+        $this->assertSame(2, $attempt);
+    }
+
+    public function test_outbox_classifies_auth_failure_and_allows_explicit_manual_recovery(): void
+    {
+        config(['recommerce.tradein_outbox' => [
+            'enabled' => true, 'website_url' => 'http://127.0.0.1/wp-json/saverbro-tradein/v1/integration/projection-events',
+            'hmac_secret' => str_repeat('h', 48), 'allowed_hosts' => ['127.0.0.1'],
+            'allow_insecure_local' => true, 'timeout_seconds' => 1,
+        ]]);
+        $intake = TradeInIntake::create([
+            'intake_uuid' => 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'business_id' => 7,
+            'source_system' => 'SAVERBRO_WEBSITE', 'external_case_reference' => 'SB-TI-20260906-10003',
+            'submission_id' => 'website-SB-TI-20260906-10003', 'submission_version' => 1,
+            'submission_fingerprint' => str_repeat('c', 64), 'category_code' => 'LAPTOP', 'model' => 'Fixture',
+            'customer_name' => 'Synthetic', 'customer_email' => 'synthetic@example.test', 'customer_phone' => '0100000000',
+            'submitted_at' => now(), 'status' => 'SUBMITTED', 'projection_version' => 1,
+        ]);
+        $message = (new TradeInOutboxService())->record($intake, 'INTAKE_ACKNOWLEDGED', [
+            'contract_version' => 'trade-in-pos-authority.v2', 'website_case_reference' => $intake->external_case_reference,
+            'projection_version' => 1,
+        ]);
+        $unauthorized = new TradeInOutboxDispatcher(fn (): array => ['status' => 401, 'body' => '{}']);
+        $this->assertSame('FAILED', $unauthorized->dispatchOne($message));
+        $this->assertSame('AUTHENTICATION', $message->fresh()->last_error_code);
+
+        $recovery = new TradeInOutboxDispatcher(fn (): array => [
+            'status' => 200,
+            'body' => json_encode(['event_id' => $message->event_uuid, 'status' => 'APPLIED']),
+        ]);
+        $summary = $recovery->dispatchPending(1, (string) $message->event_uuid);
+        $this->assertSame(['delivered' => 1, 'pending' => 0, 'failed' => 0], $summary);
+        $this->assertSame('DELIVERED', $message->fresh()->status);
     }
 
     protected function ruleSet(): TradeInRuleSet

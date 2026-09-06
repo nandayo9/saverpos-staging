@@ -32,11 +32,37 @@ class RecommerceTradeInWorkspaceUiContractTest extends TestCase
             $this->assertStringContainsString($step, $create);
         }
         $this->assertStringContainsString('Quick Quote', $create);
+        $this->assertStringContainsString('Not in catalogue yet — quick estimate only', $create);
+        $this->assertStringContainsString('Confirm a catalogue match before formal inspection and acquisition.', $create);
+        $this->assertStringContainsString('Match catalogue', $create);
+        $this->assertStringContainsString('Incoming Device', $create);
+        $this->assertStringContainsString('Existing SKU found', $create);
+        $this->assertStringContainsString('Possible duplicate', $create);
+        $this->assertStringContainsString('Create Trade-In SKU', $create);
+        $this->assertStringContainsString('Create &amp; Continue', $create);
+        $this->assertStringContainsString('Duplicate override', $create);
+        $this->assertStringContainsString('Catalogue Match Required', $create);
         $this->assertStringContainsString("number_format((float) data_get(\$selectedQuote->pricing_snapshot_json, 'recommendation.target_acquisition_amount'), 2, '.', '')", $create);
         $records = file_get_contents(base_path('Modules/Recommerce/Resources/views/tradein/partials/acquisitions.blade.php'));
         $this->assertStringContainsString('Converted to formal deal', $records);
         $this->assertStringNotContainsString('supplier-capable', $create);
         $this->assertStringNotContainsString('native purchase payee', $create);
+    }
+
+    public function test_trade_in_catalogue_routes_and_service_preserve_permanent_tn_policy(): void
+    {
+        $routes = file_get_contents(base_path('Modules/Recommerce/Routes/web.php'));
+        $service = file_get_contents(base_path('Modules/Recommerce/Services/TradeInCatalogueService.php'));
+
+        $this->assertStringContainsString("name('recommerce.tradeins.quick_quotes.catalogue')", $routes);
+        $this->assertStringContainsString('REUSED_EXACT', $service);
+        $this->assertStringContainsString('NEW_TN_VARIATION', $service);
+        $this->assertStringContainsString('NEW_TN_PRODUCT', $service);
+        $this->assertStringContainsString('specification_fingerprint', $service);
+        $this->assertStringContainsString('syncVariation', $service);
+        $this->assertStringContainsString('DUPLICATE_OVERRIDE_REASONS', $service);
+        $this->assertStringContainsString('duplicate_override_reason', $service);
+        $this->assertStringContainsString("'TN-LEN-T14G2-I5-16-512'", file_get_contents(base_path('tests/Feature/RecommerceTradeInCatalogueTest.php')));
     }
 
     public function test_deal_desk_and_qc_context_explain_state_without_stale_available_actions(): void
@@ -50,6 +76,11 @@ class RecommerceTradeInWorkspaceUiContractTest extends TestCase
         $this->assertStringContainsString('$isPendingQc', $deal);
         $this->assertStringContainsString('No stale QC action is available', $deal);
         $this->assertStringContainsString('No QC action available', $deal);
+        $this->assertStringContainsString('Catalogue origin', $deal);
+        $this->assertStringContainsString('Acquisition source', $deal);
+        $passport = file_get_contents(base_path('Modules/Recommerce/Resources/views/device/show.blade.php'));
+        $this->assertStringContainsString('Sell-to-SaverBro Trade-In', $passport);
+        $this->assertStringContainsString('No native purchase provenance is recorded', $passport);
         $this->assertStringContainsString('Current owner', $repair);
         $this->assertStringContainsString('Acquired from', $repair);
         $this->assertStringContainsString('Intake findings carried forward', $repair);

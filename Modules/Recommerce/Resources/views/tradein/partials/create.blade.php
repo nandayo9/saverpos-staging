@@ -4,6 +4,12 @@
     $quoteCondition=$selectedQuote?(array)$selectedQuote->condition_json:[];
     $quoteCustomerId=$selectedQuote?$selectedQuote->customer_contact_id:old('customer_contact_id');
     $quoteExpired=$selectedQuote&&$selectedQuote->isExpired();
+    $catalogueLabel=static function($variation){
+        if(!$variation){return 'Catalogue record unavailable';}
+        $name=optional($variation->product)->name ?: 'Catalogue product';
+        $variationName=trim((string)$variation->name);
+        return strtoupper($variationName)==='DUMMY'||$variationName===''?$name:$name.' · '.$variationName;
+    };
     $checks=['display'=>'Display','keyboard'=>'Keyboard','trackpad'=>'Trackpad','wifi'=>'Wi-Fi','bluetooth'=>'Bluetooth','webcam'=>'Webcam','microphone'=>'Microphone','speakers'=>'Speakers','usb_ports'=>'USB ports','hdmi_output'=>'HDMI','charging'=>'Charging','power_on'=>'Power on','storage_health'=>'Storage health'];
     $photoPurposes=['FRONT_OPEN'=>'Front / open','KEYBOARD_PALMREST'=>'Keyboard','POWERED_SCREEN'=>'Screen on','BOTTOM_REAR'=>'Bottom','SERIAL_LABEL'=>'Serial label','DEFECT_DAMAGE'=>'Damage'];
 @endphp
@@ -12,7 +18,7 @@
 <div class="sb-ti-panel">
     <div class="sb-ti-panel-head"><div><h2>Quick Quote QQ-{{ str_pad($selectedQuote->id,5,'0',STR_PAD_LEFT) }}</h2><p>{{ data_get($quoteSpec,'brand') }} {{ data_get($quoteSpec,'model') }} · valid until {{ $selectedQuote->expires_at->format('d M Y') }}</p></div><span class="sb-ti-badge {{ $quoteExpired?'warning':'info' }}">{{ $quoteExpired?'Revaluation required':'Customer considering' }}</span></div>
     <div class="sb-ti-panel-body"><div class="row"><div class="col-sm-4"><div class="sb-ti-recommended"><span>Estimated acquisition range</span><strong style="font-size:27px">RM {{ $money($selectedQuote->estimated_low_amount) }}–{{ $money($selectedQuote->estimated_high_amount) }}</strong></div></div><div class="col-sm-4"><div class="sb-ti-summary"><div class="sb-ti-summary-row"><span>Customer wants</span><strong>{{ $selectedQuote->customer_expected_amount===null?'Not sure':'RM '.$money($selectedQuote->customer_expected_amount) }}</strong></div><div class="sb-ti-summary-row"><span>Range gap</span><strong>{{ $selectedQuote->customer_expected_amount===null?'—':'RM '.$money(max(0,(float)$selectedQuote->customer_expected_amount-(float)$selectedQuote->estimated_high_amount)).'+' }}</strong></div></div></div><div class="col-sm-4"><div class="sb-ti-callout {{ $quoteExpired?'warning':'' }}"><strong>Subject to full inspection</strong><br>{{ $quoteExpired?'This estimate is expired. Save a new Quick Quote; the original remains in history.':'Continue below when the customer wants a complete inspection and formal offer.' }}</div>
-@if(!$quoteExpired)<details><summary>Customer declined</summary><form method="post" action="{{ route('recommerce.tradeins.quick_quotes.decline',$selectedQuote->id) }}" style="margin-top:8px">
+@if(!$quoteExpired)<details id="quick-quote-outcome"><summary>Customer declined</summary><form method="post" action="{{ route('recommerce.tradeins.quick_quotes.decline',$selectedQuote->id) }}" style="margin-top:8px">
 @csrf<select aria-label="reason_code" class="form-control" name="reason_code"><option value="OFFER_TOO_LOW">Offer too low</option><option value="CUSTOMER_EXPECTED_MORE">Customer expected more</option><option value="COMPETITOR_OFFERED_MORE">Competitor offered more</option><option value="CUSTOMER_DECIDED_NOT_TO_SELL">Changed mind</option><option value="PRICE_CHECK_ONLY">Price check only</option><option value="OTHER">Other</option></select><input aria-label="reason" class="form-control" style="margin-top:6px" name="reason" required maxlength="255" placeholder="Short outcome note"><button class="btn btn-default btn-block" style="margin-top:6px" type="submit">Close as Customer Declined</button></form></details>
 @endif</div></div></div>
 </div>
@@ -29,13 +35,14 @@
 @foreach($customers as $customer)<option value="{{ $customer->id }}"
 @selected((string)$quoteCustomerId===(string)$customer->id)>{{ $customer->name }}{{ $customer->mobile?' · '.$customer->mobile:'' }}</option>
 @endforeach</select></div><div class="col-md-4 form-group"><label>Seller name if new</label><input aria-label="seller_name" class="form-control" name="seller_name" value="{{ $selectedQuote?$selectedQuote->seller_name_snapshot:'' }}" maxlength="255"></div><div class="col-md-4 form-group"><label>Phone</label><input aria-label="seller_phone" class="form-control" name="seller_phone" value="{{ $selectedQuote?$selectedQuote->seller_phone_snapshot:'' }}" maxlength="80"></div></div>
-        <div class="row"><div class="col-md-4 form-group"><label>Catalogue match</label><select aria-label="variation_id" class="form-control" name="variation_id" required><option value="">Choose product</option>
+        <div class="row"><div class="col-md-4 form-group"><label>Catalogue match <span class="text-muted">(optional for Quick Quote)</span></label><select aria-label="variation_id" class="form-control" name="variation_id"><option value="">Not in catalogue yet — quick estimate only</option>
 @foreach($variations as $variation)<option value="{{ $variation->id }}"
-@selected($selectedQuote&&(int)$selectedQuote->variation_id===(int)$variation->id)>{{ $variation->product->name }} · {{ $variation->name?:'Default' }}</option>
+@selected((string)old('variation_id',$selectedQuote?$selectedQuote->variation_id:'')===(string)$variation->id)>{{ $variation->product->name }} · {{ $variation->name?:'Default' }}</option>
 @endforeach</select></div><div class="col-md-4 form-group"><label>Brand</label><input aria-label="brand" class="form-control" name="brand" required maxlength="100" value="{{ data_get($quoteSpec,'brand') }}"></div><div class="col-md-4 form-group"><label>Model</label><input aria-label="model" class="form-control" name="model" required maxlength="160" value="{{ data_get($quoteSpec,'model') }}"></div></div>
         <div class="row">
 @foreach(['cpu'=>'CPU','ram'=>'RAM','storage'=>'Storage','gpu'=>'GPU'] as $name=>$label)<div class="col-sm-3 form-group"><label>{{ $label }}</label><input aria-label="{{ $name }}" class="form-control" name="{{ $name }}" maxlength="160" value="{{ data_get($quoteSpec,$name) }}"></div>
 @endforeach</div>
+        <p id="quick-quote-catalogue-help" class="help-block" style="margin-top:-8px">Choose a catalogue match when available. If this is a new or unlisted Device, enter an expected resale value; a confirmed match is required before formal inspection and acquisition.</p>
         <div class="row"><div class="col-md-3 form-group"><label>Cosmetic grade</label><select aria-label="cosmetic_grade" class="form-control" name="cosmetic_grade" required><option value="">Choose grade</option>
 @foreach(['A','B','C','D'] as $grade)<option value="{{ $grade }}"
 @selected(data_get($quoteCondition,'cosmetic_grade')===$grade)>Grade {{ $grade }}</option>
@@ -44,6 +51,52 @@
         <button class="btn btn-primary" type="submit">Calculate & save Quick Quote</button> <span class="text-muted" style="margin-left:8px">Subject to full inspection.</span>
     </form></div>
 </details>
+<script>
+(function(){var form=document.getElementById('quick-quote-form');if(!form)return;var catalogue=form.querySelector('[name=variation_id]'),resale=form.querySelector('[name=expected_resale_amount]'),help=document.getElementById('quick-quote-catalogue-help');function syncQuoteCatalogue(){var unlisted=!catalogue.value;resale.required=unlisted;resale.placeholder=unlisted?'Required for an unlisted Device':'Uses catalogue price if blank';help.textContent=unlisted?'New or unlisted Device: enter an expected resale value for a non-binding estimate. Confirm a catalogue match before formal inspection and acquisition.':'Catalogue match selected. The catalogue selling price is used if expected resale is blank.'}catalogue.addEventListener('change',syncQuoteCatalogue);syncQuoteCatalogue();})();
+</script>
+
+@if($selectedQuote && !$quoteExpired)
+<section class="sb-ti-panel" aria-label="Match catalogue">
+    <div class="sb-ti-panel-head"><div><h2>Match catalogue</h2><p>Resolve the catalogue before formal acquisition. <span class="text-muted">TN is a permanent, customer-visible Trade-In SKU.</span></p></div><span class="sb-ti-badge {{ $selectedQuote->variation_id?'success':'warning' }}">{{ $selectedQuote->variation_id?'Catalogue matched':'Action required' }}</span></div>
+    <div class="sb-ti-panel-body">
+        <div class="sb-ti-catalogue-context"><div><span class="sb-ti-catalogue-eyebrow">Incoming Device</span><strong>{{ data_get($quoteSpec,'brand') }} {{ data_get($quoteSpec,'model') }}</strong><p>{{ collect([data_get($quoteSpec,'cpu'),data_get($quoteSpec,'ram'),data_get($quoteSpec,'storage'),data_get($quoteSpec,'gpu'),data_get($quoteSpec,'display_size')])->filter()->implode(' · ') ?: 'Specification requires review' }}</p></div><div class="sb-ti-catalogue-grade"><span>Condition</span><strong>Grade {{ data_get($quoteCondition,'cosmetic_grade','—') }}</strong></div></div>
+@if($selectedQuote->variation)
+        <div class="sb-ti-callout success"><strong>Catalogue matched</strong><br>{{ $catalogueLabel($selectedQuote->variation) }}<br><small>SKU: {{ $selectedQuote->variation->sub_sku }} · {{ optional($selectedQuote->variation->tradeInCatalogueOrigin)?'Catalogue origin: Trade-In':'Catalogue origin: Standard' }}</small><div class="sb-ti-catalogue-actions"><a class="btn btn-primary" href="#tradein-full-form">Continue Acquisition</a><a class="btn btn-default" href="{{ route('products.show',$selectedQuote->variation->product_id) }}">View Product</a></div></div>
+@elseif($catalogueMatch && $catalogueMatch['exact'])
+        <div class="sb-ti-callout success"><strong>Existing SKU found</strong><br>{{ $catalogueLabel($catalogueMatch['exact']) }}<br><small>SKU: {{ $catalogueMatch['exact']->sub_sku }}</small><div class="sb-ti-catalogue-actions"><form method="post" action="{{ route('recommerce.tradeins.quick_quotes.catalogue',$selectedQuote->id) }}">@csrf<input type="hidden" name="catalogue_action" value="use_existing"><input type="hidden" name="variation_id" value="{{ $catalogueMatch['exact']->id }}"><button class="btn btn-success" type="submit">Use Existing SKU</button></form><a class="btn btn-default" href="{{ route('products.show',$catalogueMatch['exact']->product_id) }}">View Product</a></div></div>
+@else
+        @if($catalogueMatch && $catalogueMatch['similar']->isNotEmpty())
+        <div class="sb-ti-callout warning"><strong>Possible duplicate</strong><br>SAVERPOS found a catalogue item with the same model. Compare the configuration before creating a separate TN SKU.</div>
+        <div class="table-responsive"><table class="table table-condensed"><thead><tr><th>Possible match</th><th>Comparison</th><th>SKU</th><th></th></tr></thead><tbody>
+@foreach($catalogueMatch['similar'] as $candidate)
+            <tr><td>{{ $catalogueLabel($candidate) }}</td><td><small><strong>Matches:</strong> {{ collect(data_get($candidate,'catalogue_match.matching',[]))->implode(', ') ?: 'Model family' }}<br>
+@if(collect(data_get($candidate,'catalogue_match.review',[]))->isNotEmpty())
+                <strong>Review:</strong> {{ collect(data_get($candidate,'catalogue_match.review',[]))->map(fn($item) => $item['label'].': incoming '.$item['incoming'])->implode(' · ') }}
+@else
+                All captured SKU attributes match
+@endif
+            </small></td><td>{{ $candidate->sub_sku }}</td><td><form method="post" action="{{ route('recommerce.tradeins.quick_quotes.catalogue',$selectedQuote->id) }}">@csrf<input type="hidden" name="catalogue_action" value="use_existing"><input type="hidden" name="variation_id" value="{{ $candidate->id }}"><button class="btn btn-default btn-sm" type="submit">Use Existing SKU</button></form></td></tr>
+@endforeach
+        </tbody></table></div>
+        @endif
+        <div class="sb-ti-callout"><strong>No Exact SKU Found</strong><br>SAVERPOS can create a permanent Trade-In SKU for this specification and continue the acquisition. The Quick Quote remains SKU-free until you confirm.</div>
+@if($canCreateCatalogue)
+        <details class="sb-ti-catalogue-confirm" {{ $catalogueMatch && $catalogueMatch['similar']->isNotEmpty() && !$canOverrideCatalogueDuplicate?'':'open' }}><summary class="btn btn-primary" {{ $catalogueMatch && $catalogueMatch['similar']->isNotEmpty() && !$canOverrideCatalogueDuplicate?'aria-disabled=true':'' }}>Create Trade-In SKU</summary><div class="sb-ti-catalogue-preview"><span class="sb-ti-catalogue-eyebrow">New Trade-In SKU</span><strong>{{ data_get($cataloguePreview,'name') }}</strong><dl><dt>Product name</dt><dd>{{ data_get($cataloguePreview,'name') }}</dd><dt>SKU</dt><dd><code>{{ data_get($cataloguePreview,'sku') }}</code></dd><dt>Category</dt><dd>{{ data_get($cataloguePreview,'category') }}</dd><dt>Catalogue origin</dt><dd>Trade-In</dd></dl><form method="post" action="{{ route('recommerce.tradeins.quick_quotes.catalogue',$selectedQuote->id) }}">@csrf<input type="hidden" name="catalogue_action" value="create_tn">
+@if($catalogueMatch && $catalogueMatch['similar']->isNotEmpty())
+            <fieldset class="sb-ti-override" {{ $canOverrideCatalogueDuplicate?'':'disabled' }}><legend>Duplicate override</legend><label><input type="checkbox" name="override_similar" value="1" required> I confirm this is a distinct configuration.</label><label for="duplicate-override-reason">Reason</label><select id="duplicate-override-reason" class="form-control" name="duplicate_override_reason" required><option value="">Choose documented difference</option>
+@foreach(\Modules\Recommerce\Services\TradeInCatalogueService::DUPLICATE_OVERRIDE_REASONS as $value => $label)
+                <option value="{{ $value }}">{{ $label }}</option>
+@endforeach
+            </select><label for="duplicate-override-note">Notes <span class="text-muted">required for Other</span></label><input id="duplicate-override-note" class="form-control" name="duplicate_override_note" maxlength="500" placeholder="Short factual difference"></fieldset>
+@endif
+            <button class="btn btn-primary" type="submit" {{ $catalogueMatch && $catalogueMatch['similar']->isNotEmpty() && !$canOverrideCatalogueDuplicate?'disabled':'' }}>Create &amp; Continue</button> <a class="btn btn-default" href="#tradein-full-form">Edit Details</a></form></div></details>
+@else
+        <div class="sb-ti-callout warning"><strong>Catalogue Match Required</strong><br>No exact SKU exists and you do not have permission to create a Trade-In SKU. This Quick Quote is saved as Customer Considering.</div><p><a class="btn btn-default" href="#quick-quote-outcome">Close — Catalogue Mismatch</a> <span class="text-muted">Ask an authorised branch lead to create the SKU, or keep this quote open.</span></p>
+@endif
+@endif
+    </div>
+</section>
+@endif
 
 @if(!$quoteExpired)
 <div class="sb-ti-workspace">
