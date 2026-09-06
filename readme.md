@@ -1,6 +1,6 @@
 ## About SAVERPOS
 
-Ultimate POS is a POS application by saverbro
+SAVERPOS is a POS application by saverbro
 
 ## Installation & Documentation
 You will find installation guide and documentation in the downloaded zip file.
