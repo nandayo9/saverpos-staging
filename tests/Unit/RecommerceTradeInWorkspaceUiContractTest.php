@@ -85,4 +85,21 @@ class RecommerceTradeInWorkspaceUiContractTest extends TestCase
         $this->assertStringContainsString('Acquired from', $repair);
         $this->assertStringContainsString('Intake findings carried forward', $repair);
     }
+
+    public function test_photo_ai_stays_inside_the_existing_case_workspace_and_names_its_authority_boundary(): void
+    {
+        $website = file_get_contents(base_path('Modules/Recommerce/Resources/views/tradein/partials/website.blade.php'));
+        $routes = file_get_contents(base_path('Modules/Recommerce/Routes/web.php'));
+        $service = file_get_contents(base_path('Modules/Recommerce/Services/TradeInPhotoAiIntakeService.php'));
+        $controller = file_get_contents(base_path('Modules/Recommerce/Http/Controllers/TradeInController.php'));
+        $this->assertStringContainsString('AI Pre-Inspection', $website);
+        $this->assertStringContainsString('Customer confirmation and technician findings remain separate', $website);
+        $this->assertStringContainsString('Customer', $website);
+        $this->assertStringContainsString('AI observation', $website);
+        $this->assertStringContainsString('Technician', $website);
+        $this->assertStringContainsString("name('recommerce.tradeins.intakes.photo_ai.review')", $routes);
+        $this->assertStringContainsString("route('recommerce.tradeins.intakes.show', \$intakeId)", $controller);
+        $this->assertStringContainsString('never creates identity, price, stock, purchase, or approval', $service);
+        $this->assertStringNotContainsString('TradeInVisionProvider', file_get_contents(base_path('Modules/Recommerce/Services/TradeInPricingService.php')));
+    }
 }

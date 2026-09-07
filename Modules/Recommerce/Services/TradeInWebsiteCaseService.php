@@ -23,7 +23,8 @@ final class TradeInWebsiteCaseService
     public function __construct(
         private AuthorizationGate $authorizationGate,
         private TradeInService $tradeIn,
-        private ?TradeInOutboxService $outbox = null
+        private ?TradeInOutboxService $outbox = null,
+        private ?TradeInPhotoAiIntakeService $photoAi = null
     ) {
     }
 
@@ -69,6 +70,10 @@ final class TradeInWebsiteCaseService
                 'status' => 'SUBMITTED',
                 'projection_version' => 1,
             ]);
+
+            if (is_array($command['photo_ai'] ?? null)) {
+                ($this->photoAi ?: app(TradeInPhotoAiIntakeService::class))->attach($intake, $command['photo_ai']);
+            }
 
             $this->recordProjection($intake, 'INTAKE_ACKNOWLEDGED');
 
@@ -329,7 +334,7 @@ final class TradeInWebsiteCaseService
     /** @param array<string, mixed> $command @return array<string, mixed> */
     private function submissionFingerprintInput(array $command): array
     {
-        return array_intersect_key($command, array_flip(['source_system','external_case_reference','submission_id','submission_version','category','brand','model','specifications','declared_condition','indicative_snapshot','evidence_references','customer','preferred_branch','submitted_at']));
+        return array_intersect_key($command, array_flip(['source_system','external_case_reference','submission_id','submission_version','category','brand','model','specifications','declared_condition','indicative_snapshot','evidence_references','photo_ai','customer','preferred_branch','submitted_at']));
     }
 }
 

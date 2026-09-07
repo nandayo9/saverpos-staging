@@ -19,6 +19,8 @@ use Modules\Recommerce\Entities\TradeInIntake;
 use Modules\Recommerce\Entities\TradeInApprovedOffer;
 use Modules\Recommerce\Entities\TradeInCustomerDecision;
 use Modules\Recommerce\Entities\TradeInOutboxMessage;
+use Modules\Recommerce\Entities\TradeInPhotoAiAnalysis;
+use Modules\Recommerce\Entities\TradeInPhotoAiReview;
 use Modules\Recommerce\Entities\TradeInValuation;
 use Modules\Recommerce\Http\Middleware\TradeInAcquisitionCommandToken;
 use Modules\Recommerce\Services\DeviceEventRecorder;
@@ -33,6 +35,9 @@ use Modules\Recommerce\Services\TradeInWebsiteCaseService;
 use Modules\Recommerce\Services\TradeInOutboxDispatcher;
 use Modules\Recommerce\Services\TradeInOutboxService;
 use Modules\Recommerce\Services\SaverValueService;
+use Modules\Recommerce\Services\TradeInPhotoAiIntakeService;
+use Modules\Recommerce\Services\TradeInCatalogueService;
+use Modules\Recommerce\Services\DeviceIdentityResolver;
 use Modules\Recommerce\Services\UltimatePosPurchaseWriter;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Modules\Recommerce\Support\CohortPolicy;
@@ -52,6 +57,7 @@ class RecommerceTradeInAcquisitionTest extends TestCase
             'database.connections.sqlite.foreign_key_constraints' => true,
             'recommerce.enabled' => true,
             'recommerce.writes_enabled' => true,
+            'recommerce.photo_ai.staff_enabled' => true,
             'recommerce.permissions' => [
                 TradeInService::PERMISSION_VIEW,
                 TradeInService::PERMISSION_MANAGE,
@@ -107,6 +113,7 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         (require base_path('Modules/Recommerce/Database/Migrations/2026_09_04_000001_create_recommerce_trade_in_quick_quotes.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_09_06_000001_create_recommerce_trade_in_website_intakes.php'))->up();
         (require base_path('Modules/Recommerce/Database/Migrations/2026_09_06_000002_create_recommerce_trade_in_outbox_messages.php'))->up();
+        (require (dirname(__DIR__, 2) . '/Modules/Recommerce/Database/Migrations/2026_09_07_000001_create_recommerce_trade_in_photo_ai_tables.php'))->up();
 
         DB::table('recommerce_devices')->insert([
             'id' => 11, 'business_id' => 7, 'device_uuid' => 'b4068cc7-0f29-4d22-8f45-4f9a29de1101', 'device_code' => 'SB-DV-00000001-9',
@@ -891,6 +898,100 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         $this->assertSame($native['recommendation'], $same['recommendation'], 'Legacy rule parameters must not create a second monetary formula.');
     }
 
+    public function test_photo_ai_intake_uses_governed_resolvers_and_preserves_all_authority_boundaries(): void
+    {
+        $variation = new \App\Variation(); $variation->id = 303; $variation->product_id = 202;
+        $catalogue = \Mockery::mock(TradeInCatalogueService::class);
+        $catalogue->shouldReceive('match')->once()->with(7, \Mockery::on(fn (array $specs): bool => $specs['brand'] === 'Fixture' && $specs['model'] === 'L1'))->andReturn([
+            'exact' => $variation, 'similar' => collect(), 'fingerprint' => str_repeat('f', 64), 'specifications' => [],
+        ]);
+        $identities = \Mockery::mock(DeviceIdentityResolver::class);
+        $identities->shouldReceive('resolve')->once()->with(7, 'FIXTURE-SERIAL-1')->andReturn(Device::query()->findOrFail(11));
+        $photoAi = new TradeInPhotoAiIntakeService($catalogue, $identities, new AuthorizationGate(new CohortPolicy()));
+        $cases = new TradeInWebsiteCaseService(new AuthorizationGate(new CohortPolicy()), $this->service(), null, $photoAi);
+        config(['recommerce.tradein_acquisition_command' => ['enabled' => true, 'bearer_token' => str_repeat('w', 48), 'contract_version' => '1.0', 'actor_user_id' => 900, 'business_id' => 7, 'location_ids' => [101], 'variation_ids' => [303]]]);
+        $ids = ['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333'];
+        $submission = [
+            'source_system' => 'SAVERBRO_WEBSITE', 'external_case_reference' => 'SB-TI-20260907-00001', 'submission_id' => 'website-SB-TI-20260907-00001', 'submission_version' => 1,
+            'category' => 'LAPTOP', 'brand' => 'Fixture', 'model' => 'Fixture L1', 'specifications' => ['cpu' => 'i5'],
+            'declared_condition' => ['physical' => 'good', 'screen' => 'minor'], 'indicative_snapshot' => ['estimate_min_minor' => 80000, 'estimate_max_minor' => 93000],
+            'evidence_references' => array_map(fn ($id) => ['evidence_id' => $id, 'evidence_type' => 'FRONT', 'source' => 'CUSTOMER', 'mime_type' => 'image/jpeg'], $ids),
+            'photo_ai' => $this->photoAiPayload($ids),
+            'customer' => ['name' => 'Synthetic Customer', 'email' => 'customer@example.test', 'phone' => '0123456789'],
+            'preferred_branch' => 'Fixture Branch', 'submitted_at' => now()->toDateTimeString(),
+        ];
+        $before = Device::query()->findOrFail(11)->only(['ownership_kind','custody_kind','lifecycle_state','stock_participation']);
+        $received = $cases->receive($submission, app(TradeInAcquisitionCommandAccess::class));
+        $analysis = TradeInPhotoAiAnalysis::query()->with('review')->firstOrFail();
+        $this->assertSame('EXACT', $analysis->catalogue_match_status);
+        $this->assertSame(303, (int) $analysis->matched_variation_id);
+        $this->assertSame('EXISTING_DEVICE_CANDIDATE', $analysis->identity_resolution_status);
+        $this->assertSame(11, (int) $analysis->resolved_device_id);
+        $this->assertSame('UNVERIFIED', $analysis->identity_resolution_json[0]['verification_status']);
+        $this->assertSame(0, DB::table('transactions')->count(), 'Photo AI intake must not create a purchase.');
+        $this->assertSame(1, Device::query()->count(), 'Photo AI intake must not create a Device.');
+        $this->assertSame($before, Device::query()->findOrFail(11)->only(array_keys($before)), 'Photo AI intake mutated Device authority.');
+
+        $review = $photoAi->review($this->user(), $analysis, [
+            ['observation' => 'screen_crack', 'finding' => 'ABSENT', 'severity' => 'NONE'],
+            ['observation' => 'corner_dent', 'finding' => 'PRESENT', 'severity' => 'MINOR'],
+        ]);
+        $this->assertSame('AI_CONFIRMED', $review->disagreements_json[0]['outcome']);
+        $this->assertSame('AI_PARTIALLY_CORRECT', $review->disagreements_json[1]['outcome']);
+        $this->assertSame('good', $received['intake']->declared_condition_json['physical'], 'AI overwrote customer declaration.');
+        $this->assertSame('fair', $analysis->confirmed_condition_json['physical'], 'Customer-confirmed condition was not separate.');
+        $this->assertSame(1, TradeInPhotoAiReview::query()->count());
+    }
+
+    public function test_photo_ai_catalogue_and_identifier_uncertainty_remain_advisory(): void
+    {
+        $candidateA = new \App\Variation(); $candidateA->id = 304; $candidateA->product_id = 202; $candidateA->name = 'Candidate A';
+        $candidateB = new \App\Variation(); $candidateB->id = 305; $candidateB->product_id = 202; $candidateB->name = 'Candidate B';
+        $catalogue = \Mockery::mock(TradeInCatalogueService::class);
+        $catalogue->shouldReceive('match')->times(3)->andReturn(
+            ['exact' => null, 'similar' => collect([$candidateA])],
+            ['exact' => null, 'similar' => collect([$candidateA, $candidateB])],
+            ['exact' => null, 'similar' => collect()]
+        );
+        $identities = \Mockery::mock(DeviceIdentityResolver::class);
+        $identities->shouldReceive('resolve')->with(7, 'FIXTURE-SERIAL-1')->once()->andReturn(Device::query()->findOrFail(11));
+        $other = new Device(); $other->id = 12;
+        $identities->shouldReceive('resolve')->with(7, 'FIXTURE-SERIAL-2')->once()->andReturn($other);
+        $photoAi = new TradeInPhotoAiIntakeService($catalogue, $identities, new AuthorizationGate(new CohortPolicy()));
+        $ids = ['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333'];
+        $statuses = [];
+        foreach ([1, 2, 3] as $index) {
+            $intake = TradeInIntake::create([
+                'intake_uuid' => sprintf('eeeeeeee-eeee-4eee-8eee-%012d', $index), 'business_id' => 7,
+                'source_system' => 'SAVERBRO_WEBSITE', 'external_case_reference' => sprintf('SB-TI-20260907-%05d', $index + 10),
+                'submission_id' => 'photo-ai-uncertainty-'.$index, 'submission_version' => 1,
+                'submission_fingerprint' => str_repeat((string) $index, 64), 'category_code' => 'LAPTOP',
+                'brand' => 'Fixture', 'model' => 'L1', 'specifications_json' => [], 'declared_condition_json' => [],
+                'indicative_snapshot_json' => [], 'evidence_references_json' => array_map(fn ($id) => ['evidence_id' => $id], $ids),
+                'customer_name' => 'Synthetic', 'customer_email' => 'synthetic@example.test', 'customer_phone' => '0100000000',
+                'submitted_at' => now(), 'status' => 'SUBMITTED', 'projection_version' => 1,
+            ]);
+            $payload = $this->photoAiPayload($ids);
+            $payload['analysis_id'] = sprintf('aaaaaaaa-2222-4222-8222-%012d', $index);
+            $payload['customer_confirmation']['analysis_id'] = $payload['analysis_id'];
+            if ($index === 1) {
+                $second = $payload['result']['identifiers'][0];
+                $second['value'] = 'FIXTURE-SERIAL-2';
+                $payload['result']['identifiers'][] = $second;
+            } else {
+                $payload['result']['identifiers'] = [];
+            }
+            $analysis = $photoAi->attach($intake, $payload);
+            $statuses[] = $analysis->catalogue_match_status;
+            if ($index === 1) {
+                $this->assertSame('CONFLICTING_IDENTIFIERS', $analysis->identity_resolution_status);
+                $this->assertNull($analysis->resolved_device_id);
+            }
+        }
+        $this->assertSame(['PROBABLE', 'AMBIGUOUS', 'NO_MATCH'], $statuses);
+        $this->assertSame(1, Device::query()->count(), 'Advisory identity resolution created a Device.');
+    }
+
     public function test_trade_in_state_and_outbox_commit_or_roll_back_together(): void
     {
         $attributes = [
@@ -1024,6 +1125,28 @@ class RecommerceTradeInAcquisitionTest extends TestCase
             'effective_at' => now(),
             'created_by' => 900,
         ]);
+    }
+
+    /** @param list<string> $ids @return array<string,mixed> */
+    protected function photoAiPayload(array $ids): array
+    {
+        $fact = fn ($value, float $confidence) => ['value' => $value, 'confidence' => $confidence, 'evidence_ids' => [$ids[0]], 'source_type' => 'AI_EXTRACTED'];
+        return [
+            'analysis_id' => 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa', 'analysis_version' => 1,
+            'provider' => 'SYNTHETIC_TEST', 'model_version' => 'fixture-v1', 'schema_version' => '1', 'status' => 'COMPLETED', 'evidence_ids' => $ids,
+            'result' => [
+                'schema_version' => '1', 'device' => ['brand' => $fact('Fixture', .99), 'model' => $fact('L1', .91), 'cpu' => $fact('Intel i5', .86), 'ram_gb' => $fact(16, .82), 'storage_gb' => $fact(512, .81)],
+                'identifiers' => [['type' => 'SERIAL_NUMBER', 'value' => 'FIXTURE-SERIAL-1', 'confidence' => .9, 'evidence_ids' => [$ids[2]], 'source_type' => 'AI_EXTRACTED', 'verification_status' => 'UNVERIFIED']],
+                'cosmetic_grade' => ['result' => 'FAIR', 'confidence' => .87, 'evidence_ids' => $ids],
+                'observations' => [
+                    ['observation' => 'screen_crack', 'result' => 'NOT_DETECTED', 'severity' => 'NONE', 'confidence' => .96, 'evidence_ids' => [$ids[1]], 'reason' => 'No crack visible.'],
+                    ['observation' => 'corner_dent', 'result' => 'UNCERTAIN', 'severity' => 'MINOR', 'confidence' => .58, 'evidence_ids' => [$ids[0]], 'reason' => 'Corner partly obscured.'],
+                ],
+                'warnings' => [], 'insufficient_evidence' => [], 'overall_confidence' => .86,
+            ],
+            'customer_confirmation' => ['analysis_id' => 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa', 'analysis_version' => 1, 'action' => 'CORRECTED', 'corrections' => ['physical' => 'fair'], 'confirmed_at' => now()->toDateTimeString()],
+            'confirmed_condition_input' => ['physical' => 'fair', 'screen' => 'minor'],
+        ];
     }
 
     protected function valuationCommand(int $ruleSetId, array $overrides = []): array

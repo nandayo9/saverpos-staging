@@ -21,6 +21,7 @@ use Modules\Recommerce\Entities\TradeInRuleSet;
 use Modules\Recommerce\Entities\TradeInAuthorityRule;
 use Modules\Recommerce\Entities\TradeInSellerRepresentation;
 use Modules\Recommerce\Entities\TradeInIntake;
+use Modules\Recommerce\Entities\TradeInPhotoAiAnalysis;
 use Modules\Recommerce\Entities\TradeInValuation;
 use Modules\Recommerce\Services\TradeInService;
 use Modules\Recommerce\Services\TradeInDeviceIntakeService;
@@ -35,6 +36,7 @@ use Modules\Recommerce\Services\TradeInRuleResolver;
 use Modules\Recommerce\Services\TradeInSellerService;
 use Modules\Recommerce\Services\TradeInWebsiteCaseService;
 use Modules\Recommerce\Services\TradeInWebsiteEvidenceClient;
+use Modules\Recommerce\Services\TradeInPhotoAiIntakeService;
 use Modules\Recommerce\Support\AuthorizationGate;
 use Throwable;
 
@@ -114,6 +116,25 @@ class TradeInController extends Controller
             'Content-Type' => $file['mime_type'], 'Content-Disposition' => 'inline', 'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff', 'X-Robots-Tag' => 'noindex, nofollow, noarchive', 'Referrer-Policy' => 'no-referrer',
         ]);
+    }
+
+    public function reviewWebsiteIntakePhotoAi(int $intakeId, int $analysisId, Request $request, TradeInPhotoAiIntakeService $photoAi): RedirectResponse
+    {
+        if (! (bool) config('recommerce.photo_ai.staff_enabled', false)) abort(404);
+        $analysis = TradeInPhotoAiAnalysis::query()->whereKey($analysisId)->whereHas('intake', fn ($query) => $query
+            ->whereKey($intakeId)->where('business_id', auth()->user()->business_id))->firstOrFail();
+        $input = $request->validate([
+            'findings' => ['required', 'array', 'min:1', 'max:30'],
+            'findings.*.observation' => ['required', 'string', 'max:80'],
+            'findings.*.finding' => ['required', 'in:PRESENT,ABSENT,PARTIAL,NOT_ASSESSABLE'],
+            'findings.*.severity' => ['required', 'in:NONE,MINOR,MODERATE,SEVERE,UNKNOWN'],
+            'findings.*.notes' => ['nullable', 'string', 'max:500'],
+        ]);
+        try {
+            $photoAi->review(auth()->user(), $analysis, $input['findings']);
+            return redirect()->route('recommerce.tradeins.intakes.show', $intakeId)->with('status', ['success' => true, 'msg' => 'Technician findings recorded separately from the immutable AI analysis.']);
+        } catch (AuthorizationException) { abort(403); }
+        catch (LogicException $error) { return redirect()->route('recommerce.tradeins.intakes.show', $intakeId)->with('status', ['success' => false, 'msg' => $error->getMessage()]); }
     }
 
     public function store(Request $request, TradeInService $service, TradeInSellerService $sellerService, TradeInDeviceIntakeService $deviceIntake, TradeInRuleResolver $ruleResolver, TradeInPhotoService $photoService, TradeInQuickQuoteService $quickQuoteService, TradeInCatalogueService $catalogue): RedirectResponse
@@ -454,12 +475,12 @@ class TradeInController extends Controller
                 ->where('business_id', $businessId)->where('location_id', $locationId)->latest('id')->limit(500)->get()
             : collect();
         $websiteIntakes = Schema::hasTable('recommerce_trade_in_intakes')
-            ? TradeInIntake::query()->with(['valuation.device', 'valuation.acquisition', 'offers.decision'])
+            ? TradeInIntake::query()->with(['valuation.device', 'valuation.acquisition', 'offers.decision', 'photoAiAnalyses.review'])
                 ->where('business_id', $businessId)->latest('submitted_at')->limit(500)->get()
             : collect();
         if ($selectedIntake) {
             $selectedIntake = $websiteIntakes->firstWhere('id', $selectedIntake->id)
-                ?: $selectedIntake->load(['valuation.device', 'valuation.acquisition', 'offers.decision']);
+                ?: $selectedIntake->load(['valuation.device', 'valuation.acquisition', 'offers.decision', 'photoAiAnalyses.review']);
         }
         $qcJobsByValuation = Schema::hasTable('recommerce_repair_jobs')
             ? RepairJob::query()->where('business_id', $businessId)->where('source_type', 'TRADE_IN_VALUATION')

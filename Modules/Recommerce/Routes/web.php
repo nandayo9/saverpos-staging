@@ -131,6 +131,9 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
     Route::get('/trade-ins/intakes/{intakeId}/evidence/{evidenceId}', 'TradeInController@websiteIntakeEvidence')
         ->whereNumber('intakeId')->where('evidenceId', '[a-f0-9-]{36}')->middleware('throttle:60,1')
         ->name('recommerce.tradeins.intakes.evidence');
+    Route::post('/trade-ins/intakes/{intakeId}/photo-ai/{analysisId}/review', 'TradeInController@reviewWebsiteIntakePhotoAi')
+        ->whereNumber('intakeId')->whereNumber('analysisId')->middleware('throttle:20,1')
+        ->name('recommerce.tradeins.intakes.photo_ai.review');
     Route::get('/trade-ins/{valuationId}', 'TradeInController@show')
         ->whereNumber('valuationId')
         ->middleware('throttle:30,1')

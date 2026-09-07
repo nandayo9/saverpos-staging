@@ -22,4 +22,5 @@ final class TradeInIntake extends Model
 
     public function valuation(): BelongsTo { return $this->belongsTo(TradeInValuation::class, 'valuation_id'); }
     public function offers(): HasMany { return $this->hasMany(TradeInApprovedOffer::class, 'intake_id')->orderBy('offer_version'); }
+    public function photoAiAnalyses(): HasMany { return $this->hasMany(TradeInPhotoAiAnalysis::class, 'intake_id')->orderBy('analysis_version'); }
 }
