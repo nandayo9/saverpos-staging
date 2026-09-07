@@ -94,6 +94,10 @@ class RecommerceTradeInWorkspaceUiContractTest extends TestCase
         $controller = file_get_contents(base_path('Modules/Recommerce/Http/Controllers/TradeInController.php'));
         $this->assertStringContainsString('AI Pre-Inspection', $website);
         $this->assertStringContainsString('Customer confirmation and technician findings remain separate', $website);
+        $this->assertStringContainsString('Identity needs review', $website);
+        $this->assertStringContainsString('View source photo', $website);
+        $this->assertStringContainsString('Technician findings are the final physical-inspection record', $website);
+        $this->assertStringContainsString('Analysis history', $website);
         $this->assertStringContainsString('Customer', $website);
         $this->assertStringContainsString('AI observation', $website);
         $this->assertStringContainsString('Technician', $website);
