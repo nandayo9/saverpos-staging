@@ -838,10 +838,21 @@ class RecommerceTradeInAcquisitionTest extends TestCase
             $transaction = Transaction::query()->findOrFail(1);
             $transaction->payment_status = 'paid';
             $transaction->save();
-            (new TradeInOutboxService())->recordSettlementChange($transaction);
         });
-        $this->assertSame(5, TradeInOutboxMessage::query()->count());
-        $this->assertSame('SETTLEMENT_UPDATED', TradeInOutboxMessage::query()->latest('aggregate_version')->value('event_type'));
+        $outboxRows = TradeInOutboxMessage::query()
+            ->orderBy('aggregate_version')
+            ->get(['event_uuid', 'aggregate_version', 'event_type', 'payload_json']);
+        $this->assertCount(5, $outboxRows, 'The transaction payment-status observer emits the one settlement projection event.');
+        $this->assertSame([1, 2, 3, 4, 5], $outboxRows->pluck('aggregate_version')->map(static fn ($value): int => (int) $value)->all());
+        $this->assertSame(
+            ['INTAKE_ACKNOWLEDGED', 'VALUATION_LINKED', 'APPROVED_OFFER_PUBLISHED', 'ACQUISITION_COMMITTED', 'SETTLEMENT_UPDATED'],
+            $outboxRows->pluck('event_type')->all()
+        );
+        $this->assertCount(5, $outboxRows->pluck('event_uuid')->unique(), 'Each customer-projection transition has one immutable event ID.');
+        $serializedProjections = (string) json_encode($outboxRows->pluck('payload_json')->all());
+        foreach (['customer_email', 'warranty_reserve', 'inventory_risk', 'staff_notes', 'bearer', 'hmac_secret', 'secret'] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $serializedProjections);
+        }
         $this->assertSame('PAID', $cases->projection($first['intake']->fresh())['settlement']['status']);
         try { $cases->publish($this->user(), $first['intake']->fresh()); $this->fail('A decided intake published another offer.'); }
         catch (LogicException $error) { $this->assertStringContainsString('decided', $error->getMessage()); }

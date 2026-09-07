@@ -34,8 +34,22 @@ Identical decision replay returns the established decision and acquisition resul
 
 If the website loses a response, it preserves customer acceptance as pending confirmation and retries/reconciles with the same key. It never invents a new acquisition attempt. Native payment state remains separate: a received purchase with `payment_status=due` projects `PENDING`, and only native paid state may project `PAID`.
 
+## Customer projection outbox contract
+
+The standard website Trade-In lifecycle emits one redacted, immutable customer-projection event per authoritative transition, with strictly increasing aggregate versions:
+
+```text
+v1 INTAKE_ACKNOWLEDGED
+v2 VALUATION_LINKED
+v3 APPROVED_OFFER_PUBLISHED
+v4 ACQUISITION_COMMITTED
+v5 SETTLEMENT_UPDATED
+```
+
+`SETTLEMENT_UPDATED` is emitted once by the native Transaction `payment_status` observer while the payment update is transactional. Callers must not invoke `recordSettlementChange()` separately for that same saved Transaction. Redelivery retries the existing immutable outbox row; it never creates another customer-projection transition.
+
 ## Known incomplete integration
 
-The current projection path is authenticated pull reconciliation. A durable POS outbox/update-delivery record has not yet been implemented. The website and POS also still have separate deterministic pricing implementations. These are documented staging-acceptance blockers; they are not hidden by the working local journey.
+The durable POS outbox/update-delivery path is implemented for the protected staging integration. Commercial policy calibration remains provisional pending usable historical transaction data; that is a separate production/pilot gate and does not change the customer-projection contract above.
 
 Nothing in this contract authorizes staging or production deployment.
