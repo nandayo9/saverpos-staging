@@ -66,7 +66,9 @@ final class TradeInWebsiteCaseService
                 'customer_email' => $command['customer']['email'],
                 'customer_phone' => $command['customer']['phone'],
                 'preferred_branch' => $command['preferred_branch'] ?: null,
-                'submitted_at' => $command['submitted_at'],
+                // The website historically sent UTC without an offset. Normalize
+                // that legacy shape and RFC3339 timestamps to the POS storage zone.
+                'submitted_at' => \Carbon\Carbon::parse($command['submitted_at'], 'UTC')->setTimezone(config('app.timezone', 'UTC')),
                 'status' => 'SUBMITTED',
                 'projection_version' => 1,
             ]);

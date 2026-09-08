@@ -953,6 +953,22 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         $this->assertSame(0, DB::table('transactions')->count());
     }
 
+    public function test_website_submission_time_preserves_the_instant_in_the_pos_storage_timezone(): void
+    {
+        config(['app.timezone' => 'Asia/Kuching', 'recommerce.tradein_acquisition_command.business_id' => 7]);
+        foreach (['2026-09-08 04:38:00', '2026-09-08T04:38:00+00:00', '2026-09-08T12:38:00+08:00'] as $index => $timestamp) {
+            $case = sprintf('SB-TI-20260908-%05d', 90100 + $index);
+            $command = [
+                'source_system' => 'SAVERBRO_WEBSITE', 'external_case_reference' => $case, 'submission_id' => 'website-'.$case, 'submission_version' => 1,
+                'category' => 'LAPTOP', 'brand' => '', 'model' => 'Fixture laptop', 'specifications' => [], 'declared_condition' => [], 'indicative_snapshot' => null, 'evidence_references' => [],
+                'customer' => ['name' => 'Synthetic Customer', 'email' => 'customer@example.test', 'phone' => '0100000000'], 'preferred_branch' => '', 'submitted_at' => $timestamp,
+            ];
+            $result = app(TradeInWebsiteCaseService::class)->receive($command, app(TradeInAcquisitionCommandAccess::class));
+            $this->assertSame('2026-09-08 12:38:00', DB::table('recommerce_trade_in_intakes')->where('id', $result['intake']->id)->value('submitted_at'));
+            $this->assertTrue(app(TradeInWebsiteCaseService::class)->receive($command, app(TradeInAcquisitionCommandAccess::class))['replayed']);
+        }
+    }
+
     public function test_photo_ai_intake_uses_governed_resolvers_and_preserves_all_authority_boundaries(): void
     {
         $variation = new \App\Variation(); $variation->id = 303; $variation->product_id = 202;
