@@ -71,6 +71,10 @@ class RecommerceTradeInAcquisitionTest extends TestCase
             'recommerce.cohort.location_ids' => [101],
             'recommerce.cohort.variation_ids' => [303],
         ]);
+        // The default test environment boots with Recommerce disabled. Activate
+        // its real routes and settlement observer after configuring this fixture.
+        (new \Modules\Recommerce\Providers\RecommerceServiceProvider($this->app))->boot();
+        (new \Modules\Recommerce\Providers\RouteServiceProvider($this->app))->map();
         DB::purge('sqlite');
         $schema = Schema::connection('sqlite');
         $schema->create('business', function (Blueprint $table) { $table->unsignedInteger('id')->primary(); });
@@ -896,6 +900,57 @@ class RecommerceTradeInAcquisitionTest extends TestCase
         $changedRule->parameters_json = $parameters;
         $same = (new TradeInPricingService($engine))->calculate($changedRule, $this->valuationCommand($this->ruleSet()->id));
         $this->assertSame($native['recommendation'], $same['recommendation'], 'Legacy rule parameters must not create a second monetary formula.');
+    }
+
+    public function test_manual_website_intake_http_accepts_omitted_or_null_photo_ai_without_acquisition(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'staging');
+        config(['recommerce.tradein_acquisition_command' => [
+            'enabled' => true, 'bearer_token' => str_repeat('w', 48), 'contract_version' => '1.0',
+            'actor_user_id' => 900, 'business_id' => 7, 'location_ids' => [101], 'variation_ids' => [303],
+        ]]);
+        foreach ([false, true] as $explicitNull) {
+            $case = $explicitNull ? 'SB-TI-20260908-90002' : 'SB-TI-20260908-90001';
+            $submission = [
+                'contract_version' => 'trade-in-pos-authority.v2', 'source_system' => 'SAVERBRO_WEBSITE',
+                'external_case_reference' => $case, 'submission_id' => 'website-'.$case, 'submission_version' => 1,
+                'category' => 'LAPTOP', 'brand' => '', 'model' => 'Fixture manual laptop',
+                'specifications' => ['storage' => 'not_sure'], 'declared_condition' => ['physical' => 'good'],
+                'indicative_snapshot' => null, 'evidence_references' => [],
+                'customer' => ['name' => 'Synthetic Customer', 'email' => 'customer@example.test', 'phone' => '0100000000'],
+                'preferred_branch' => 'Fixture Branch', 'submitted_at' => now()->toDateTimeString(),
+            ];
+            if ($explicitNull) $submission['photo_ai'] = null;
+            $headers = ['Authorization' => 'Bearer '.str_repeat('w', 48)];
+            $this->postJson('/api/trade-in/v2/intakes', $submission, $headers)->assertCreated()->assertJsonPath('data.status', 'SUBMITTED');
+            $this->postJson('/api/trade-in/v2/intakes', $submission, $headers)->assertOk()->assertJsonPath('data.replayed', true);
+        }
+        $this->assertSame(2, TradeInIntake::query()->count());
+        $this->assertSame(0, TradeInPhotoAiAnalysis::query()->count());
+        $this->assertSame(0, DB::table('transactions')->count());
+        $this->assertSame(0, DeviceAcquisition::query()->count());
+        $this->assertSame(1, Device::query()->count(), 'Manual intake must not create a Device.');
+    }
+
+    public function test_supplied_incomplete_photo_ai_still_fails_http_validation(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'staging');
+        config(['recommerce.tradein_acquisition_command' => [
+            'enabled' => true, 'bearer_token' => str_repeat('w', 48), 'contract_version' => '1.0',
+            'actor_user_id' => 900, 'business_id' => 7, 'location_ids' => [101], 'variation_ids' => [303],
+        ]]);
+        $submission = [
+            'contract_version' => 'trade-in-pos-authority.v2', 'source_system' => 'SAVERBRO_WEBSITE',
+            'external_case_reference' => 'SB-TI-20260908-90003', 'submission_id' => 'website-SB-TI-20260908-90003', 'submission_version' => 1,
+            'category' => 'LAPTOP', 'model' => 'Fixture laptop', 'specifications' => [], 'declared_condition' => [], 'evidence_references' => [],
+            'customer' => ['name' => 'Synthetic Customer', 'email' => 'customer@example.test', 'phone' => '0100000000'], 'submitted_at' => now()->toDateTimeString(),
+            'photo_ai' => ['analysis_id' => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'],
+        ];
+        $this->postJson('/api/trade-in/v2/intakes', $submission, ['Authorization' => 'Bearer '.str_repeat('w', 48)])
+            ->assertUnprocessable()->assertJsonValidationErrors(['photo_ai.customer_confirmation.action','photo_ai.result.cosmetic_grade.result']);
+        $this->assertSame(0, TradeInIntake::query()->count());
+        $this->assertSame(0, TradeInPhotoAiAnalysis::query()->count());
+        $this->assertSame(0, DB::table('transactions')->count());
     }
 
     public function test_photo_ai_intake_uses_governed_resolvers_and_preserves_all_authority_boundaries(): void

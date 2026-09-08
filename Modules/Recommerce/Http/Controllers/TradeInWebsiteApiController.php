@@ -39,7 +39,7 @@ final class TradeInWebsiteApiController
     public function intake(Request $request): JsonResponse
     {
         if (is_array($request->input('photo_ai'))) $this->assertPhotoAiContract((array) $request->input('photo_ai'));
-        $command = $request->validate([
+        $rules = [
             'contract_version' => ['required', 'in:trade-in-pos-authority.v2'],
             'source_system' => ['required', 'in:SAVERBRO_WEBSITE'],
             'external_case_reference' => ['required', 'regex:/^SB-TI-[0-9]{8}-[0-9]{5}$/'],
@@ -112,7 +112,14 @@ final class TradeInWebsiteApiController
             'customer.phone' => ['required', 'string', 'max:80'],
             'preferred_branch' => ['nullable', 'string', 'max:160'],
             'submitted_at' => ['required', 'date'],
-        ]);
+        ];
+        // Photo AI is optional. Laravel's nested required/present rules still run
+        // under a nullable parent, so apply them only when a payload is supplied.
+        // Empty/malformed supplied payloads retain the complete validation rules.
+        if ($request->input('photo_ai') === null) {
+            $rules = array_filter($rules, fn (string $field): bool => ! str_starts_with($field, 'photo_ai.'), ARRAY_FILTER_USE_KEY);
+        }
+        $command = $request->validate($rules);
         try {
             $result = $this->cases->receive($command, $this->access);
             return $this->response(['data' => $this->cases->projection($result['intake']) + ['replayed' => $result['replayed']]], $result['replayed'] ? 200 : 201);
