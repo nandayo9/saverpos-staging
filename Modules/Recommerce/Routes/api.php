@@ -24,6 +24,7 @@ Route::middleware([CustomerProjectionToken::class, 'throttle:60,1'])
 Route::middleware([TradeInAcquisitionCommandToken::class, 'throttle:10,1'])
     ->prefix('trade-in/v2')
     ->group(function (): void {
+        Route::get('/catalogue', 'TradeInWebsiteApiController@catalogue');
         Route::post('/valuations/indicative', 'TradeInWebsiteApiController@indicative');
         Route::post('/intakes', 'TradeInWebsiteApiController@intake');
         Route::get('/intakes/{externalCaseReference}/projection', 'TradeInWebsiteApiController@projection')

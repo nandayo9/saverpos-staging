@@ -43,6 +43,10 @@ class Kernel extends ConsoleKernel
                     ->emailOutputTo($email);
         }
 
+        if ($env === 'staging' && config('recommerce.intelligence.jobs_enabled')) {
+            $schedule->command('recommerce:tradein-intelligence --limit=3')->everyFiveMinutes()->withoutOverlapping();
+        }
+
         if (config('recommerce.enabled') === true && config('recommerce.tradein_outbox.enabled') === true) {
             $schedule->command('recommerce:tradein-outbox:dispatch --limit=50')->everyMinute()->withoutOverlapping();
         }

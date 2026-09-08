@@ -12,9 +12,30 @@ final class SaverValueService
     public function indicative(array $input): array
     {
         $device = $this->normaliseDevice($input);
+        $condition = (array) ($input['condition'] ?? []);
+        if (in_array($device['category'], ['PHONE','TABLET'], true) || !empty($device['configuration']['variant_id'])) {
+            \Modules\Recommerce\Services\Intelligence\CategorySchema::validate($device, $condition);
+            $intelligence = app(\Modules\Recommerce\Services\Intelligence\IntelligenceService::class);
+            $business = (int) config('recommerce.tradein_acquisition_command.business_id');
+            $selection = $intelligence->selection($business, $device, $condition);
+            $result = $this->calculate($device, $condition, $selection['reference'], [], 'INDICATIVE', $selection['policy']);
+            $adjustment = $intelligence->adjustment($business, $selection, $result['recommended_acquisition_minor']);
+            $result['pricing_trace'] = $selection['trace'] + ['demand'=>$adjustment];
+            $raw = array_sum(array_column($result['breakdown'], 'amount_minor'));
+            // Advanced quotes cannot manufacture a minimum offer or bypass hard economics.
+            $ceiling = min($raw, (int) floor($result['expected_resale_minor'] * $selection['policy']['maximum_acquisition_ratio']));
+            $adjusted = min($ceiling, $adjustment['result_minor']);
+            if ($adjusted < $selection['policy']['minimum_offer_minor']) throw new LogicException('Our team needs to review this device.');
+            $width = $result['estimate_max_minor']-$result['estimate_min_minor'];
+            $result['recommended_acquisition_minor'] = $result['maximum_acquisition_minor'] = $result['estimate_max_minor'] = (int)floor($adjusted/1000)*1000;
+            $result['estimate_min_minor'] = max(0,$result['estimate_max_minor']-$width);
+            $result['valid_until'] = gmdate('c', min(time() + $result['valid_days'] * 86400, strtotime($selection['valid_until'])));
+            $record = $intelligence->store->append($business,'ESTIMATE',$selection['variant']['variant_id'],$result,$result['decision'],null,'Immutable customer indicative snapshot; no operational write.');
+            $result['pricing_trace']['snapshot_id'] = $record['id'];
+            return $result;
+        }
         $prediction = $this->predict($device);
-
-        return $this->calculate($device, (array) ($input['condition'] ?? []), $prediction, [], 'INDICATIVE');
+        return $this->calculate($device, $condition, $prediction, [], 'INDICATIVE');
     }
 
     /** @return array<string, mixed> */
@@ -45,6 +66,13 @@ final class SaverValueService
             'model_label' => (string) ($input['model_label'] ?? ''),
             'configuration' => (array) ($input['configuration'] ?? []),
         ];
+        // Capture only canonical specifications known at this valuation, never later edits.
+        foreach (app(\Modules\Recommerce\Services\Intelligence\IntelligenceService::class)->variants((int)($input['business_id'] ?? 0)) as $variant) {
+            if ((int)$variant['native_variation_id'] === (int)($input['variation_id'] ?? 0)) {
+                $device['configuration'] = $variant['specification'] + ['variant_id'=>$variant['variant_id']];
+                break;
+            }
+        }
         $prediction = [
             'provider' => 'SAVERPOS_STAFF_EVIDENCE',
             'expected_resale_minor' => $expectedResaleMinor,
@@ -62,9 +90,9 @@ final class SaverValueService
     }
 
     /** @return array<string, mixed> */
-    private function calculate(array $device, array $condition, array $prediction, array $trustedDeductions, string $type): array
+    private function calculate(array $device, array $condition, array $prediction, array $trustedDeductions, string $type, ?array $categoryPolicy = null): array
     {
-        $policy = $this->policy();
+        $policy = $categoryPolicy ?? $this->policy();
         $category = strtoupper(trim((string) ($device['category'] ?? '')));
         if (! in_array($category, ['LAPTOP', 'PHONE', 'TABLET', 'DESKTOP', 'GAMING', 'OTHER'], true)) {
             throw new LogicException('Choose a supported device category.');
@@ -110,7 +138,7 @@ final class SaverValueService
             $manualReasons[] = 'This category is outside the automatic Laptop V1 scope.';
             $score = min($score, 55);
         }
-        foreach (['processor', 'ram', 'storage'] as $field) {
+        foreach ($categoryPolicy ? \Modules\Recommerce\Services\Intelligence\CategorySchema::fields($category) : ['processor', 'ram', 'storage'] as $field) {
             if (($device['configuration'][$field] ?? '') === '' || ($device['configuration'][$field] ?? '') === 'not_sure') {
                 $score -= 8;
                 $manualReasons[] = ucfirst($field).' is incomplete or uncertain.';
@@ -124,6 +152,13 @@ final class SaverValueService
             $score = min($score, 55);
             $manualReasons[] = 'Customer-reported defects or repair history require inspection.';
         }
+        if ($categoryPolicy) {
+            foreach (\Modules\Recommerce\Services\Intelligence\CategorySchema::functions($category,$device['configuration']) as $field) {
+                $answer = $condition[$field] ?? 'not_sure';
+                $clear = in_array($field,['repair_history','liquid_damage'],true) ? ['no'] : ($field === 'activation_lock' ? ['no'] : ['working','not_applicable']);
+                if (!in_array($answer,$clear,true)) $manualReasons[] = 'Inspection needed for '.$field.'.';
+            }
+        }
         $score = max(0, $score);
         $confidence = $score >= 80 ? 'HIGH' : ($score >= 60 ? 'MEDIUM' : 'LOW');
         $manualReview = $score < (int) $policy['automatic_quote_min_confidence'] || $manualReasons !== [];
@@ -131,7 +166,7 @@ final class SaverValueService
 
         return [
             'valuation_id' => (string) Str::uuid(), 'valuation_type' => $type, 'currency' => 'MYR',
-            'normalized_device' => $device, 'customer_condition' => $type === 'INDICATIVE' ? $condition : null,
+            'normalized_device' => $device, 'model_features' => \Modules\Recommerce\Services\Intelligence\ResaleModel::prepare($device, $condition), 'customer_condition' => $type === 'INDICATIVE' ? $condition : null,
             'technician_condition' => $type === 'FINAL' ? $condition : null,
             'prediction_provider' => (string) $prediction['provider'], 'market_reference_minor' => $expectedResale,
             'expected_resale_minor' => $expectedResale,
@@ -185,7 +220,7 @@ final class SaverValueService
         return [
             'category' => strtoupper(trim((string) ($input['category'] ?? ''))), 'model_id' => $modelId,
             'model_label' => trim((string) ($input['model_label'] ?? '')),
-            'configuration' => array_intersect_key((array) ($input['configuration'] ?? []), array_flip(['processor','ram','storage','connectivity','charger'])),
+            'configuration' => array_intersect_key((array) ($input['configuration'] ?? []), array_flip(['processor','ram','storage','connectivity','charger','variant_id'])),
         ];
     }
 

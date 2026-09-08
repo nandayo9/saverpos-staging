@@ -121,4 +121,6 @@ else
     echo "Using the managed checkout as the live document-root parent."
 fi
 
+"$PHP_BIN" scripts/staging-release-manifest.php
+
 echo "SAVERPOS cPanel staging deployment completed."

@@ -116,6 +116,9 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
     Route::get('/trade-ins/reports', 'TradeInController@reports')
         ->middleware('throttle:30,1')
         ->name('recommerce.tradeins.reports');
+    Route::get('/trade-ins/pricing-evidence', 'TradeInIntelligenceController@index')->middleware('throttle:30,1')->name('recommerce.tradeins.intelligence');
+    Route::post('/trade-ins/pricing-evidence', 'TradeInIntelligenceController@store')->middleware('throttle:5,1')->name('recommerce.tradeins.intelligence.store');
+
     Route::get('/trade-ins/new', 'TradeInController@create')
         ->middleware('throttle:30,1')
         ->name('recommerce.tradeins.create');

@@ -19,6 +19,12 @@ final class TradeInWebsiteApiController
 {
     public function __construct(private TradeInWebsiteCaseService $cases, private TradeInAcquisitionCommandAccess $access, private SaverValueService $saverValue) {}
 
+    public function catalogue(): JsonResponse
+    {
+        $service = app(\Modules\Recommerce\Services\Intelligence\IntelligenceService::class);
+        return $this->response(['data'=>['contract_version'=>'trade-in-pos-authority.v2','variants'=>array_values(array_filter($service->catalogue($this->access->businessId()),function($v)use($service){return in_array((int)$service->variant($this->access->businessId(),$v['variant_id'])['native_variation_id'],$this->access->variationIds(),true);}))]],200);
+    }
+
     public function indicative(Request $request): JsonResponse
     {
         $input = $request->validate([

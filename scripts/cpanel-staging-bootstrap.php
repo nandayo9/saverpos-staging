@@ -27,6 +27,18 @@ try {
     exit(1);
 }
 
+// A verified private snapshot is mandatory before introducing the evidence table.
+if (!Schema::hasTable('recommerce_trade_in_intelligence')) {
+    require_once __DIR__.'/staging-database-backup.php';
+    try {
+        $backup = saverposStagingBackup((array) config('database.connections.'.config('database.default')), storage_path('app/private/staging-backups'));
+        echo 'Verified pre-migration backup '.$backup['backup_id']."\n";
+    } catch (Throwable $error) {
+        fwrite(STDERR, "Private staging backup failed; no migration was started.\n");
+        exit(1);
+    }
+}
+
 if (Artisan::call('migrate', ['--force' => true, '--no-interaction' => true]) !== 0) {
     fwrite(STDERR, Artisan::output());
     exit(1);

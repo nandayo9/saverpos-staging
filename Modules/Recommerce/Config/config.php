@@ -199,10 +199,16 @@ return [
             'generic_cost_threshold' => env('RECOMMERCE_STOCK_COUNT_GENERIC_COST_THRESHOLD'),
         ],
     ],
+    'intelligence' => [
+        'market_enabled' => env('RECOMMERCE_MARKET_PRICING_ENABLED', false),
+        'demand_enabled' => env('RECOMMERCE_DEMAND_PRICING_ENABLED', false),
+        'model_enabled' => env('RECOMMERCE_MODEL_PRICING_ENABLED', false),
+        'jobs_enabled' => env('RECOMMERCE_INTELLIGENCE_JOBS_ENABLED', env('APP_ENV') === 'staging'),
+    ],
     'photo_ai' => [
         // This gates staff visibility/review only. Website evidence may still
         // be retained on intake so disabling the panel never blocks Trade-In.
-        'staff_enabled' => env('RECOMMERCE_PHOTO_AI_STAFF_ENABLED', false),
+        'staff_enabled' => env('RECOMMERCE_PHOTO_AI_STAFF_ENABLED', env('APP_ENV') === 'staging'),
     ],
     'cohort' => [
         'business_id' => env('RECOMMERCE_COHORT_BUSINESS_ID'),

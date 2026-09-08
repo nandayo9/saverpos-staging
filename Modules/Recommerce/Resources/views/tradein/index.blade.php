@@ -19,6 +19,7 @@
 @include('recommerce::tradein.partials.styles')
 <section class="container-fluid sb-ti" id="recommerce-trade-ins" data-workspace-page="{{ $workspacePage }}">
     <header class="sb-ti-header">
+    @if(app()->environment('staging'))<a href="{{ route('recommerce.tradeins.intelligence') }}">Pricing evidence</a>@endif
         <div>
             <p class="sb-ti-eyebrow">SAVERPOS · RECOMMERCE</p>
             <h1>{{ $pageTitles[$workspacePage] ?? 'Trade-In Acquisition' }}</h1>
