@@ -276,6 +276,46 @@ class RecommerceCustomerProjectionTest extends TestCase
             ->assertJsonMissingPath('data.0.device_code');
     }
 
+    public function test_canonical_model_survives_sale_and_keeps_historical_identity(): void
+    {
+        (require base_path('Modules/Recommerce/Database/Migrations/2026_09_08_000001_create_trade_in_intelligence_records.php'))->up();
+        (require base_path('Modules/Recommerce/Database/Migrations/2026_09_08_000003_create_canonical_device_catalogue.php'))->up();
+        $device = $this->device();
+        $identity = ['variant_id' => 'TEST-T14-EXACT', 'model_id' => 'TEST-T14', 'public_slug' => 'canonical-thinkpad-t14-gen-2',
+            'category' => 'LAPTOP', 'brand' => 'Lenovo', 'model_label' => 'ThinkPad T14 Gen 2', 'generation' => 'Gen 2',
+            'specification' => ['processor' => 'Intel Core i5', 'ram' => '16GB', 'storage' => '512GB SSD'],
+            'native_variation_id' => 303, 'identity_provenance' => 'ISOLATED-TEST', 'status' => 'VERIFIED'];
+        app(\Modules\Recommerce\Services\Intelligence\IntelligenceService::class)->import(7, ['kind' => 'VARIANT', 'target' => 'TEST-T14-EXACT', 'data' => $identity], 900, 'Isolated canonical mapping.');
+        app(\Modules\Recommerce\Services\CanonicalDeviceCatalogue::class)->publish(7, 'TEST-T14', [
+            'expected_revision' => 1, 'publication_state' => 'PUBLISHED', 'synthetic' => true, 'review_reference' => 'TEST',
+            'summary' => 'A synthetic ThinkPad model used to prove permanent catalogue identity independently of changing exact-device stock.',
+            'condition_guidance' => 'Read the exact device Passport for published screen, body, inspection and battery information before choosing a unit.',
+            'configuration_guidance' => 'Check the processor, RAM and storage on the individual device. A model identity does not establish its exact configuration.',
+        ], 900, 'Isolated editorial test.');
+        $projection = app(CustomerDeviceListingProjection::class);
+        self::assertSame('TEST-T14', $projection->device($device->public_device_id)['model']['canonical_model_id']);
+        self::assertSame(1, $projection->listings(['model_slug' => 'canonical-thinkpad-t14-gen-2'])['pagination']['total']);
+        $device->update(['lifecycle_state' => 'SOLD', 'sold_at' => now(), 'stock_participation' => 'NOT_ON_HAND']);
+        self::assertNull($projection->device($device->public_device_id));
+        self::assertSame(0, $projection->model('canonical-thinkpad-t14-gen-2')['available_device_count']);
+        self::assertSame('canonical-thinkpad-t14-gen-2', $projection->model('lenovo-thinkpad-t14-gen-2')['slug']);
+        self::assertCount(1, $projection->specifications('canonical-thinkpad-t14-gen-2'));
+        self::assertSame('SOLD', $projection->publicStatus($device->public_device_id)['state']);
+        self::assertSame('lenovo-thinkpad-t14-gen-2', $device->fresh()->listing_model_slug);
+    }
+
+    public function test_status_excludes_private_fields_and_does_not_make_reserved_stock_available(): void
+    {
+        $device = $this->device(['stock_participation' => 'RESERVED']);
+        $projection = app(CustomerDeviceListingProjection::class);
+        self::assertNull($projection->device($device->public_device_id));
+        $status = $projection->publicStatus($device->public_device_id);
+        self::assertSame('RESERVED', $status['state']);
+        foreach (['price', 'manufacturer_serial_display', 'customer', 'branch', 'acquisition_cost'] as $key) self::assertArrayNotHasKey($key, $status);
+        $device->update(['listing_publication_state' => 'DRAFT']);
+        self::assertNull($projection->publicStatus($device->public_device_id));
+    }
+
     /** @param array<string, mixed> $overrides */
     private function device(array $overrides = []): Device
     {
@@ -298,14 +338,14 @@ class RecommerceCustomerProjectionTest extends TestCase
             'listing_currency' => 'MYR',
             'listing_model_slug' => 'lenovo-thinkpad-t14-gen-2',
             'listing_specification_id' => 'SPEC-T14G2-I5-16-512',
-            'specifications_json' => json_encode([
+            'specifications_json' => [
                 'brand' => 'Lenovo',
                 'model' => 'ThinkPad T14 Gen 2',
                 'generation' => 'Gen 2',
                 'cpu' => 'Intel Core i5',
                 'ram' => '16GB',
                 'storage' => '512GB SSD',
-            ], JSON_THROW_ON_ERROR),
+            ],
             'manufacturer_serial_display' => 'PRIVATE-SERIAL-DO-NOT-LEAK',
             'lock_version' => 7,
             'created_at' => now(),

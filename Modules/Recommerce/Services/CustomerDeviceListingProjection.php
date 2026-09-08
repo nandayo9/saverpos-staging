@@ -14,6 +14,10 @@ use Modules\Recommerce\Entities\Device;
  */
 final class CustomerDeviceListingProjection
 {
+    private ?CanonicalDeviceCatalogue $catalogue = null;
+
+    private function catalogue(): CanonicalDeviceCatalogue { return $this->catalogue ??= app(CanonicalDeviceCatalogue::class); }
+
     public function __construct(private CustomerProjectionAccess $access)
     {
     }
@@ -21,7 +25,8 @@ final class CustomerDeviceListingProjection
     /** @return list<array<string, mixed>> */
     public function models(): array
     {
-        return $this->eligibleRecords()
+        if (! $this->access->enabled()) return [];
+        $available = $this->eligibleRecords()
             ->groupBy(fn (array $record): string => $record['model']['id'])
             ->map(function (Collection $records): array {
                 $model = $records->first()['model'];
@@ -34,18 +39,27 @@ final class CustomerDeviceListingProjection
             ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
             ->values()
             ->all();
+        $models = collect($this->catalogue()->models($this->access->businessId()))
+            ->map(fn (array $m): array => $m + ['available_device_count' => 0])->keyBy('slug');
+        foreach ($available as $model) $models->put($model['slug'], $model);
+        return $models->sortBy('name')->values()->all();
     }
 
     /** @return array<string, mixed>|null */
     public function model(string $slug): ?array
     {
-        return collect($this->models())->first(fn (array $model): bool => $model['slug'] === $slug);
+        $model = collect($this->models())->first(fn (array $model): bool => $model['slug'] === $slug);
+        if ($model || ! $this->access->enabled()) return $model;
+        // Preserve old listing URLs without changing any historical Device ID.
+        $legacy = $this->publishedQuery()->where('listing_model_slug', $slug)->first();
+        return $legacy ? ($this->record($legacy)['model'] ?? null) : null;
     }
 
     /** @return list<array<string, mixed>> */
     public function specifications(string $modelSlug): array
     {
-        return $this->eligibleRecords()
+        if (! $this->access->enabled()) return [];
+        $available = $this->eligibleRecords()
             ->filter(fn (array $record): bool => $record['model']['slug'] === $modelSlug)
             ->groupBy(fn (array $record): string => $record['specification']['id'])
             ->map(function (Collection $records): array {
@@ -59,14 +73,22 @@ final class CustomerDeviceListingProjection
             ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
             ->values()
             ->all();
+        $specs = collect($this->catalogue()->specifications($this->access->businessId(), $modelSlug))->keyBy('id');
+        foreach ($available as $spec) $specs->put($spec['id'], $spec);
+        return $specs->values()->all();
     }
 
     /** @return array<string, mixed>|null */
     public function specification(string $publicId): ?array
     {
-        return collect($this->eligibleRecords())->first(
+        $available = collect($this->eligibleRecords())->first(
             fn (array $record): bool => $record['specification']['id'] === $publicId
         )['specification'] ?? null;
+        if ($available || ! $this->access->enabled()) return $available;
+        foreach ($this->models() as $model) {
+            foreach ($this->specifications($model['slug']) as $spec) if ($spec['id'] === $publicId) return $spec;
+        }
+        return null;
     }
 
     /** @return list<array<string, mixed>> */
@@ -100,14 +122,15 @@ final class CustomerDeviceListingProjection
         $filters = $this->filters($filters);
         $query = $this->eligibleQuery();
         $this->applyFilters($query, $filters);
-        $total = (int) $query->count();
-        $page = min($filters['page'], max(1, (int) ceil($total / $filters['per_page'])));
         $this->applySort($query, $filters['sort']);
-        $records = $query->forPage($page, $filters['per_page'])->get()
+        // Identity conflicts are excluded before totals and pagination, not hidden after counting.
+        $valid = $query->get()
             ->map(fn (Device $device): ?array => $this->record($device))
             ->filter()
-            ->values()
-            ->all();
+            ->values();
+        $total = $valid->count();
+        $page = min($filters['page'], max(1, (int) ceil($total / $filters['per_page'])));
+        $records = $valid->forPage($page, $filters['per_page'])->values()->all();
 
         return [
             'records' => $records,
@@ -131,16 +154,21 @@ final class CustomerDeviceListingProjection
     /** @return Builder<Device> */
     private function eligibleQuery(): Builder
     {
+        return $this->publishedQuery()
+            ->where('lifecycle_state', 'AVAILABLE')
+            ->where('custody_kind', 'LOCATION')
+            ->where('stock_participation', 'ON_HAND')
+            ->where('transfer_state', 'NONE')
+            ->whereNull('sold_at');
+    }
+
+    private function publishedQuery(): Builder
+    {
         return Device::query()
             ->with(['product.brand', 'variation', 'currentLocation', 'inspection'])
             ->where('business_id', $this->access->businessId())
             ->whereIn('current_location_id', $this->access->locationIds())
             ->whereIn('variation_id', $this->access->variationIds())
-            ->where('lifecycle_state', 'AVAILABLE')
-            ->where('custody_kind', 'LOCATION')
-            ->where('stock_participation', 'ON_HAND')
-            ->where('transfer_state', 'NONE')
-            ->whereNull('sold_at')
             ->where('listing_publication_state', 'PUBLISHED')
             ->whereNotNull('listing_price')
             ->where('listing_price', '>', 0)
@@ -150,6 +178,21 @@ final class CustomerDeviceListingProjection
             ->whereHas('currentLocation', fn (Builder $query) => $query->where('business_id', $this->access->businessId()))
             ->whereHas('product', fn (Builder $query) => $query->where('business_id', $this->access->businessId()))
             ->whereHas('variation', fn (Builder $query) => $query->whereColumn('variations.product_id', 'recommerce_devices.product_id'));
+    }
+
+    public function publicStatus(string $publicId): ?array
+    {
+        if (! $this->access->enabled()) return null;
+        $device = $this->publishedQuery()->where('public_device_id', $publicId)->first();
+        if (! $device || ! in_array($device->lifecycle_state, ['AVAILABLE', 'RESERVED', 'SOLD'], true)) return null;
+        $record = $this->record($device);
+        if (! $record) return null;
+        $state = $device->sold_at ? 'SOLD' : $device->lifecycle_state;
+        if ($device->stock_participation === 'RESERVED' && $state !== 'SOLD') $state = 'RESERVED';
+        if ($state === 'AVAILABLE' && ($device->stock_participation !== 'ON_HAND' || $device->custody_kind !== 'LOCATION' || $device->transfer_state !== 'NONE')) return null;
+        return ['public_id' => $publicId, 'state' => $state,
+            'model_slug' => $record['model']['slug'], 'model_name' => $record['model']['name'],
+            'category' => $record['model']['category'], 'synthetic' => true];
     }
 
     /** @param array<string, mixed> $input @return array{page:int,per_page:int,sort:string,category:?string,brand:?string,model_slug:?string,cpu:?string,ram:?string,storage:?string,branch:?string,min_price:?float,max_price:?float} */
@@ -178,6 +221,8 @@ final class CustomerDeviceListingProjection
             'cpu' => $choice('cpu', 160),
             'ram' => $choice('ram', 80),
             'storage' => $choice('storage', 120),
+            'connectivity' => $choice('connectivity', 80),
+            'q' => $choice('q', 120),
             'branch' => $choice('branch', 160),
             'min_price' => $decimal('min_price'),
             'max_price' => $decimal('max_price'),
@@ -187,7 +232,7 @@ final class CustomerDeviceListingProjection
     /** @param Builder<Device> $query @param array<string, mixed> $filters */
     private function applyFilters(Builder $query, array $filters): void
     {
-        foreach (['brand', 'cpu', 'ram', 'storage'] as $key) {
+        foreach (['brand', 'cpu', 'ram', 'storage', 'connectivity'] as $key) {
             if ($filters[$key] !== null) {
                 $query->where('specifications_json->' . $key, $filters[$key]);
             }
@@ -196,7 +241,15 @@ final class CustomerDeviceListingProjection
             $query->where('category_code', $filters['category']);
         }
         if ($filters['model_slug'] !== null) {
-            $query->where('listing_model_slug', $filters['model_slug']);
+            $model = collect($this->catalogue()->models($this->access->businessId()))->firstWhere('slug', $filters['model_slug']);
+            if ($model) {
+                $nativeIds = \Illuminate\Support\Facades\DB::table(CanonicalDeviceCatalogue::MAPPINGS)->where('business_id', $this->access->businessId())->where('model_id', $model['canonical_model_id'])->where('source', 'VARIANT')->pluck('native_variation_id')->all();
+                $query->whereIn('variation_id', $nativeIds);
+            } else $query->where('listing_model_slug', $filters['model_slug']);
+        }
+        if ($filters['q'] !== null) {
+            $search = '%' . addcslashes($filters['q'], '%_\\') . '%';
+            $query->whereHas('product', fn (Builder $p): Builder => $p->where('name', 'like', $search));
         }
         if ($filters['branch'] !== null) {
             $query->whereHas('currentLocation', fn (Builder $location): Builder => $location->where('name', $filters['branch']));
@@ -250,7 +303,11 @@ final class CustomerDeviceListingProjection
         }
 
         $attributes = [];
-        foreach (['cpu' => 'CPU', 'ram' => 'RAM', 'storage' => 'Storage', 'gpu' => 'GPU', 'display' => 'Display'] as $key => $label) {
+        $category = $this->text($device->category_code) ?? 'DEVICE';
+        $attributeLabels = in_array($category, ['PHONE', 'TABLET'], true)
+            ? ['storage' => 'Storage', 'connectivity' => 'Connectivity', 'colour' => 'Colour', 'chip' => 'Chip', 'display' => 'Display']
+            : ['cpu' => 'CPU', 'ram' => 'RAM', 'storage' => 'Storage', 'gpu' => 'GPU', 'display' => 'Display'];
+        foreach ($attributeLabels as $key => $label) {
             $value = $this->text($specifications[$key] ?? null);
             if ($value !== null) {
                 $attributes[] = ['key' => $key, 'label' => $label, 'value' => $value];
@@ -258,25 +315,36 @@ final class CustomerDeviceListingProjection
         }
 
         $generation = $this->text($specifications['generation'] ?? $specifications['variant'] ?? null);
-        $category = $this->text($specifications['device_type'] ?? $device->category_code) ?? 'DEVICE';
         $labelParts = array_filter([$modelName, ...array_column($attributes, 'value')]);
         $priceMinor = (int) round(((float) $device->listing_price) * 100);
         $currency = $this->currency($device->listing_currency);
         $inspectionRecorded = optional($device->inspection)->status === DeviceInspectionService::STATUS_PASSED;
         $refreshedAt = optional($device->updated_at)->toAtomString() ?: now()->toAtomString();
 
+        $model = [
+            'type' => 'model', 'id' => $modelSlug, 'slug' => $modelSlug, 'brand' => $brand,
+            'name' => $modelName, 'generation' => $generation, 'category' => $category, 'summary' => null,
+        ];
+        $catalogue = $this->catalogue();
+        $mapping = $catalogue->variantMapping($this->access->businessId(), (int) $device->variation_id);
+        if ($mapping) {
+            $canonical = collect($catalogue->models($this->access->businessId()))->firstWhere('canonical_model_id', $mapping['model_id']);
+            if ($canonical) {
+                // A reviewed mapping must also agree with the published exact-device specification.
+                $mapped = json_decode($mapping['specification_json'], true);
+                foreach ($mapped as $key => $value) {
+                    $nativeKey = $key === 'processor' ? 'cpu' : ($key === 'graphics' ? 'gpu' : $key);
+                    if (CanonicalDeviceCatalogue::normalized((string) ($specifications[$nativeKey] ?? '')) !== CanonicalDeviceCatalogue::normalized($value)) return null;
+                }
+                if ($category !== $canonical['category']) return null;
+                $model = $canonical;
+                $modelSlug = $canonical['slug'];
+                $specificationId = $mapping['variant_id'];
+            }
+        }
         return [
             'public_device_id' => $publicDeviceId,
-            'model' => [
-                'type' => 'model',
-                'id' => $modelSlug,
-                'slug' => $modelSlug,
-                'brand' => $brand,
-                'name' => $modelName,
-                'generation' => $generation,
-                'category' => $category,
-                'summary' => null,
-            ],
+            'model' => $model,
             'specification' => [
                 'type' => 'specification',
                 'id' => $specificationId,
