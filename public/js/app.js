@@ -450,6 +450,18 @@ $(document).ready(function() {
             "data": function ( d ) {
                 d.type = $('#contact_type').val();
                 d = __datatable_ajax_callback(d);
+                //added by Grace 08092026
+                if (d.type === 'customer') {
+                    var customerDateFilter = $('#customer_date_filter');
+                    var customerDatePicker =
+                        customerDateFilter.data('daterangepicker');
+                    if (customerDateFilter.val() && customerDatePicker) {
+                        d.customer_added_from =
+                            customerDatePicker.startDate.format('YYYY-MM-DD');
+                        d.customer_added_to =
+                            customerDatePicker.endDate.format('YYYY-MM-DD');
+                    }
+                }
 
                 if ($('#has_sell_due').length > 0 && $('#has_sell_due').is(':checked')) {
                     d.has_sell_due = true;
@@ -520,6 +532,35 @@ $(document).ready(function() {
     $(document).on('change', '#has_no_sell_from, #cg_filter, #status_filter, #assigned_to', function(){
         contact_table.ajax.reload();
     });
+
+    // Customer creation-date filter, Added by Grace 08092026
+    if (contact_table_type === 'customer' &&
+        $('#customer_date_filter').length) {
+
+        var customerDateSettings = $.extend(true, {}, dateRangeSettings, {
+            autoUpdateInput: false,
+            locale: {
+                cancelLabel: 'Clear'
+            }
+        });
+
+        $('#customer_date_filter')
+            .daterangepicker(customerDateSettings)
+            .val('')
+            .on('apply.daterangepicker', function(event, picker) {
+                $(this).val(
+                    picker.startDate.format('DD MMM YYYY') +
+                    ' - ' +
+                    picker.endDate.format('DD MMM YYYY')
+                );
+
+                contact_table.ajax.reload();
+            })
+            .on('cancel.daterangepicker', function() {
+                $(this).val('');
+                contact_table.ajax.reload();
+            });
+    }
 
     //On display of add contact modal
     $('.contact_modal').on('shown.bs.modal', function(e) {

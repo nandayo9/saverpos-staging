@@ -300,6 +300,39 @@ class ContactController extends Controller
 
         $query = $this->contactUtil->getContactQuery($business_id, 'customer');
 
+        // Filter by the customer's Added On date, Added by Grace 08092026
+        $dateFilters = request()->validate([
+            'customer_added_from' => [
+                'nullable',
+                'required_with:customer_added_to',
+                'date_format:Y-m-d',
+            ],
+            'customer_added_to' => [
+                'nullable',
+                'required_with:customer_added_from',
+                'date_format:Y-m-d',
+                'after_or_equal:customer_added_from',
+            ],
+        ]);
+
+        if (
+            ! empty($dateFilters['customer_added_from']) &&
+            ! empty($dateFilters['customer_added_to'])
+        ) {
+            $from = \Carbon\Carbon::createFromFormat(
+                '!Y-m-d',
+                $dateFilters['customer_added_from']
+            )->format('Y-m-d H:i:s');
+
+            $until = \Carbon\Carbon::createFromFormat(
+                '!Y-m-d',
+                $dateFilters['customer_added_to']
+            )->addDay()->format('Y-m-d H:i:s');
+
+            $query->where('contacts.created_at', '>=', $from)
+                ->where('contacts.created_at', '<', $until);
+        }
+
         if (request()->has('has_sell_due')) {
             $query->havingRaw('(COALESCE(total_invoice, 0) - COALESCE(invoice_received, 0) - COALESCE(total_ledger_discount, 0) - COALESCE(total_sell_return, 0) + COALESCE(sell_return_paid, 0)) > 0');
         }
