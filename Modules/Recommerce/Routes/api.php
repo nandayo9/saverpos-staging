@@ -14,10 +14,12 @@ Route::middleware([CustomerProjectionToken::class, 'throttle:60,1'])
         Route::get('/models/{slug}/specifications', 'CustomerProjectionController@specifications')
             ->where('slug', '[a-z0-9-]+');
         Route::get('/specifications/{publicId}', 'CustomerProjectionController@specification')
-            ->where('publicId', '[A-Za-z0-9-]+');
+            ->where('publicId', '[A-Za-z0-9][A-Za-z0-9_.:-]{0,149}');
         Route::get('/specifications/{publicId}/devices', 'CustomerProjectionController@devices')
-            ->where('publicId', '[A-Za-z0-9-]+');
+            ->where('publicId', '[A-Za-z0-9][A-Za-z0-9_.:-]{0,149}');
         Route::get('/devices/{publicDeviceId}', 'CustomerProjectionController@device')
+            ->where('publicDeviceId', '[A-Za-z0-9-]+');
+        Route::get('/devices/{publicDeviceId}/status', 'CustomerProjectionController@status')
             ->where('publicDeviceId', '[A-Za-z0-9-]+');
     });
 

@@ -24,7 +24,7 @@ final class CustomerProjectionController
     {
         $result = $this->projection->listings($request->only([
             'page', 'per_page', 'sort', 'category', 'brand', 'model_slug',
-            'cpu', 'ram', 'storage', 'branch', 'min_price', 'max_price',
+            'cpu', 'ram', 'storage', 'connectivity', 'q', 'branch', 'min_price', 'max_price',
         ]));
 
         return $this->response($result['records'], ['pagination' => $result['pagination']]);
@@ -61,6 +61,11 @@ final class CustomerProjectionController
     public function device(string $publicDeviceId): JsonResponse
     {
         return $this->notFoundOrResponse($this->projection->device($publicDeviceId));
+    }
+
+    public function status(string $publicDeviceId): JsonResponse
+    {
+        return $this->notFoundOrResponse($this->projection->publicStatus($publicDeviceId));
     }
 
     /** @param array<string, mixed>|list<array<string, mixed>> $data */

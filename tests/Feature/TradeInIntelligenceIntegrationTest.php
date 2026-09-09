@@ -25,6 +25,7 @@ class TradeInIntelligenceIntegrationTest extends TestCase
         DB::table('products')->insert(['id'=>202,'business_id'=>7]);
         DB::table('variations')->insert(['id'=>303,'product_id'=>202]);
         (require base_path('Modules/Recommerce/Database/Migrations/2026_09_08_000001_create_trade_in_intelligence_records.php'))->up();
+        (require base_path('Modules/Recommerce/Database/Migrations/2026_09_08_000003_create_canonical_device_catalogue.php'))->up();
         $this->service=app(IntelligenceService::class);
     }
 
@@ -61,9 +62,11 @@ class TradeInIntelligenceIntegrationTest extends TestCase
                 'buttons'=>'working','body'=>'working','activation_lock'=>'no','biometrics'=>'working','network'=>'working']];
     }
 
-    public function test_phone_and_tablet_quotes_use_shared_policy_and_immutable_snapshot(): void
+    public static function supportedCategories(): array { return [['PHONE'], ['TABLET']]; }
+
+    /** @dataProvider supportedCategories */
+    public function test_phone_and_tablet_quotes_use_shared_policy_and_immutable_snapshot(string $category): void
     {
-        foreach(['PHONE','TABLET'] as $category){
             $this->seedEvidence($category);$r=(new SaverValueService)->indicative($this->input($category));
             self::assertSame('AUTOMATIC_QUOTE',$r['decision']);
             self::assertSame('APPROVED',$r['pricing_trace']['selected']);
@@ -71,8 +74,7 @@ class TradeInIntelligenceIntegrationTest extends TestCase
             self::assertLessThanOrEqual(time()+3600,strtotime($r['valid_until']));
             self::assertNotEmpty($r['pricing_trace']['snapshot_id']);
             self::assertSame('NO_APPROVED_POLICY',$r['pricing_trace']['demand']['reason']);
-        }
-        self::assertCount(2,$this->service->store->all(7,'ESTIMATE'));
+        self::assertCount(1,$this->service->store->all(7,'ESTIMATE'));
         self::assertFalse(Schema::hasTable('purchase_lines'));
         self::assertFalse(Schema::hasTable('recommerce_devices'));
     }

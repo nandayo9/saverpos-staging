@@ -28,7 +28,7 @@ try {
 }
 
 // A verified private snapshot is mandatory before introducing the evidence table.
-if (!Schema::hasTable('recommerce_trade_in_intelligence')) {
+if (!Schema::hasTable('recommerce_trade_in_intelligence') || !Schema::hasTable('recommerce_catalogue_models')) {
     require_once __DIR__.'/staging-database-backup.php';
     try {
         $backup = saverposStagingBackup((array) config('database.connections.'.config('database.default')), storage_path('app/private/staging-backups'));

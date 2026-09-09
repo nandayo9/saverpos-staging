@@ -18,6 +18,7 @@ final class IntelligenceService {
    $source=$this->source($business,$target);$result=[];if(count($data)>250)throw new LogicException('Import up to 250 observations per batch.');
    return DB::transaction(function()use($business,$data,$source,$target,$actor,$reason){$out=[];foreach($data as $row){if(!is_array($row))throw new LogicException('Each observation must be an object.');if(($row['source']??'')!==$target||($row['upstream_source']??'')!==($source['upstream_source']??''))throw new LogicException('Source provenance mismatch.');$v=$this->variant($business,$row['variant_id']??'');$clean=$this->market->observation($row,$source,$v,time());$out[]=$this->store->append($business,'OBSERVATION',$v['variant_id'],$clean,$clean['excluded']?'EXCLUDED':'ELIGIBLE',$actor,$reason)['id'];}return ['imported'=>count($out)];});
   }
+  if($kind==='CATALOGUE_MODEL')return app(\Modules\Recommerce\Services\CanonicalDeviceCatalogue::class)->publish($business,$target,$data,$actor,$reason);
   if($kind==='VARIANT'){
    foreach(['variant_id','model_id','category','brand','model_label','specification','native_variation_id','identity_provenance','status'] as $f)if(empty($data[$f]))throw new LogicException('Variant needs '.$f.'.');
    if($data['variant_id']!==$target||!is_array($data['specification']))throw new LogicException('Variant identity mismatch.');
@@ -39,6 +40,12 @@ final class IntelligenceService {
    foreach(['minimum_margin_minor','warranty_reserve_minor','logistics_handling_minor','inventory_risk_minor','minimum_offer_minor','charger_missing_minor'] as $f)if(!is_int($data['commercial'][$f])||$data['commercial'][$f]<0)throw new LogicException('Invalid policy cost.');
    foreach(['target_margin_percent','maximum_acquisition_ratio'] as $f)if(!is_numeric($data['commercial'][$f])||$data['commercial'][$f]<0||$data['commercial'][$f]>1)throw new LogicException('Invalid policy ratio.');
   }else throw new LogicException('Unsupported import kind.');
+  if($kind==='VARIANT')return DB::transaction(function()use($business,$kind,$target,$data,$actor,$reason){
+   // Serialize identity imports within the native business; unique indexes also fail closed.
+   DB::table('products')->where('business_id',$business)->orderBy('id')->lockForUpdate()->first();
+   app(\Modules\Recommerce\Services\CanonicalDeviceCatalogue::class)->registerVariant($business,$data,$actor,$reason);
+   return $this->store->append($business,$kind,$target,$data,$data['status'],$actor,$reason);
+  });
   return $this->store->append($business,$kind,$target,$data,$data['status']??$data['permission_status']??'RECORDED',$actor,$reason);
  }
  public function refresh(int $business,string $variantId,int $actor): array {
