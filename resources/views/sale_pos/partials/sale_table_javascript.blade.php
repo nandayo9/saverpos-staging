@@ -71,25 +71,25 @@ sell_table = $('#sell_table').DataTable({
         },
         columns: [
             { data: 'action', name: 'action', orderable: false, "searchable": false},
-            { data: 'transaction_date', name: 'transaction_date'  },
-            { data: 'invoice_no', name: 'invoice_no'},
-            { data: 'conatct_name', name: 'conatct_name'},
-            { data: 'mobile', name: 'contacts.mobile'},
-            { data: 'business_location', name: 'bl.name'},
-            { data: 'payment_status', name: 'payment_status'},
-            { data: 'payment_methods', orderable: false, "searchable": false},
-            { data: 'final_total', name: 'final_total'},
-            { data: 'total_paid', name: 'total_paid', "searchable": false},
-            { data: 'total_remaining', name: 'total_remaining'},
-            { data: 'return_due', orderable: false, "searchable": false},
-            { data: 'shipping_status', name: 'shipping_status'},
-            { data: 'total_items', name: 'total_items', "searchable": false},
+            { data: 'transaction_date', name: 'transaction_date', className: 'text-center'  },
+            { data: 'invoice_no', name: 'invoice_no', className: 'text-center'},
+            { data: 'conatct_name', name: 'conatct_name', className: 'text-left'},
+            { data: 'mobile', name: 'contacts.mobile', className: 'text-center'},
+            { data: 'business_location', name: 'bl.name', className: 'text-center'},
+            { data: 'payment_status', name: 'payment_status', className: 'text-center'},
+            { data: 'payment_methods', orderable: false, "searchable": false, className: 'text-center'},
+            { data: 'final_total', name: 'final_total', className: 'text-center'},
+            { data: 'total_paid', name: 'total_paid', "searchable": false, className: 'text-center'},
+            { data: 'total_remaining', name: 'total_remaining', className: 'text-center'},
+            { data: 'return_due', orderable: false, "searchable": false, className: 'text-center'},
+            { data: 'shipping_status', name: 'shipping_status', className: 'text-center'},
+            { data: 'total_items', name: 'total_items', "searchable": false, className: 'text-center'},
             { data: 'types_of_service_name', name: 'tos.name', @if(empty($is_types_service_enabled)) visible: false @endif},
             { data: 'service_custom_field_1', name: 'service_custom_field_1', @if(empty($is_types_service_enabled)) visible: false @endif},
-            { data: 'added_by', name: 'u.first_name'},
-            { data: 'additional_notes', name: 'additional_notes'},
-            { data: 'staff_note', name: 'staff_note'},
-            { data: 'shipping_details', name: 'shipping_details'},
+            { data: 'added_by', name: 'u.first_name', className: 'text-center'},
+            { data: 'additional_notes', name: 'additional_notes', className: 'text-center'},
+            { data: 'staff_note', name: 'staff_note', className: 'text-center'},
+            { data: 'shipping_details', name: 'shipping_details', className: 'text-center'},
             { data: 'table_name', name: 'tables.name', @if(empty($is_tables_enabled)) visible: false @endif },
             { data: 'waiter', name: 'ss.first_name', @if(empty($is_service_staff_enabled)) visible: false @endif }
         ],
@@ -118,7 +118,9 @@ sell_table = $('#sell_table').DataTable({
             $('.payment_method_count').html(__count_status(data, 'payment_methods'));
         },
         createdRow: function( row, data, dataIndex ) {
-            $( row ).find('td:eq(6)').attr('class', 'clickable_td');
+            //addClass, not attr('class'): attr replaces the attribute and drops
+            //the column's own classes (text-center, sorting_1).
+            $( row ).find('td:eq(6)').addClass('clickable_td');
         }
     });
     

@@ -44,7 +44,7 @@
         <div class="col-md-12">
             @component('components.widget', ['class' => 'box-primary'])
             <div class="table-responsive">
-                <table class="table table-bordered table-striped" id="cg_report_table">
+                <table class="table table-bordered table-striped sb-table-fit" id="cg_report_table">
                     <thead>
                         <tr>
                             <th>@lang('lang_v1.customer_group')</th>
@@ -84,6 +84,10 @@
                             processing: true,
                             serverSide: true,
                             fixedHeader:false,
+                            //both columns are sb-col-fit; autoWidth would pin an
+                            //inline table width and split the surplus between them
+                            //instead of letting each hug its longest value
+                            autoWidth: false,
                             "ajax": {
                                 "url": "/reports/customer-group",
                                 "data": function ( d ) {
@@ -94,8 +98,10 @@
                                 }
                             },
                             columns: [
+                                //widths come from sb-table-fit on the table itself,
+                                //so each column sizes to its longest value
                                 {data: 'name', name: 'CG.name'},
-                                {data: 'total_sell', name: 'total_sell', searchable: false}
+                                {data: 'total_sell', name: 'total_sell', searchable: false, className: 'text-center'}
                             ],
                             "fnDrawCallback": function (oSettings) {
                                 __currency_convert_recursively($('#cg_report_table'));

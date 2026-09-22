@@ -106,6 +106,12 @@
         
         // Cash Flow Table
         cash_flow_table = $('#cash_flow_table').DataTable({
+        // Date, Payment Method, Debit, Credit, Account Balance, Total Balance.
+        // Account, Description and Payment Details stay ranged left - they are
+        // free text, not values.
+        columnDefs: [{ targets: [0, 3, 5, 6, 7, 8], className: 'text-center' }],
+        scrollX: true,
+        scrollCollapse: true,
             processing: true,
             serverSide: true,
             fixedHeader:false,

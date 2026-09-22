@@ -326,6 +326,13 @@ class AdminSidebarMenu
                                 ['icon' => '', 'active' => request()->segment(1) == 'sells' && request()->segment(2) == null]
                             );
                         }
+                        if ($is_admin || auth()->user()->hasAnyPermission(['sell.view', 'direct_sell.view', 'view_own_sell_only', 'view_commission_agent_sell'])) {
+                            $sub->url(
+                                action([\App\Http\Controllers\ReportController::class, 'branchAttributedSalesView']),
+                                'Branch Attribute Sales',
+                                ['icon' => '', 'active' => request()->segment(1) == 'reports' && request()->segment(2) == 'branch-attributed-sales']
+                            );
+                        }
                         if (in_array('add_sale', $enabled_modules) && auth()->user()->can('direct_sell.access')) {
                             $sub->url(
                                 action([\App\Http\Controllers\SellController::class, 'create']),
@@ -498,7 +505,10 @@ class AdminSidebarMenu
                         $sub->url(
                             action([\App\Http\Controllers\ExpenseController::class, 'index']),
                             __('lang_v1.list_expenses'),
-                            ['icon' => '', 'active' => request()->segment(1) == 'expenses' || request()->segment(1) == 'import-expense' && request()->segment(2) == null]
+                            //&& binds tighter than ||, so the segment(2) guard only
+                            //covered the import-expense branch and /expenses/create
+                            //lit up List Expenses as well as Add Expense.
+                            ['icon' => '', 'active' => (request()->segment(1) == 'expenses' && request()->segment(2) != 'create') || (request()->segment(1) == 'import-expense' && request()->segment(2) == null)]
                         );
 
                         if (auth()->user()->can('expense.add')) {
@@ -796,6 +806,24 @@ class AdminSidebarMenu
                 <path d="M22 19l-3 -3l-3 3"></path>
               </svg>', 'active' => request()->segment(1) == 'backup'])->order(60);
             }
+
+            //Woocommerce menu
+            //Presentation-only screens; the paid Modules/Woocommerce package
+            //that serves these on the live site is not in this repository.
+            //stroke="currentColor" so the glyph takes the sidebar's own text
+            //colour and stays visible in both light and dark mode.
+            //stroke-width 1.5, not the tabler default of 2: every other icon
+            //in this sidebar is 1.5, and at 20px the extra weight made the
+            //wordpress glyph read as a filled disc next to them.
+            $menu->url(url('woocommerce'), 'Woocommerce', ['icon' => '<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="tw-size-5 tw-shrink-0 icon icon-tabler icons-tabler-outline icon-tabler-brand-wordpress">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+              <path d="M9.5 9h3"></path>
+              <path d="M4 9h2.5"></path>
+              <path d="M11 9l3 11l4 -9"></path>
+              <path d="M5.5 9l3.5 11l3 -7"></path>
+              <path d="M18 11c.177 -.528 1 -1.364 1 -2.5c0 -1.78 -.776 -2.5 -1.875 -2.5c-.898 0 -1.125 .812 -1.125 1.429c0 1.83 2 2.058 2 3.571z"></path>
+              <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path>
+            </svg>', 'active' => request()->segment(1) == 'woocommerce'])->order(58);
 
             //Modules menu
             if (auth()->user()->can('manage_modules')) {

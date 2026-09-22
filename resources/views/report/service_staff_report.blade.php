@@ -94,6 +94,8 @@
             }
 
         service_staff_report = $('table#service_staff_report').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
             processing: true,
             serverSide: true,
             fixedHeader:false,
@@ -139,6 +141,8 @@
         });
 
         service_staff_line_orders = $('table#service_staff_line_orders').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
             processing: true,
             serverSide: true,
             fixedHeader:false,

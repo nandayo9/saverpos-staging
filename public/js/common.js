@@ -146,16 +146,20 @@ $(document).ready(function () {
         if (typeof str !== 'string') {
             str = String(str);
         }
-        
+
         // HTML REMOVAL: Simple regex to remove HTML tags
-        str = str.replace(/<[^>]*>/g, ''); 
-        
+        str = str.replace(/<[^>]*>/g, '');
+
         // Check 1: Variable exists, Check 2: Has value, Check 3: Symbol present in string
-        if (typeof __currency_symbol !== 'undefined' && __currency_symbol && str.includes(__currency_symbol)) {
+        if (
+            typeof __currency_symbol !== 'undefined' &&
+            __currency_symbol &&
+            str.includes(__currency_symbol)
+        ) {
             // SIMPLE REPLACEMENT: Replace all occurrences of currency symbol with empty string
-            str = str.split(__currency_symbol).join('');  
+            str = str.split(__currency_symbol).join('');
         }
-        
+
         return str.trim();
     }
 
@@ -176,26 +180,26 @@ $(document).ready(function () {
             exportOptions: {
                 columns: ':visible',
                 format: {
-                    body: function(data, row, column, node) {
+                    body: function (data, row, column, node) {
                         // Check if the node or its children have data-is_quantity="true"
                         var $node = $(node);
                         var $quantityElement = $node.find('[data-is_quantity="true"]');
-                        
+
                         if ($quantityElement.length > 0) {
                             return $quantityElement.attr('data-orig-value');
                         }
                         // Remove currency symbol from the cell data
                         return __remove_currency_symbol(data);
                     },
-                    footer: function(data, row, column, node) {
+                    footer: function (data, row, column, node) {
                         // Remove currency symbol from the footer data
                         return __remove_currency_symbol(data);
-                    }
-                }
+                    },
+                },
             },
             footer: true,
             // Tables marked `hide-footer` (e.g. product list) skip the footer in CSV.
-            action: function(e, dt, button, config) {
+            action: function (e, dt, button, config) {
                 if ($(dt.table().node()).hasClass('hide-footer')) config.footer = false;
                 $.fn.dataTable.ext.buttons.csvHtml5.action.call(this, e, dt, button, config);
             },
@@ -207,7 +211,7 @@ $(document).ready(function () {
             exportOptions: {
                 columns: ':visible',
                 format: {
-                    body: function(data, row, column, node) {
+                    body: function (data, row, column, node) {
                         // Check if the node or its children have data-is_quantity="true"
                         var $node = $(node);
                         var $quantityElement = $node.find('[data-is_quantity="true"]');
@@ -217,15 +221,15 @@ $(document).ready(function () {
                         // Remove currency symbol from the cell data
                         return __remove_currency_symbol(data);
                     },
-                    footer: function(data, row, column, node) {
+                    footer: function (data, row, column, node) {
                         // Remove currency symbol from the footer data
                         return __remove_currency_symbol(data);
-                    }
-                }
+                    },
+                },
             },
             footer: true,
             // Tables marked `hide-footer` (e.g. product list) skip the footer in Excel.
-            action: function(e, dt, button, config) {
+            action: function (e, dt, button, config) {
                 if ($(dt.table().node()).hasClass('hide-footer')) config.footer = false;
                 $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e, dt, button, config);
             },
@@ -255,6 +259,10 @@ $(document).ready(function () {
             extend: 'colvis',
             text: '<i class="fa fa-columns" aria-hidden="true"></i> ' + LANG.col_vis,
             className: 'tw-dw-btn-xs  tw-dw-btn tw-dw-btn-outline tw-my-2',
+            // Custom-field columns are hidden on init (see the init.dt handler
+            // below). Leaving them out of this list too stops them being
+            // switched back on from the dropdown.
+            columns: ':not(.sb-custom-field)',
         },
     ];
 
@@ -266,39 +274,45 @@ $(document).ready(function () {
         exportOptions: {
             // Skip hidden columns. Skip "not-export" columns unless they have data-pdf-include.
             columns: function (idx, data, node) {
-                return $(node).is(':visible') && (!$(node).hasClass('not-export') || $(node).data('pdfInclude'));
+                return (
+                    $(node).is(':visible') &&
+                    (!$(node).hasClass('not-export') || $(node).data('pdfInclude'))
+                );
             },
             format: {
                 // Use the cached image for image cells, plain text for everything else.
-                body: function(data, row, column, node) {
+                body: function (data, row, column, node) {
                     var img = $(node).find('img')[0];
                     var cached = img && window._pdfImageCache && window._pdfImageCache[img.src];
                     return cached || $(node).text().trim();
-                }
-            }
+                },
+            },
         },
         footer: true,
         // Tables marked `hide-footer` (e.g. product list) skip the footer in PDF.
-        action: function(e, dt, button, config) {
+        action: function (e, dt, button, config) {
             if ($(dt.table().node()).hasClass('hide-footer')) config.footer = false;
             $.fn.dataTable.ext.buttons.pdfHtml5.action.call(this, e, dt, button, config);
         },
         // Turn the image data into real images in the PDF.
-        customize: function(doc) {
+        customize: function (doc) {
             // Smaller font + tighter margins so wide tables fit on the page.
             doc.defaultStyle.fontSize = 8;
             doc.pageMargins = [20, 20, 20, 20];
-            doc.content.forEach(function(b) {
+            doc.content.forEach(function (b) {
                 if (!b.table) return;
-                b.table.widths = b.table.body[0].map(function() { return '*'; });
-                b.table.body.forEach(function(row) {
-                    row.forEach(function(c, j) {
-                        var v = typeof c === 'string' ? c : (c && c.text);
-                        if (v && v.indexOf('data:image') === 0) row[j] = { image: v, width: 40, height: 40 };
+                b.table.widths = b.table.body[0].map(function () {
+                    return '*';
+                });
+                b.table.body.forEach(function (row) {
+                    row.forEach(function (c, j) {
+                        var v = typeof c === 'string' ? c : c && c.text;
+                        if (v && v.indexOf('data:image') === 0)
+                            row[j] = { image: v, width: 40, height: 40 };
                     });
                 });
             });
-        }
+        },
     };
 
     // PDF dropdown — Portrait / Landscape choices, styled to match the toolbar's outline button.
@@ -336,22 +350,25 @@ $(document).ready(function () {
 
     var pdf_dropdown = {
         extend: 'collection',
-        text: '<i class="fa fa-file-pdf" aria-hidden="true"></i> ' + LANG.export_to_pdf + ' <i class="fa fa-caret-down" aria-hidden="true"></i>',
+        text:
+            '<i class="fa fa-file-pdf" aria-hidden="true"></i> ' +
+            LANG.export_to_pdf +
+            ' <i class="fa fa-caret-down" aria-hidden="true"></i>',
         className: 'tw-dw-btn-xs tw-dw-btn tw-dw-btn-outline tw-my-2',
         collectionLayout: 'pdf-orient-collection',
         autoClose: true,
         buttons: [
             $.extend(true, {}, pdf_btn, {
                 text: LANG.portrait,
-                className: pdf_item_class
+                className: pdf_item_class,
             }),
             $.extend(true, {}, pdf_btn, {
                 text: LANG.landscape,
                 className: pdf_item_class,
                 orientation: 'landscape',
                 pageSize: 'A4',
-            })
-        ]
+            }),
+        ],
     };
 
     if (non_utf8_languages.indexOf(app_locale) == -1) {
@@ -361,6 +378,288 @@ $(document).ready(function () {
     if ($('#view_export_buttons').length < 1) {
         buttons = [];
     }
+    /**
+     * Remembered "Show N entries" choice.
+     *
+     * DataTables reads iDisplayLength once, when a table is built, so the
+     * stored value has to be in place before that happens. common.js is
+     * loaded ahead of app.js and the per-view scripts, so this ready handler
+     * runs first and the default below is already correct by the time any
+     * table initialises.
+     *
+     * localStorage rather than the session: the choice has to survive logging
+     * out and back in, and a session store is cleared on logout. Every access
+     * is guarded because localStorage throws in private mode and when site
+     * data is blocked - a table that cannot remember its length should still
+     * work normally.
+     */
+    var SB_PAGE_LENGTH_KEY = 'sb-datatable-page-length';
+
+    function sb_stored_page_length() {
+        try {
+            var stored = parseInt(window.localStorage.getItem(SB_PAGE_LENGTH_KEY), 10);
+
+            // -1 is the "All" option; anything else non-positive is junk.
+            if (stored === -1 || stored > 0) {
+                return stored;
+            }
+        } catch (error) {
+            // fall through to the business default
+        }
+
+        return null;
+    }
+
+    var sb_page_length = sb_stored_page_length();
+
+    /**
+     * Swap the "Show N entries" control for a select2.
+     *
+     * A native <select> hands its popup to the browser: Chrome sizes the panel
+     * from the control and lays the rows out itself, so `text-align` on the
+     * options is applied but never honoured, and the panel cannot be made
+     * narrower. select2 is already bundled and themed here, and renders the
+     * list as ordinary DOM, so width and alignment become ours to set.
+     *
+     * DataTables listens for a native change event on this select, and select2
+     * dispatches one, so paging and the length.dt handler below keep working.
+     */
+    /**
+     * Hide the "Custom Field" columns on every table.
+     *
+     * UltimatePOS ships 4-10 spare custom-field columns on most listings
+     * (contacts, products, purchases, sells, shipments and four reports).
+     * Where the business has not named one, the header falls back to
+     * "Custom Field N" or renders empty, so the tables carry a run of dead
+     * columns. They are hidden rather than deleted from the markup: the
+     * <th>, the <tfoot> cell and the columns entry have to stay in lockstep
+     * or DataTables throws, and hiding is one change instead of fifty.
+     *
+     * Columns are matched on their data/name key (custom_field1,
+     * product_custom_field3, shipping_custom_field_2 ...) rather than on the
+     * header text, which is blank on several of these tables. A column the
+     * business HAS named keeps its label but still carries the custom_field
+     * key, so it is hidden too - that is the point of the request.
+     *
+     * The .sb-custom-field class goes on the header cell so the colvis
+     * button's `:not(.sb-custom-field)` selector skips them as well.
+     */
+    var SB_CUSTOM_FIELD_KEY = /custom_field_?\d+$/i;
+
+    function sb_custom_field_columns(settings) {
+        var found = [];
+        var cols = settings.aoColumns || [];
+        for (var i = 0; i < cols.length; i++) {
+            var key = cols[i].sName || (typeof cols[i].mData === 'string' ? cols[i].mData : '');
+            if (key && SB_CUSTOM_FIELD_KEY.test(key)) found.push(i);
+        }
+        return found;
+    }
+
+    /* The class has to be on the header before Buttons constructs colvis,
+       which happens during init - by the time init.dt fires the dropdown has
+       already resolved `:not(.sb-custom-field)` against an unmarked header
+       and listed every column. preInit runs early enough. */
+    /**
+     * Shrink-wrap every Action column and centre its buttons.
+     *
+     * .sb-col-fit is the existing shrink-to-fit treatment (width:1% plus
+     * nowrap in saverbro-layout.css, and a scrollWidth measurement in
+     * table-colresize.js for the tables that assert a fixed layout). It was
+     * only spelled out by hand on a handful of tables, so everywhere else the
+     * Action column took an equal share of the table width and its buttons
+     * floated in a wide, half-empty cell.
+     *
+     * The column is found by its data/name key, which is the literal string
+     * "action" on 24 of them and is locale-independent. Tables that build
+     * their columns positionally (no key) are matched on the header text
+     * instead - that fallback is English-only, but every such table also
+     * carries the key, so it is a belt-and-braces path.
+     *
+     * The classes go on sClass rather than the cells directly so DataTables
+     * reapplies them to every row it draws, including after paging and ajax
+     * reloads.
+     */
+    function sb_action_columns(settings) {
+        var found = [];
+        var cols = settings.aoColumns || [];
+        for (var i = 0; i < cols.length; i++) {
+            var key = cols[i].sName || (typeof cols[i].mData === 'string' ? cols[i].mData : '');
+            var isAction = /(^|\.)action$/i.test(key);
+            if (!isAction && cols[i].nTh) {
+                isAction = /^action$/i.test($(cols[i].nTh).text().replace(/\s+/g, ' ').trim());
+            }
+            if (isAction) found.push(i);
+        }
+        return found;
+    }
+
+    /**
+     * Description columns: ranged left, and sized to their longest entry.
+     *
+     * Same sb-col-fit treatment as Action, for the opposite reason. The
+     * ordinary content measurement in table-colresize.js stops at
+     * MAX_CONTENT_WIDTH (320px), so a long description wrapped to two or
+     * three lines no matter how wide the table was; sb-col-fit routes the
+     * column through the uncapped scrollWidth measurement instead.
+     *
+     * Matched on the data/name key ("description", "t.description" ...) with
+     * the header text as a fallback, so it picks up tables that build their
+     * columns positionally.
+     */
+    function sb_description_columns(settings) {
+        var found = [];
+        var cols = settings.aoColumns || [];
+        for (var i = 0; i < cols.length; i++) {
+            var key = cols[i].sName || (typeof cols[i].mData === 'string' ? cols[i].mData : '');
+            var isDesc = /(^|\.)description$/i.test(key);
+            if (!isDesc && cols[i].nTh) {
+                isDesc = /^description$/i.test($(cols[i].nTh).text().replace(/\s+/g, ' ').trim());
+            }
+            if (isDesc) found.push(i);
+        }
+        return found;
+    }
+
+    /* Add classes to a column without letting an existing alignment class
+       fight the new one: .text-left and .text-center weigh the same, so
+       leaving both on the cell lets stylesheet order decide, and in Bootstrap
+       that hands the win to .text-center. */
+    function sb_set_column_classes(settings, idx, add, drop) {
+        var col = settings.aoColumns[idx];
+        var cls = ' ' + (col.sClass || '') + ' ';
+        (drop || []).forEach(function (c) {
+            cls = cls.split(' ' + c + ' ').join(' ');
+        });
+        add.forEach(function (c) {
+            if (cls.indexOf(' ' + c + ' ') === -1) cls += c + ' ';
+        });
+        col.sClass = $.trim(cls);
+        if (col.nTh) {
+            $(col.nTh)
+                .removeClass((drop || []).join(' '))
+                .addClass(add.join(' '));
+        }
+    }
+
+    $(document).on('preInit.dt', function (event, settings) {
+        try {
+            sb_action_columns(settings).forEach(function (idx) {
+                sb_set_column_classes(settings, idx, ['text-center', 'sb-col-fit']);
+            });
+            sb_description_columns(settings).forEach(function (idx) {
+                sb_set_column_classes(
+                    settings,
+                    idx,
+                    ['text-left', 'sb-col-fit'],
+                    ['text-center', 'text-right']
+                );
+            });
+        } catch (e) {
+            /* No column metadata - the table keeps its layout. */
+        }
+    });
+
+    $(document).on('preInit.dt', function (event, settings) {
+        try {
+            sb_custom_field_columns(settings).forEach(function (idx) {
+                var th = settings.aoColumns[idx].nTh;
+                if (!th) th = $(settings.nTHead).find('tr').last().children().get(idx);
+                $(th).addClass('sb-custom-field');
+            });
+        } catch (e) {
+            /* No column metadata - the table keeps its columns. */
+        }
+    });
+
+    function sb_hide_custom_fields(settings) {
+        if (!settings || settings._sbCustomFieldsDone) return;
+        settings._sbCustomFieldsDone = true;
+        try {
+            var hide = sb_custom_field_columns(settings);
+            if (!hide.length) return;
+            var api = new $.fn.dataTable.Api(settings);
+            hide.forEach(function (idx) {
+                $(settings.aoColumns[idx].nTh).addClass('sb-custom-field');
+            });
+            api.columns(hide).visible(false, false);
+            api.columns.adjust();
+
+            /* Buttons builds the colvis child buttons while the table is
+               initialising - before preInit can mark the headers - so the
+               dropdown has already resolved `:not(.sb-custom-field)` against
+               an unmarked header and listed all of them. Drop the entries
+               for the columns just hidden. */
+            try {
+                var cv = api.buttons('.buttons-columnVisibility').nodes();
+                /* This build of Buttons tags the child buttons with nothing
+                   but their label, so they are matched on position: colvis
+                   creates exactly one, in column order. Bail out if that
+                   one-to-one relationship does not hold. */
+                if (cv.length === settings.aoColumns.length) {
+                    for (var h = hide.length - 1; h >= 0; h--) {
+                        api.button($(cv[hide[h]])).remove();
+                    }
+                }
+            } catch (e) {
+                /* Table without export buttons - nothing to prune. */
+            }
+        } catch (e) {
+            /* No column metadata - the table keeps its columns. */
+        }
+    }
+
+    $(document).on('init.dt', function (event, settings) {
+        sb_hide_custom_fields(settings);
+    });
+
+    /* Some pages (the reports) build their table before this file has bound
+       the handlers above, so those tables never see init.dt. Sweep whatever
+       already exists once the page settles; the _sbCustomFieldsDone flag
+       keeps it from running twice on the same table. */
+    $(function () {
+        setTimeout(function () {
+            try {
+                $($.fn.dataTable.tables()).each(function () {
+                    sb_hide_custom_fields($(this).DataTable().settings()[0]);
+                });
+            } catch (e) {
+                /* No tables on this page. */
+            }
+        }, 0);
+    });
+
+    $(document).on('init.dt', function (event, settings) {
+        $(settings.nTableWrapper)
+            .find('.dataTables_length select')
+            .not('.select2-hidden-accessible')
+            .select2({
+                // No search box - there are ten short numeric choices.
+                minimumResultsForSearch: Infinity,
+                width: 'resolve',
+            })
+            // containerCssClass/dropdownCssClass are ignored by the select2
+            // build bundled here, so the hooks are attached directly. The
+            // dropdown is appended to <body> when it opens, which is why it
+            // cannot be reached by a descendant selector.
+            .each(function () {
+                $(this).next('.select2-container').addClass('sb-length-select2');
+            })
+            .on('select2:open', function () {
+                $('.select2-container--open .select2-dropdown').addClass('sb-length-select2-drop');
+            });
+    });
+
+    // Save whatever is picked, on any table. DataTables passes the new length
+    // as the third argument of length.dt.
+    $(document).on('length.dt', function (event, settings, len) {
+        try {
+            window.localStorage.setItem(SB_PAGE_LENGTH_KEY, len);
+        } catch (error) {
+            // nothing to do - it just will not be remembered
+        }
+    });
+
     //Datables
     jQuery.extend($.fn.dataTable.defaults, {
         //Uncomment below line to enable save state of datatable.
@@ -369,10 +668,13 @@ $(document).ready(function () {
         dom: '<"row margin-bottom-20 text-center"<"col-sm-1"l><"col-sm-8"B><"col-sm-3"f> r>tip',
         buttons: buttons,
         aLengthMenu: [
-            [25, 50, 100, 200, 500, 1000, -1],
-            [25, 50, 100, 200, 500, 1000, LANG.all],
+            [5, 10, 15, 25, 50, 100, 200, 500, 1000, -1],
+            [5, 10, 15, 25, 50, 100, 200, 500, 1000, LANG.all],
         ],
-        iDisplayLength: __default_datatable_page_entries,
+        iDisplayLength:
+            sb_page_length !== null
+                ? sb_page_length
+                : parseInt(__default_datatable_page_entries, 10),
         language: {
             searchPlaceholder: LANG.search + ' ...',
             search: '',
@@ -391,8 +693,6 @@ $(document).ready(function () {
             },
         },
     });
-
-   
 
     if ($('input#iraqi_selling_price_adjustment').length > 0) {
         iraqi_selling_price_adjustment = true;
@@ -480,8 +780,8 @@ ranges[LANG.last_financial_year] = [
 ];
 
 var dateRangeSettings = {
-    showDropdowns : true,
-    linkedCalendars : false,
+    showDropdowns: true,
+    linkedCalendars: false,
     ranges: ranges,
     startDate: financial_year.start,
     endDate: financial_year.end,
@@ -509,7 +809,7 @@ $(document).on('keypress', 'input.input_number', function (event) {
     }
 
     // Check for no negative values
-    if(is_decimal == 'no_neg'){
+    if (is_decimal == 'no_neg') {
         var regex = new RegExp(/^[0-9.,]+$/);
     }
 
@@ -688,11 +988,40 @@ $(document).on('shown.bs.modal', '.contains_select2, .view_modal', function () {
 
 //common configuration : tinyMCE editor
 
-tinymce.overrideDefaults({
+//Language packs shipped in public/js/lang/tiny. English is built into tinyMCE
+//and has no pack; pointing language_url at a file that 404s leaves the
+//translation table empty, which renders every label as "!not found!".
+var tinymce_language_packs = [
+    'ar',
+    'ce',
+    'de',
+    'es',
+    'fr',
+    'id',
+    'nl',
+    'pt',
+    'ro',
+    'sq',
+    'tr',
+    'vi',
+];
+
+//The theme is written onto <html data-theme> by a script in the page head,
+//before any of this runs, so it is safe to read at load time.
+function __sb_is_light() {
+    return document.documentElement.getAttribute('data-theme') === 'light';
+}
+
+var tinymce_defaults = {
     height: 300,
-    language: app_locale, // Set language dynamically
-    language_url: base_path + '/js/lang/tiny/' + app_locale + '.js', // Dynamic URL
     theme: 'silver',
+    //Match the app theme; skins are served from public/js/skins. Read at init
+    //time from the same data-theme attribute the stylesheets are keyed on, so
+    //the editor chrome and the text area follow light/dark like everything else.
+    skin: __sb_is_light() ? 'oxide' : 'oxide-dark',
+    //hide the "Powered by Tiny" label in the status bar
+    branding: false,
+    content_css: __sb_is_light() ? 'default' : 'dark',
     plugins: [
         'advlist autolink link image lists charmap print preview hr anchor pagebreak',
         'searchreplace wordcount visualblocks visualchars code fullscreen insertdatetime media nonbreaking',
@@ -706,11 +1035,22 @@ tinymce.overrideDefaults({
         favs: { title: 'My Favorites', items: 'code | searchreplace' },
     },
     menubar: 'favs file edit view insert format tools table help',
-});
+};
+
+if ($.inArray(app_locale, tinymce_language_packs) !== -1) {
+    tinymce_defaults.language = app_locale;
+    tinymce_defaults.language_url = base_path + '/js/lang/tiny/' + app_locale + '.js';
+}
+
+tinymce.overrideDefaults(tinymce_defaults);
 
 // Prevent Bootstrap dialog from blocking focusin
 $(document).on('focusin', function (e) {
-    if ($(e.target).closest('.tox-tinymce-aux, .moxman-window, .tam-assetmanager-root, .select2-container').length) {
+    if (
+        $(e.target).closest(
+            '.tox-tinymce-aux, .moxman-window, .tam-assetmanager-root, .select2-container'
+        ).length
+    ) {
         e.stopImmediatePropagation();
     }
 });
@@ -821,16 +1161,18 @@ $(function () {
         q = q.trim().toLowerCase();
         var anyVisible = false;
 
-        $('#side-bar').children().each(function () {
-            if (!q) {
-                $(this).show();
-                anyVisible = true;
-            } else {
-                var match = $(this).text().toLowerCase().indexOf(q) !== -1;
-                $(this).toggle(match);
-                if (match) anyVisible = true;
-            }
-        });
+        $('#side-bar')
+            .children()
+            .each(function () {
+                if (!q) {
+                    $(this).show();
+                    anyVisible = true;
+                } else {
+                    var match = $(this).text().toLowerCase().indexOf(q) !== -1;
+                    $(this).toggle(match);
+                    if (match) anyVisible = true;
+                }
+            });
 
         $('#sidebar-no-results').toggleClass('tw-hidden', anyVisible || !q);
         $('#sidebar-search-clear').toggleClass('tw-hidden', !q);
@@ -934,8 +1276,12 @@ $(function () {
         //remove() destroys a picker without firing hide or clearing isShowing,
         //so drop the ones whose input or calendar has left the page
         open_pickers = $.grep(open_pickers, function (picker) {
-            return picker.element && $.contains(document.documentElement, picker.element[0])
-                && picker.container && $.contains(document.documentElement, picker.container[0]);
+            return (
+                picker.element &&
+                $.contains(document.documentElement, picker.element[0]) &&
+                picker.container &&
+                $.contains(document.documentElement, picker.container[0])
+            );
         });
 
         var area_rect = $scroll_area[0].getBoundingClientRect();
@@ -947,9 +1293,10 @@ $(function () {
 
             var input_rect = picker.element[0].getBoundingClientRect();
             //Where the top of the calendar lands once it follows the input
-            var calendar_top = picker.drops == 'up'
-                ? input_rect.top - picker.container.outerHeight()
-                : input_rect.bottom;
+            var calendar_top =
+                picker.drops == 'up'
+                    ? input_rect.top - picker.container.outerHeight()
+                    : input_rect.bottom;
 
             //The top navbar is a static block, so the calendar (absolute, z-index
             //3001) paints straight over it. Close instead of letting it ride up.
@@ -962,4 +1309,110 @@ $(function () {
             picker.move();
         });
     });
+});
+
+/**
+ * Centre a DataTable that is narrower than its scroller.
+ *
+ * Once columns are hidden a scrollX table can be much narrower than the space
+ * it sits in, and it was left flush against the left edge with dead space to
+ * its right. Auto margins on the tables cannot fix this: DataTables sizes
+ * .dataTables_scrollHeadInner independently of the table inside it (on the
+ * users list, 708px of wrapper around a 776px table), so centring the wrapper
+ * moves the header 34px away from the body.
+ *
+ * Padding the three scroll panes by the same amount shifts header, body and
+ * footer together, so they stay in lockstep whatever the slack. Padding is
+ * cleared before measuring, otherwise each pass would measure the width left
+ * over from the previous one.
+ */
+function sb_centre_narrow_table(wrapper) {
+    var $wrapper = $(wrapper);
+    var $body = $wrapper.find('.dataTables_scrollBody').first();
+
+    // No scroll panes means the table is not using scrollX, so there is
+    // nothing to pad - the table itself can simply be centred. Auto margins
+    // are inert once it fills or overflows its container, so this only bites
+    // in the squashed case.
+    if (!$body.length) {
+        $wrapper.find('table.dataTable').first().css({
+            'margin-left': 'auto',
+            'margin-right': 'auto',
+        });
+
+        return;
+    }
+
+    var $table = $body.children('table').first();
+
+    if (!$table.length) {
+        return;
+    }
+
+    var $panes = $wrapper.find(
+        '.dataTables_scrollHead, .dataTables_scrollBody, .dataTables_scrollFoot'
+    );
+
+    $panes.css({ 'padding-left': '', 'padding-right': '' });
+
+    // Measure against .dataTables_scroll, which this function never pads.
+    // Reading the padded scroll body instead makes each pass measure the
+    // width left over from the previous one and the table drifts left.
+    var $scroll = $body.parent().hasClass('dataTables_scroll')
+        ? $body.parent()
+        : $wrapper;
+    var slack = $scroll[0].clientWidth - $table[0].offsetWidth;
+
+    if (slack > 2) {
+        var pad = Math.floor(slack / 2) + 'px';
+        $panes.css({ 'padding-left': pad, 'padding-right': pad });
+    }
+}
+
+$(document).on('draw.dt column-visibility.dt', function (e) {
+    var wrapper = $(e.target).closest('.dataTables_wrapper');
+
+    // Deferred a tick: on the draw itself DataTables has not finished sizing
+    // the columns, so the table still reports its pre-draw width and the
+    // padding comes out half what it should be.
+    setTimeout(function () {
+        sb_centre_narrow_table(wrapper);
+    }, 0);
+});
+
+/**
+ * Re-fit every visible DataTable after the window is resized.
+ *
+ * DataTables measures column widths once, at init. Resize the window and those
+ * widths stay as they were, so a table sized in a narrow window stays narrow in
+ * a wide one - columns keep their cramped widths and long values wrap a word
+ * per line instead of the table simply scrolling. columns.adjust() recomputes
+ * them against the new container.
+ *
+ * Debounced because resize fires continuously while dragging, and each adjust
+ * forces a full re-measure of every table on the page.
+ */
+var sb_resize_timer = null;
+
+$(window).on('resize', function () {
+    clearTimeout(sb_resize_timer);
+
+    sb_resize_timer = setTimeout(function () {
+        if (!$.fn.dataTable) {
+            return;
+        }
+
+        $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+
+        // Re-centre afterwards. A resize is exactly when a table stops
+        // matching its container - widen the window and a table that used to
+        // overflow can end up narrower than the space it sits in - and
+        // columns.adjust() only recomputes widths, it does not reposition.
+        // Deferred so the adjust above has finished writing them.
+        setTimeout(function () {
+            $('.dataTables_wrapper').each(function () {
+                sb_centre_narrow_table(this);
+            });
+        }, 0);
+    }, 250);
 });

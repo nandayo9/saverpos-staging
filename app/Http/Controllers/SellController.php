@@ -449,7 +449,9 @@ class SellController extends Controller
                     return $status;
                 })
                 ->addColumn('conatct_name', '@if(!empty($supplier_business_name)) {{$supplier_business_name}}, <br> @endif {{$name}}')
-                ->editColumn('total_items', '{{@format_quantity($total_items)}}')
+                //total_items is COUNT(DISTINCT tsl.id), a whole number, so render it
+                //without the business quantity precision that would show "2.00"
+                ->editColumn('total_items', '{{number_format($total_items, 0, ".", session("currency")["thousand_separator"])}}')
                 ->filterColumn('conatct_name', function ($query, $keyword) {
                     $query->where(function ($q) use ($keyword) {
                         $q->where('contacts.name', 'like', "%{$keyword}%")

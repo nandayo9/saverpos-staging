@@ -8,19 +8,37 @@ use App\WalkIn;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class WalkInController extends Controller
 {
     public function index(Request $request, WalkInService $walkInService)
     {
+        $this->ensureAvailable();
         $user = $request->user();
         if (! $user->can('walkin.view') && ! $user->can('walkin.view_all')) {
             abort(403, 'Unauthorized action.');
         }
 
-        $locations = BusinessLocation::forDropdown($user->business_id, false)->toArray();
         $canViewAll = $user->can('walkin.view_all');
-        $locationId = $request->input('location_id');
+        $locations = $canViewAll
+            ? BusinessLocation::query()
+                ->where('business_id', $user->business_id)
+                ->where('is_active', 1)
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray()
+            : BusinessLocation::forDropdown($user->business_id, false)->toArray();
+        $locationFilter = $request->validate([
+            'location_id' => ['nullable', 'integer'],
+        ]);
+        $locationId = $locationFilter['location_id'] ?? null;
+
+        if ($locationId !== null && $locationId !== ''
+            && ! in_array((int) $locationId, array_map('intval', array_keys($locations)), true)) {
+            throw new AuthorizationException();
+        }
+
         if (! $canViewAll) {
             $locationId = $locationId ?: array_key_first($locations);
             if (! $locationId || ! in_array((int) $locationId, array_map('intval', array_keys($locations)), true)) {
@@ -62,6 +80,7 @@ class WalkInController extends Controller
 
     public function store(Request $request, WalkInService $walkInService)
     {
+        $this->ensureAvailable();
         $data = $request->validate(['location_id' => ['required', 'integer']]);
         $walkIn = $walkInService->capture($request->user(), (int) $data['location_id']);
 
@@ -74,6 +93,7 @@ class WalkInController extends Controller
 
     public function close(Request $request, WalkIn $walkIn, WalkInService $walkInService)
     {
+        $this->ensureAvailable();
         $data = $request->validate(['no_sale_reason' => ['required', 'string', 'max:64']]);
         $walkInService->closeAsNoSale($request->user(), $walkIn->id, $data['no_sale_reason']);
 
@@ -83,12 +103,20 @@ class WalkInController extends Controller
 
     public function open(Request $request)
     {
+        $this->ensureAvailable();
         $user = $request->user();
         if (! $user->can('walkin.assign')) {
             abort(403, 'Unauthorized action.');
         }
         $data = $request->validate(['location_id' => ['required', 'integer']]);
-        if (! \App\User::can_access_this_location((int) $data['location_id'], $user->business_id)) {
+        $locationBelongsToBusiness = BusinessLocation::query()
+            ->whereKey((int) $data['location_id'])
+            ->where('business_id', $user->business_id)
+            ->where('is_active', 1)
+            ->exists();
+
+        if (! $locationBelongsToBusiness
+            || ! \App\User::can_access_this_location((int) $data['location_id'], $user->business_id)) {
             throw new AuthorizationException();
         }
 
@@ -103,11 +131,29 @@ class WalkInController extends Controller
 
     private function dateRange(Request $request): array
     {
-        $start = $request->filled('start') ? Carbon::parse($request->input('start'))->startOfDay() : Carbon::today();
-        $end = $request->filled('end') ? Carbon::parse($request->input('end'))->endOfDay() : Carbon::now()->endOfDay();
+        $dates = $request->validate([
+            'start' => ['nullable', 'date_format:Y-m-d'],
+            'end' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start'],
+        ]);
+
+        $start = !empty($dates['start'])
+            ? Carbon::createFromFormat('!Y-m-d', $dates['start'])->startOfDay()
+            : Carbon::today();
+        $end = !empty($dates['end'])
+            ? Carbon::createFromFormat('!Y-m-d', $dates['end'])->endOfDay()
+            : Carbon::now()->endOfDay();
         abort_if($end->lt($start), 422, 'The end date must not precede the start date.');
 
         return [$start, $end];
+    }
+
+    private function ensureAvailable(): void
+    {
+        abort_unless(
+            Schema::hasTable('walk_ins'),
+            503,
+            'Walk-In Intelligence is not installed yet.'
+        );
     }
 
     private function datePresets(): array

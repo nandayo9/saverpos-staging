@@ -83,6 +83,8 @@
             }
 
             payment_account_report = $('#payment_account_report').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
                 processing: true,
                 serverSide: true,
                 fixedHeader:false,
@@ -106,6 +108,11 @@
                     "targets": 7,
                     "orderable": false,
                     "searchable": false
+                }, {
+                    // Date, Payment Ref No., Amount, Payment Type. Invoice Ref
+                    // No., Account and Description stay ranged left.
+                    "targets": [0, 1, 3, 4],
+                    "className": 'text-center'
                 }],
                 columns: [{
                         data: 'paid_on',

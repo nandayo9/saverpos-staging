@@ -155,10 +155,8 @@
                 <div class="col-md-12 text-right show_price_with_permission">
                     <b>@lang('stock_adjustment.total_amount'):</b> <span id="final_total_text">0.00</span>
                 </div>
-                <br>
-                <br>
-                <div class="col-sm-12 text-center">
-                    <button type="submit" id="save_stock_transfer" class="tw-dw-btn tw-dw-btn-primary tw-dw-btn-lg tw-text-white">@lang('messages.save')</button>
+                <div class="col-sm-12 text-center tw-mt-6 tw-mb-2">
+                    <button type="submit" id="save_stock_transfer" class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-text-white tw-font-semibold tw-text-sm tw-px-4 tw-py-2 tw-rounded-xl tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700"><i class="fa fa-check tw-mr-2"></i>@lang('messages.save')</button>
                 </div>
             </div>
         @endcomponent

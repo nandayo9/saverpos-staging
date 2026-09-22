@@ -72,8 +72,12 @@
                     @endforeach
                 </tbody>
                 <tfoot>
-                    <tr>
-                        <td>@lang('sale.total')</td>
+                    {{-- footer-total + the <strong> are what the shared rule in
+                         saverbro-layout.css keys on to range the label right and
+                         centre it vertically, the same as every other report
+                         footer in the app. --}}
+                    <tr class="footer-total">
+                        <td><strong>@lang('sale.total'):</strong></td>
                         <td><span class="display_currency" data-currency_symbol="true">{{$total_expense}}</span></td>
                     </tr>
                 </tfoot>

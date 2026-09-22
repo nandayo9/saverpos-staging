@@ -1,5 +1,8 @@
 <link href="{{ asset('css/tailwind/app.css?v='.$asset_v) }}" rel="stylesheet">
-<link rel="icon" type="image/png" href="{{ asset('img/saverpos-logo.png') }}">
+{{-- Vector favicon traced from saverpos-logo.png. The PNG is an opaque white
+     square, which showed as a white tile in the tab; the SVG paints only the
+     disc, so the corners are transparent. --}}
+<link rel="icon" type="image/svg+xml" href="{{ asset('img/saverpos-logo.svg') }}">
 
 @php
     $themeColor = session('business.theme_color', 'primary');
@@ -86,7 +89,30 @@
 
 <!-- app css -->
 <link rel="stylesheet" href="{{ asset('css/app.css?v='.$asset_v) }}">
-<link rel="stylesheet" href="{{ asset('css/saverbro-dark-pos.css?v='.$asset_v.'&mtime='.filemtime(public_path('css/saverbro-dark-pos.css'))) }}">
+
+{{-- Layout corrections (spacing, sizing, alignment). No colours, so this
+     stays loaded in both themes. --}}
+<link rel="stylesheet" href="{{ asset('css/saverbro-layout.css?v='.$asset_v.'&mtime='.filemtime(public_path('css/saverbro-layout.css'))) }}">
+
+{{-- This file carries both the dark palette and the structure for every custom
+     sb-* component (dashboard cards, command header, sidebar), so it always
+     loads. Disabling it would leave those components completely unstyled. --}}
+<link rel="stylesheet" id="sb-theme-dark"
+    href="{{ asset('css/saverbro-dark-pos.css?v='.$asset_v.'&mtime='.filemtime(public_path('css/saverbro-dark-pos.css'))) }}">
+
+{{-- Light mode re-points the design tokens the file above is built on. Every
+     rule is scoped to html[data-theme="light"], so it costs nothing in dark
+     mode and switching is just an attribute flip - no stylesheet download. --}}
+<link rel="stylesheet"
+    href="{{ asset('css/saverbro-light.css?v='.$asset_v.'&mtime='.filemtime(public_path('css/saverbro-light.css'))) }}">
+<script>
+    // Runs during parse, before the first paint, so the chosen theme is the
+    // first thing drawn rather than a flash of dark.
+    document.documentElement.setAttribute(
+        'data-theme',
+        document.cookie.indexOf('sb_theme=light') > -1 ? 'light' : 'dark'
+    );
+</script>
 
 @if(isset($pos_layout) && $pos_layout)
 	<style type="text/css">

@@ -217,6 +217,12 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::get('/products/get-combo-product-entry-row', [ProductController::class, 'getComboProductEntryRow']);
     Route::post('/products/toggle-woocommerce-sync', [ProductController::class, 'toggleWooCommerceSync']);
 
+    // Woocommerce screens. Presentation only - the paid Modules/Woocommerce
+    // package that serves these on the live site is not in this repository.
+    Route::get('/woocommerce', [\App\Http\Controllers\WoocommerceController::class, 'index']);
+    Route::get('/woocommerce/sync-log', [\App\Http\Controllers\WoocommerceController::class, 'syncLog']);
+    Route::get('/woocommerce/api-settings', [\App\Http\Controllers\WoocommerceController::class, 'apiSettings']);
+
     Route::resource('products', ProductController::class);
     Route::get('/toggle-subscription/{id}', 'SellPosController@toggleRecurringInvoices');
     Route::post('/sells/pos/get-types-of-service-details', 'SellPosController@getTypesOfServiceDetails');
@@ -293,6 +299,8 @@ Route::middleware(['setData', 'auth', 'SetSessionData', 'language', 'timezone', 
     Route::get('/reports/get-stock-by-sell-price', [ReportController::class, 'getStockBySellingPrice']);
     Route::get('/reports/purchase-report', [ReportController::class, 'purchaseReport']);
     Route::get('/reports/sale-report', [ReportController::class, 'saleReport']);
+    Route::get('/reports/branch-attributed-sales', [ReportController::class, 'branchAttributedSalesView']);
+    Route::get('/reports/branch-attributed-sales-data', [ReportController::class, 'getBranchAttributedSales']);
     Route::get('/reports/service-staff-report', [ReportController::class, 'getServiceStaffReport']);
     Route::get('/reports/service-staff-line-orders', [ReportController::class, 'serviceStaffLineOrders']);
     Route::get('/reports/table-report', [ReportController::class, 'getTableReport']);

@@ -118,6 +118,16 @@ body .theme-header-bg {
   border-color: var(--sb-border) !important;
 }
 
+/* The 1px rule down each open submenu shares .tw-bg-gray-100 with the search
+   field, so it inherited that #121e2e surface fill - 1.06:1 against the
+   #101827 sidebar, i.e. not visible at all. A hairline needs to read as an
+   edge, not a surface, so it takes the border token instead (1.94:1). The id
+   outranks the rule above; the light sheet has its own override and is
+   unaffected. */
+#side-bar .chiled > .tw-bg-gray-100 {
+  background: var(--sb-border-strong) !important;
+}
+
 #side-bar,
 #side-bar .treeview-menu {
   background: transparent !important;
@@ -137,6 +147,17 @@ body .theme-header-bg {
   background: rgba(56, 189, 248, .11) !important;
   color: #e8f8ff !important;
   transform: translateX(2px);
+}
+
+/* Sub-menu items do get an active class, but the only styling behind it is
+   color: var(--theme-700), which in this dark palette lands on practically the
+   same tone as the inactive links - so the page you are on was impossible to
+   pick out. Mirror the parent item's active treatment. */
+#side-bar a.theme-sidebar-child-active {
+  color: #e8f8ff !important;
+  font-weight: 600;
+  background: rgba(56, 189, 248, 0.11);
+  border-radius: 6px;
 }
 
 #side-bar li > a:hover i,
@@ -590,6 +611,20 @@ body .theme-header-bg {
 .modal-footer {
   background: rgba(255, 255, 255, .018) !important;
   border-color: var(--sb-border) !important;
+  /* vendor.css sets .box-header{color:#444}. Only the background was being
+     repointed here, so anything inside that does not set its own colour just
+     inherited that near-black - which is how the subtitle under "All Selling
+     Price Group" ended up at about 1.8:1 on the dark panel. .box-title and
+     the headings were unaffected because they are coloured separately just
+     below. The token resolves per theme, so light mode is unchanged. */
+  color: var(--sb-text) !important;
+}
+
+/* Those subtitles are secondary text, so they take the muted tone rather
+   than full-strength body colour - 7.41:1 on the dark panel. */
+.box-header small,
+.box-footer small {
+  color: var(--sb-muted) !important;
 }
 
 .box-title,
@@ -622,12 +657,18 @@ h1, h2, h3, h4, h5, h6,
   color: var(--sb-faint) !important;
 }
 
-a:not(.btn) {
+/* .btn excludes Bootstrap buttons that are marked up as anchors, but the app
+   also has daisyUI buttons as anchors (tw-dw-btn), and those were still being
+   painted as links: "Export product prices" on /update-product-price carries
+   tw-text-white, yet a:not(.btn) is (0,1,1) against that class's (0,1,0) and
+   won, leaving sky-300 text on the primary fill at 4.62:1. A button should
+   keep its own foreground in both themes, so it is excluded here too. */
+a:not(.btn):not(.tw-dw-btn) {
   color: #7dd3fc;
 }
 
-a:not(.btn):hover,
-a:not(.btn):focus {
+a:not(.btn):not(.tw-dw-btn):hover,
+a:not(.btn):not(.tw-dw-btn):focus {
   color: #bae6fd;
 }
 
@@ -836,8 +877,42 @@ table.dataTable tfoot > tr > td {
 .nav-tabs-custom > .nav-tabs > li.active > a,
 .nav-tabs-custom > .nav-tabs > li.active > a:hover,
 .nav-tabs-custom > .nav-tabs > li.active > a:focus {
-  border-color: var(--sb-border) var(--sb-border) var(--sb-surface) !important;
+  /* top | left and right | bottom. The side borders used to be --sb-border,
+     which drew a vertical rule between the active tab and its neighbour -
+     visible as a separator between "All Products" and "Stock Report". The
+     active tab is already distinguished by its surface and top edge, so the
+     sides are transparent; the width is unchanged, so nothing shifts. */
+  border-color: var(--sb-border) transparent var(--sb-surface) !important;
   color: var(--sb-text) !important;
+}
+
+/* Product thumbnails render as display:block, so text-align on the cell
+   cannot move them. Auto margins centre them instead. */
+table.dataTable tbody td img.product-thumbnail-small {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Bootstrap gives checkboxes margin-top:4px and baseline alignment, which
+   drops them below the centre line of a tall table row. */
+table.dataTable tbody td.selectable_td input[type="checkbox"],
+table.dataTable thead th input[type="checkbox"] {
+  margin: 0;
+  vertical-align: middle;
+}
+
+/* The theme renders these tab labels at 18px/600, which reads as a page
+   heading rather than a tab. Bring them down to control size. */
+.nav-tabs-custom > .nav-tabs > li > a {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  padding: 8px 14px !important;
+}
+
+.nav-tabs-custom > .nav-tabs > li > a > i {
+  font-size: 14px !important;
+  margin-right: 4px;
 }
 
 .dataTables_wrapper .dataTables_length,
@@ -877,6 +952,56 @@ table.dataTable.display tbody tr.odd {
 table.dataTable.hover tbody tr:hover,
 table.dataTable.display tbody tr:hover {
   background: rgba(56, 189, 248, .07) !important;
+}
+
+/* The View Product modal and stock detail partials build their tables with
+   the AdminLTE light-theme utilities .bg-gray (light gray body) and
+   tr.bg-green (green strip, white text at ~2.1:1). The .content-scoped rule
+   below misses any modal appended outside .content, so anchor these on the
+   table itself and give both headers the same dark treatment. */
+table.bg-gray,
+table.bg-gray > thead > tr,
+table.bg-gray > thead > tr > th,
+table.bg-gray > tbody > tr,
+table.bg-gray > tbody > tr > td {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+table.bg-gray > thead > tr.bg-green,
+table.bg-gray > thead > tr.bg-green > th,
+table.bg-gray > tbody > tr.bg-green,
+table.bg-gray > tbody > tr.bg-green > th {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+/* Variation, price and stock cells in the product detail modals are all short
+   values (prices, SKUs, quantities), so centre them. Headers follow so they
+   stay lined up over their columns. Scoped to .modal rather than to
+   #view_product_modal: the modal actually shown is built as
+   <div class="modal fade view_modal"> with no id, and #view_product_modal is
+   a separate hidden element. Report pages reuse .bg-gray for left-aligned
+   totals rows, but those live in .content, never in a modal. */
+.modal table.bg-gray > thead > tr > th,
+.modal table.bg-gray > tbody > tr > th,
+.modal table.bg-gray > tbody > tr > td {
+  text-align: center !important;
+  vertical-align: middle !important;
+  white-space: nowrap;
+}
+
+/* With nowrap the table sizes to its content and can exceed the modal, so the
+   wrapper has to scroll. Bootstrap 3 only enables this below 768px. */
+.modal .table-responsive {
+  overflow-x: auto;
+}
+
+.modal table.bg-gray img {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Report totals use the legacy .bg-gray class, which otherwise paints a
@@ -942,6 +1067,34 @@ table.dataTable tfoot > tr > td {
   background: #34506f;
   border: 2px solid #0b1422;
   border-radius: 999px;
+}
+
+/* The dashboard cards scroll their tables in a Tailwind wrapper
+   (.tw-overflow-x-auto) rather than .table-responsive, so they were the one
+   place still showing the browser's default 15px bar next to the 9px one used
+   everywhere else. Same treatment, same measurements. */
+#scrollable-container .tw-overflow-x-auto {
+  scrollbar-color: #34506f #0b1422;
+  scrollbar-width: thin;
+}
+
+#scrollable-container .tw-overflow-x-auto::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+#scrollable-container .tw-overflow-x-auto::-webkit-scrollbar-track {
+  background: #0b1422;
+}
+
+#scrollable-container .tw-overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #34506f;
+  border: 2px solid #0b1422;
+  border-radius: 999px;
+}
+
+#scrollable-container .tw-overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: #4f7097;
 }
 
 .content .table-responsive::-webkit-scrollbar-thumb:hover {
@@ -1028,18 +1181,27 @@ table.dataTable tfoot > tr > td {
   opacity: .75;
 }
 
-/* Dashboard cards retain their information hierarchy in dark mode. */
+/* Dashboard cards retain their information hierarchy in dark mode.
+   Modals are appended to <body>, outside .content, so they need the same
+   surface treatment or light-mode cards keep near-white text unreadable. */
 .content .tw-bg-white,
 .content .tw-bg-gray-100,
 .content .tw-bg-slate-100,
-.content .tw-bg-base-100 {
+.content .tw-bg-base-100,
+.modal .tw-bg-white,
+.modal .tw-bg-gray-100,
+.modal .tw-bg-slate-100,
+.modal .tw-bg-base-100 {
   background: var(--sb-surface) !important;
   border-color: var(--sb-border) !important;
 }
 
 .content .tw-ring-gray-200,
 .content .tw-border-gray-200,
-.content .tw-border-slate-200 {
+.content .tw-border-slate-200,
+.modal .tw-ring-gray-200,
+.modal .tw-border-gray-200,
+.modal .tw-border-slate-200 {
   --tw-ring-color: var(--sb-border) !important;
   border-color: var(--sb-border) !important;
 }
@@ -1150,8 +1312,16 @@ table.dataTable tfoot > tr > td {
   text-transform: uppercase;
 }
 
+/* The #dashboard_location half styles the raw <select> before select2 has
+   initialised, so it does not flash at its default width. Once select2 takes
+   over it hides the original with .select2-hidden-accessible (1x1px, clipped)
+   - but that rule is (0,1,0) and this one is (1,1,0), so the hidden select
+   stayed 1276px wide, absolutely positioned at x=563. Invisible, but it still
+   measured, pushing the main scroller's content to 1839px and giving the
+   dashboard a horizontal scrollbar that slid the KPI cards under the sidebar.
+   The :not() hands control back to select2 the moment it initialises. */
 .sb-dashboard-filter-control .select2-container,
-.sb-dashboard-filter-control #dashboard_location {
+.sb-dashboard-filter-control #dashboard_location:not(.select2-hidden-accessible) {
   width: 100% !important;
 }
 
@@ -1170,7 +1340,9 @@ table.dataTable tfoot > tr > td {
   background: rgba(14, 55, 87, .72) !important;
 }
 
-.saverbro-dashboard #dashboard_location,
+/* Same pre-select2 treatment, same exclusion: min-height was keeping the
+   hidden original 44px tall instead of 1px. */
+.saverbro-dashboard #dashboard_location:not(.select2-hidden-accessible),
 .saverbro-dashboard #dashboard_date_filter {
   min-height: 2.75rem;
   border: 1px solid rgba(125, 211, 252, .2) !important;
@@ -1680,8 +1852,20 @@ body.lockscreen .pos-finalize {
   box-shadow: 0 8px 22px rgba(2, 132, 199, .28);
 }
 
+/* Suspend and Credit Sale. The label and icon have to be pinned white
+   here: in dark mode the footer's own label colour won, leaving #97a9c1
+   on #059669 at 1.57:1 - the words were effectively invisible. The
+   gradient also drops one emerald step (600->700 becomes 700->800),
+   because white on the old #059669 was only 3.77:1, and these labels are
+   bold 14px, too small to claim the large-text allowance. The new sweep
+   holds white at 5.49:1 to 7.69:1. */
 body.lockscreen .pos-express-finalize:not(.pos-finalize) {
-  background: linear-gradient(135deg, #059669, #047857) !important;
+  background: linear-gradient(135deg, #047857, #065f46) !important;
+}
+
+body.lockscreen .pos-express-finalize:not(.pos-finalize),
+body.lockscreen .pos-express-finalize:not(.pos-finalize) i {
+  color: #ffffff !important;
 }
 
 body.lockscreen #product_list_body::-webkit-scrollbar-thumb,
@@ -1800,6 +1984,512 @@ body.lockscreen #featured_products_box:not(:empty)::before {
   }
 }
 
+/* Table headings read as column labels, so centre them across every table. */
+table.dataTable thead th,
+table.dataTable thead td,
+.dataTables_scrollHead table thead th,
+.table > thead > tr > th {
+  text-align: center;
+}
+
+/* A DataTable is the widest thing on these pages, and it was losing roughly
+   90px to three nested layers of padding (section, widget, table wrapper)
+   before it even began. Collapse the inner gutters when a widget is wrapping a
+   table; section.content still keeps the page off the window edge. */
+.content div:has(> .table-responsive) {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.content div:has(> div > .table-responsive) > .tw-p-2,
+.content div:has(.dataTables_wrapper) > .tw-p-2 {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+/* Action cells hold controls rather than data, so they read better centred under
+   their heading. Two shapes exist: a .btn-group wrapper (dropdown-style action
+   menus) and bare buttons/links (Edit / View / Delete rows). */
+table.dataTable tbody td:has(> .btn-group),
+table.dataTable tbody td:has(> .btn-group-vertical),
+table.dataTable tbody td:has(> .tw-dw-btn) {
+  text-align: center;
+}
+
+/* Row height is driven by whichever cell wraps the most (usually the address),
+   so without this the short cells hang off the top of a tall row. */
+table.dataTable thead th,
+table.dataTable thead td,
+table.dataTable tbody th,
+table.dataTable tbody td,
+table.dataTable tfoot th,
+table.dataTable tfoot td {
+  vertical-align: middle;
+}
+
+/* Column widths are widened proportionally in table-colresize.js rather than
+   with a min-width here: a flat floor makes DataTables equalise every column,
+   so Address and Pay term end up identical. */
+
+/* Resizing only behaves if the browser treats the declared column widths as
+   authoritative. Under the default auto layout it redistributes widths from
+   cell content, so a dragged column springs back and the header drifts out of
+   step with the body. DataTables already sets an explicit width on every
+   column in scroll mode, so fixed layout honours what is already there. */
+.dataTables_scrollHead table.dataTable,
+.dataTables_scrollBody table.dataTable,
+.dataTables_scrollFoot table.dataTable {
+  table-layout: fixed;
+}
+
+/* Columns are narrow now that they all share one screen width, so let long
+   values break and wrap. Truncating them would hide data outright, and a
+   clipped "Ma... Clo... Ltd." is worse than two wrapped lines. */
+.dataTables_scrollBody table.dataTable td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Headings stay on one line; table-colresize.js sizes each column to fit its
+   label, so wrapping here would only ever be a sign the column is too narrow. */
+.dataTables_scroll table.dataTable thead th {
+  white-space: nowrap;
+}
+
+/* DataTables absolutely positions the sort arrows against the cell's right edge
+   and reserves 30px of padding to clear them. With centred headings that strands
+   the icon far from the label it belongs to, so let it flow inline directly
+   after the text and give the padding back. */
+table.dataTable thead .sorting::after,
+table.dataTable thead .sorting_asc::after,
+table.dataTable thead .sorting_desc::after,
+table.dataTable thead .sorting_asc_disabled::after,
+table.dataTable thead .sorting_desc_disabled::after {
+  position: static;
+  display: inline-block;
+  bottom: auto;
+  right: auto;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+/* Must mirror DataTables' own "thead > tr > th.sorting" shape: a shorter
+   selector loses on specificity no matter which file loads last. */
+table.dataTable thead > tr > th.sorting,
+table.dataTable thead > tr > th.sorting_asc,
+table.dataTable thead > tr > th.sorting_desc,
+table.dataTable thead > tr > td.sorting,
+table.dataTable thead > tr > td.sorting_asc,
+table.dataTable thead > tr > td.sorting_desc {
+  padding-right: 8px;
+}
+
+/* One sort glyph for every state: the neutral up/down arrows (\e150) that the
+   unsorted state used, shown at the brighter 0.5 opacity the sorted state used.
+   DataTables otherwise dims unsorted columns to 0.2, which is almost invisible
+   against this dark header, and swaps in a single-direction arrow once sorted. */
+table.dataTable thead .sorting::after,
+table.dataTable thead .sorting_asc::after,
+table.dataTable thead .sorting_desc::after,
+table.dataTable thead .sorting_asc_disabled::after,
+table.dataTable thead .sorting_desc_disabled::after {
+  content: "\e150";
+  opacity: 0.5;
+}
+
+/* Grab handle for table-colresize.js. It sits on the cell's right edge and is
+   deliberately wider than it looks so it is easy to hit. */
+.sb-col-resizer {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 2;
+}
+
+/* The divider is always drawn so the grab point is visible without hunting for
+   it, and lights up while hovered or dragged. */
+.sb-col-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 3px;
+  width: 1px;
+  height: 100%;
+  background: rgba(148, 163, 184, 0.35);
+  transition: background 0.15s ease;
+}
+
+.sb-col-resizer:hover::after,
+body.sb-col-resizing .sb-col-resizer::after {
+  background: #38bdf8;
+  width: 2px;
+}
+
+/* The first column carries a second handle on its leading edge so the table
+   can be resized from its start as well as between columns. It sits fully
+   inside the cell rather than straddling the edge like the others: there is
+   no neighbouring column to overlap into, and the 3px overhang would be
+   clipped by the scroll container. */
+.sb-col-resizer.sb-col-resizer--start {
+  left: 0;
+  right: auto;
+}
+
+.sb-col-resizer.sb-col-resizer--start::after {
+  left: 0;
+}
+
+/* Keep the cursor consistent while a drag is in flight. */
+body.sb-col-resizing,
+body.sb-col-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* daisyUI's default button is 3rem (48px) tall, which dwarfs this app's 24px
+   toolbars and makes modal footers look oversized. Buttons that opt into an
+   explicit size (-xs/-sm/-md/-lg) keep whatever they asked for. */
+.tw-dw-btn:not(.tw-dw-btn-xs):not(.tw-dw-btn-sm):not(.tw-dw-btn-md):not(.tw-dw-btn-lg) {
+  height: 2rem;
+  min-height: 2rem;
+  padding-left: .75rem;
+  padding-right: .75rem;
+}
+
+/* app.css paints this pricing table's headers #5cb85c with white text, which
+   is 2.7:1 and reads as a light-theme strip inside the dark form. Match the
+   other table headers instead. */
+.add-product-price-table > thead > tr > th,
+.add-product-price-table > tbody > tr > th,
+.add-product-price-table th {
+  background-color: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+/* When every column is sb-col-fit, the table must be allowed to shrink-wrap,
+   otherwise Bootstrap's .table { width: 100% } keeps it full-width and the
+   columns just split the surplus between them. Pairs with the auto margins
+   above, so a narrow table ends up centred in its card. */
+table.sb-table-fit {
+  width: auto !important;
+}
+
+/* autoWidth writes an inline pixel width onto every th; clear it so each
+   column falls back to its content, and nowrap keeps values on one line. */
+table.sb-table-fit > thead > tr > th,
+table.sb-table-fit > tbody > tr > td,
+table.sb-table-fit > tfoot > tr > td {
+  width: auto !important;
+  white-space: nowrap;
+}
+
+/* AdminLTE sizes the stat-card figure at 38px (vendor.css .small-box h3),
+   which dwarfs its own label and the cards around it. Used by 5 views only
+   (walk-ins, restaurant orders, suspended sales, staff availability) - the
+   dashboard uses its own Tailwind cards and is unaffected. */
+.small-box h3,
+.small-box .inner h3 {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 4px;
+}
+
+/* Bootstrap gives every <label> margin-bottom:5px. Inside an input-group addon
+   that pushes the checkbox row upwards - 8px of space above it but 12px below
+   in a 34px cell - and the box itself sits on the text baseline rather than
+   centred against it. Seen on Business Settings > Custom Labels
+   ("Is required" / "Is default for contact"). */
+.content .input-group-addon label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0;
+  /* Fill the addon's content box (34px cell - 2x6px padding) so the row is
+     centred by the flex box rather than by inline baseline metrics, which
+     left it 2px high. */
+  height: 22px;
+  line-height: 22px;
+  vertical-align: middle;
+}
+
+.content .input-group-addon label + label {
+  margin-left: 12px;
+}
+
+.content .input-group-addon label > input[type="checkbox"],
+.content .input-group-addon label > input[type="radio"] {
+  margin: 0;
+  vertical-align: middle;
+}
+
+/* Light hover fills left over from the light theme: the Filters bar carries
+   hover:tw-bg-gray-50 (#f9fafb), so hovering it turns the strip near-white
+   while the label stays near-white and the text disappears. Nine call sites
+   across the views use one of these. */
+.content .hover\:tw-bg-gray-50:hover,
+.content .hover\:tw-bg-gray-100:hover,
+.content .hover\:tw-bg-gray-200:hover,
+.content .hover\:tw-bg-slate-100:hover,
+.content .hover\:tw-bg-slate-200:hover {
+  background-color: rgba(56, 189, 248, .08) !important;
+}
+
+/* A <select> or <textarea> without .form-control keeps the browser's default
+   widget: a #3b3b3b fill, no border and no padding, which reads as broken next
+   to the themed inputs beside it. Seen on Business Settings > Custom Labels
+   ("Field Type" and the dropdown-values box). */
+.content select:not(.form-control):not(.select2-hidden-accessible),
+.content textarea:not(.form-control) {
+  background-color: #0d1726;
+  color: var(--sb-text);
+  border: 1px solid var(--sb-border-strong);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 14px;
+  max-width: 100%;
+}
+
+/* Inside an input-group addon it should read as part of that addon rather than
+   as a second boxed field sitting inside the first. */
+.content .input-group-addon > select:not(.form-control) {
+  background-color: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0 4px 0 0;
+  height: auto;
+  cursor: pointer;
+}
+
+/* The open dropdown list is drawn by the browser using the select's own
+   colours. A transparent select with light text therefore gives light text on
+   the popup's light default, so the options are unreadable once opened. Give
+   every option an explicit pair. */
+.content select option,
+.content select optgroup {
+  background-color: #101827;
+  color: var(--sb-text);
+}
+
+/* DataTables copies a column's className onto its footer cell, so a footer td
+   written as class="text-left" ends up with both classes. They have equal
+   specificity and vendor.css declares .text-center last, so the markup's own
+   intent loses. Let an explicit text-left in a footer win. */
+table tfoot td.text-left,
+table tfoot th.text-left {
+  text-align: left !important;
+}
+
+/* The "Total:" label in a footer row reads best hugging the first figure it
+   sums, rather than centred in a wide colspan or pushed to the far left.
+   Targeted by the <strong> it is always wrapped in rather than by position,
+   because one view puts an empty <td> before it. !important because the
+   column's own className (e.g. text-left on the Contact column) lands on the
+   footer cell too. Applies to all 42 views that use .footer-total. */
+tr.footer-total > td:has(> strong),
+tr.footer-total > th:has(> strong) {
+  text-align: right !important;
+  vertical-align: middle !important;
+}
+
+/* The report summary lines ("Sale - Purchase: RM ...", "Due amount: RM ...")
+   are marked up as <h3 class="text-muted">, so they render at 24px - larger
+   than the page title's own weight class and out of scale with the cards they
+   sit in. Used this way in purchase_sell, sales_representative and tax_report.
+   Scoped to .text-muted so genuine <h3> section headings keep their size. */
+.content h3.text-muted {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+.content h3.text-muted > span {
+  font-size: inherit;
+  font-weight: 700;
+}
+
+/* Bootstrap paints nested tables white via `.table .table { background:#fff }`.
+   The Import Sales "Importable fields" table is nested inside the instructions
+   table, so it inherited the theme's near-white text on a white fill: 1.11:1,
+   effectively invisible. Scoped to nested tables only. */
+.content .table .table,
+.content .table .table > thead > tr > th,
+.content .table .table > tbody > tr > td,
+.content .table .table > tbody > tr > th {
+  background-color: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+.content .table .table > thead > tr > th {
+  background-color: var(--sb-surface-raised) !important;
+}
+
+/* daisyUI already gives each solid colour button a readable foreground of its
+   own (black on warning/info/success/error). 197 call sites across 155 files
+   add tw-text-white on top, which drops "Deactivate Selected" to 1.66:1 on the
+   amber warning fill. Restore a dark foreground on the solid light variants;
+   measured ratios against #0b1422 in the comments. The transparent variants
+   (outline/ghost/link) sit on the dark page, so they keep white, and
+   tw-dw-btn-neutral is dark enough that white is correct there too. */
+.tw-dw-btn.tw-text-white.tw-dw-btn-warning:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link),   /* 11.09:1 */
+.tw-dw-btn.tw-text-white.tw-dw-btn-accent:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link),    /*  9.16:1 */
+.tw-dw-btn.tw-text-white.tw-dw-btn-info:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link),      /*  7.96:1 */
+.tw-dw-btn.tw-text-white.tw-dw-btn-secondary:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link), /*  6.56:1 */
+.tw-dw-btn.tw-text-white.tw-dw-btn-error:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link) {    /*  6.00:1 */
+  color: #0b1422 !important;
+}
+
+/* AdminLTE status labels (payment status, transaction status, shipping status)
+   paint white text on light pastel fills: "Paid" on bg-light-green measures
+   1.68:1, which is effectively invisible. Give each fill whichever foreground
+   clears WCAG AA; measured ratios in the comments. Scoped to .label/.badge so
+   the same utilities keep working as panel backgrounds elsewhere. */
+.label.bg-light-green, .badge.bg-light-green,   /* 11.00:1 */
+.label.bg-lime, .badge.bg-lime,                 /* 13.66:1 */
+.label.bg-yellow, .badge.bg-yellow,             /*  9.95:1 */
+.label.bg-aqua, .badge.bg-aqua,                 /*  9.67:1 */
+.label.bg-teal, .badge.bg-teal,                 /*  9.39:1 */
+.label.bg-green, .badge.bg-green,               /*  9.06:1 */
+.label.bg-orange, .badge.bg-orange,             /*  7.58:1 */
+.label.bg-olive, .badge.bg-olive,               /*  5.27:1 */
+.label.bg-red, .badge.bg-red,                   /*  4.89:1 */
+.label.bg-fuchsia, .badge.bg-fuchsia {          /*  4.87:1 */
+  color: #0b1422 !important;
+  font-weight: 700;
+}
+
+.label.bg-black, .badge.bg-black,               /* 18.88:1 */
+.label.bg-navy, .badge.bg-navy,                 /* 16.56:1 */
+.label.bg-purple, .badge.bg-purple,             /*  5.84:1 */
+.label.bg-blue, .badge.bg-blue,                 /*  5.08:1 */
+.label.bg-maroon, .badge.bg-maroon {            /*  4.95:1 */
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+/* .bg-gray is the odd one out, so it gets its own rule rather than a seat in
+   either list above. AdminLTE fills it pastel #d2d6de, which is why it used
+   to sit with the dark-ink badges - but ".content .bg-gray" earlier in this
+   file repaints every grey surface inside the content area to #1b2b43, and
+   that caught these pills too, leaving #0b1422 ink on a dark fill at 1.30:1
+   ("Login not allowed" on /users was effectively invisible). Pinning both
+   halves here makes the pill read the same wherever it lands, and matches
+   the light sheet's fill. White on #475569 is 7.4:1. */
+.label.bg-gray, .badge.bg-gray {
+  background-color: #475569 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+/* 10.5px is small for a status pill; nudge it up without changing row height. */
+table.dataTable .label,
+table.dataTable .badge {
+  font-size: 11.5px;
+  letter-spacing: .2px;
+  padding: 3px 8px;
+}
+
+/* Action columns hold a fixed button pair, but auto table-layout spreads the
+   table's full width across every column and leaves them about twice as wide
+   as their content. width:1% is the shrink-to-fit idiom: under auto layout the
+   browser falls back to the minimum content width, and nowrap keeps the
+   buttons on one line. !important is needed because DataTables' autoWidth
+   writes inline widths onto the header cells. Applied via a column className
+   so it follows the column whatever its index. */
+table.dataTable > thead > tr > th.sb-col-fit,
+table.dataTable > tbody > tr > td.sb-col-fit {
+  width: 1% !important;
+  white-space: nowrap;
+}
+
+/* With autoWidth on, DataTables sizes a non-scrolling table to its content and
+   leaves it flush left, so a narrow table sits against one edge of a wide card.
+   Centre it in the leftover space. Scrolling tables are nested inside
+   .dataTables_scrollBody rather than being a direct child, so they keep their
+   head/body/foot panes aligned. */
+.dataTables_wrapper > table.dataTable {
+  margin-left: auto;
+  margin-right: auto;
+  /* autoWidth can bake an inline pixel width wider than the container (the
+     categories table measured 1396px inside 1238px), which clips the last
+     column. !important is required because vendor.css sets
+     table.dataTable { max-width: none !important }. */
+  max-width: 100% !important;
+}
+
+/* tw-dw-btn-lg is 4rem tall with 18px text, roughly double every other action
+   button in the app. It is used only on form submit rows (26 views: product,
+   purchase, sell, expense, role, labels, settings...) and never on POS touch
+   targets, so bring the size down centrally rather than page by page. */
+.tw-dw-btn.tw-dw-btn-lg {
+  height: 2.25rem !important;
+  min-height: 2.25rem !important;
+  font-size: 14px !important;
+  padding-left: 1.125rem !important;
+  padding-right: 1.125rem !important;
+}
+
+/* Product brochure and variation images render as raw OS file pickers. Give
+   them the same control surface as the rest of the form. */
+input[type="file"]:not(.upload-element) {
+  color: var(--sb-muted);
+  font-size: 13px;
+}
+
+input[type="file"]:not(.upload-element)::file-selector-button {
+  margin-right: 10px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sb-text);
+  background: var(--sb-surface-raised);
+  border: 1px solid var(--sb-border-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s ease;
+}
+
+input[type="file"]:not(.upload-element)::file-selector-button:hover {
+  background: var(--sb-surface-hover);
+}
+
+/* Toolbar "Add" actions are anchors, so the theme-wide a:not(.btn) rule would
+   repaint their label with the link colour instead of white. */
+a.tw-bg-gradient-to-r.tw-from-indigo-500,
+a.tw-bg-gradient-to-r.tw-from-indigo-500:hover,
+a.tw-bg-gradient-to-r.tw-from-indigo-500:focus,
+button.tw-bg-gradient-to-r.tw-from-indigo-500,
+button.tw-bg-gradient-to-r.tw-from-indigo-500:hover,
+button.tw-bg-gradient-to-r.tw-from-indigo-500:focus {
+  color: #fff !important;
+}
+
+/* FullCalendar ships light-mode surfaces (#fafafa header, #fcf8e3 today cell).
+   Against the theme's near-white text those render white-on-white, hiding the
+   weekday names and today's date number. */
+.fc-unthemed th.fc-day-header,
+.fc-unthemed th.fc-widget-header {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border) !important;
+}
+
+.fc-unthemed .fc-today {
+  background: rgba(56, 189, 248, .12) !important;
+}
+
+/* 0.3 is tuned for dark text on white; on a dark surface it disappears. */
+.fc-unthemed .fc-other-month {
+  opacity: .45 !important;
+}
+
 @media print {
   .side-bar,
   .pos-form-actions,
@@ -1807,4 +2497,482 @@ body.lockscreen #featured_products_box:not(:empty)::before {
   .pos-header {
     display: none !important;
   }
+}
+
+/* Column Visibility dropdown -------------------------------------------------
+   Buttons renders each column as <li class="dt-button ... active"><a>, and
+   Bootstrap's .dropdown-menu > .active > a fills that anchor with #337ab7
+   while the theme paints its label var(--sb-muted): #97a9c1 on #337ab7 is
+   1.90:1, i.e. unreadable. Every column is visible by default, so every row
+   carries .active and the whole menu rendered as one blue block.
+
+   Replaced with a plain menu that states on/off by weight rather than by a
+   saturated fill: a shown column gets full-strength text, a raised row and an
+   accent bar down its left edge; a hidden one is simply muted. Both read
+   correctly in either theme because every value is a token.
+   --------------------------------------------------------------------------- */
+.dt-button-collection > .dt-button > a,
+.dt-button-collection > .dt-button > button,
+.dt-button-collection > li > a {
+  display: block;
+  padding: 7px 14px !important;
+  background: transparent !important;
+  background-image: none !important;
+  /* Column currently hidden. */
+  color: var(--sb-muted) !important;
+  border: 0 !important;
+  cursor: pointer;
+}
+
+/* Column currently shown. */
+.dt-button-collection > .dt-button.active > a,
+.dt-button-collection > .dt-button.active > button {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--sb-accent) !important;
+}
+
+.dt-button-collection > .dt-button > a:hover,
+.dt-button-collection > .dt-button > a:focus,
+.dt-button-collection > .dt-button.active > a:hover,
+.dt-button-collection > .dt-button.active > a:focus {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+}
+
+/* The panel itself: AdminLTE gives ul.dt-button-collection a #00c0ef fill. */
+.dt-button-collection {
+  padding: 4px 0 !important;
+  background: var(--sb-surface) !important;
+  border: 1px solid var(--sb-border) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+/* Active sidebar item's icon -------------------------------------------------
+   The active pill keeps its pale #e0f2fe background in both themes, and its
+   label is #075985 in both. The icon does not follow: an earlier rule
+   re-points #side-bar a.theme-sidebar-active svg to var(--sb-accent), which
+   is #38bdf8 in dark - 1.87:1 against that pale pill, so the glyph all but
+   vanishes while its label stays perfectly readable.
+
+   Letting the icon inherit the item's own colour puts it at 6.59:1 and keeps
+   icon and label matching. Applies to every active menu item, not just
+   Woocommerce, since they all share this treatment.
+
+   `color` has to be inherited as well as `stroke` set: the icon's own colour
+   is what currentColor resolves against, and an earlier rule sets that colour
+   to the accent, so stroke:currentColor alone still came out #38bdf8. */
+#side-bar a.theme-sidebar-active svg,
+#side-bar a.theme-sidebar-active i {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* Woocommerce tab strip ------------------------------------------------------
+   The first tab is the module's brand label rather than a real tab, so it
+   carries no active state and must not light up on hover. It stays a link so
+   the Sync Log and API Settings screens have a way back. */
+/* Three separate things were drawing the hover box, which is why pinning one
+   property at a time kept missing: vendor.css gives every li a 3px top
+   border, Bootstrap paints a bordered tab panel on a:hover, and the theme's
+   own rule swaps the label colour. Rather than chase them, every visual
+   property is held identical across all interaction states.
+
+   The background is transparent rather than var(--sb-surface) so the label
+   blends into the strip instead of sitting on a panel of its own. */
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand,
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand:hover,
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand:focus-within {
+  border-top-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand > a,
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand > a:link,
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand > a:visited,
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand > a:hover,
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand > a:focus,
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand > a:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: var(--sb-muted) !important;
+  text-decoration: none !important;
+  transition: none !important;
+  transform: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand > a i,
+.nav-tabs-custom > .nav-tabs > li.wc-tab-brand > a:hover i {
+  color: inherit !important;
+}
+
+/* Woocommerce API settings ---------------------------------------------------
+   Bootstrap's .nav-pills paints the active pill #337ab7 and relies on its own
+   white label, but the theme's link rule repaints that label var(--sb-accent-
+   strong) - 1.66:1 in light. The inactive pills had no fill at all, so in dark
+   the sky-300 link colour sat on the card at 1.67:1. The pane text is also
+   hard-coded #0f172a by the widget, which is unreadable on the dark card.
+
+   Everything below is token-based except the active pill, which is pinned to
+   #075985: white on it is 7.57:1, and a token would have resolved to the
+   lighter #0284c7 in dark mode and dropped to about 3.9:1. */
+/* AdminLTE gives each stacked nav item a #f4f4f4 bottom border. It is
+   invisible on a white page but shows as a white rule across the gaps
+   between the pills on the dark card. The pills carry their own borders, so
+   the separator is simply removed. */
+.wc-settings .wc-settings-nav > li {
+  border: 0 !important;
+}
+
+.wc-settings .wc-settings-nav > li > a {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+  border: 1px solid var(--sb-border) !important;
+  border-radius: 8px !important;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.wc-settings .wc-settings-nav > li > a:hover,
+.wc-settings .wc-settings-nav > li > a:focus {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+}
+
+.wc-settings .wc-settings-nav > li.active > a,
+.wc-settings .wc-settings-nav > li.active > a:hover,
+.wc-settings .wc-settings-nav > li.active > a:focus {
+  background: #075985 !important;
+  border-color: #075985 !important;
+  color: #ffffff !important;
+}
+
+/* Pane copy and field labels: the widget hard-codes a dark ink that only
+   works on a white card. */
+.wc-settings .tab-pane,
+.wc-settings .tab-pane p,
+.wc-settings .tab-pane label,
+.wc-settings .tab-pane li {
+  color: var(--sb-text) !important;
+}
+
+.wc-settings .tab-pane code {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+  border: 1px solid var(--sb-border) !important;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* Woocommerce tab strip ------------------------------------------------------
+   The active tab (Sync Log / API Settings) needs to read as selected in both
+   themes, and the rule under the strip has to stay visible on a dark card as
+   well as a light one. Scoped to .wc-tabs so the tab strips on other pages
+   keep their existing treatment.
+
+   The underline is an inset box-shadow rather than a border so it does not
+   shift the tab by a pixel when it becomes active. */
+.wc-tabs > .nav-tabs {
+  border-bottom: 1px solid var(--sb-border) !important;
+}
+
+.wc-tabs > .nav-tabs > li.active > a,
+.wc-tabs > .nav-tabs > li.active > a:hover,
+.wc-tabs > .nav-tabs > li.active > a:focus {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+  border-color: transparent !important;
+  box-shadow: inset 0 -3px 0 var(--sb-accent) !important;
+  font-weight: 600;
+}
+
+/* vendor.css turns the li's 3px top border blue on .active; the indicator
+   here is the underline, so that one is cleared.
+
+   margin-bottom is vendor's -2px, which hangs every tab two pixels below the
+   ul and paints over its bottom border - the rule appeared chopped into
+   segments between the tabs. Zeroing it lets the line run unbroken beneath
+   them, with the active tab's accent underline sitting just above it. */
+.wc-tabs > .nav-tabs > li,
+.wc-tabs > .nav-tabs > li.active {
+  border-top-color: transparent !important;
+  margin-bottom: 0 !important;
+}
+
+/* Login / auth screens -------------------------------------------------------
+   auth2.blade.php was written dark-first: the controls above the card are
+   hardcoded tw-text-white / tw-border-white, which is invisible on the light
+   page background. Everything here is token-based so both themes work, and
+   it is scoped to .sb-auth so no authenticated screen is affected. */
+
+/* Gradient-clipped text ("Forgot Your Password?"). Solid, accessible colour
+   rather than the gradient, which is too low-contrast at this size. */
+a.tw-bg-gradient-to-r.tw-bg-clip-text {
+  color: #93c5fd !important;
+  -webkit-text-fill-color: #93c5fd !important;
+}
+
+/* Top-right controls: Register pill, Sign in, language, theme toggle.
+   `summary` is in the list because the language picker's trigger is a
+   <details>/<summary>, not a link - it was hardcoded white and sat at
+   1.12:1 on the light page. */
+.sb-auth-actions a,
+.sb-auth-actions button,
+.sb-auth-actions summary {
+  color: var(--sb-text) !important;
+}
+
+/* Register sits next to the theme toggle and is styled to match it exactly:
+   same surface, border, radius, hover and 44px height. It used to be a
+   transparent 40px pill, so the pair read as two unrelated controls - one
+   filled circle, one empty outline, 4px apart in height. */
+.sb-auth-actions .sb-auth-pill {
+  height: 44px;
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border-strong) !important;
+  border-radius: 9999px;
+  transition: background-color .2s ease, border-color .2s ease;
+}
+
+.sb-auth-actions .sb-auth-pill:hover {
+  background: var(--sb-surface-hover) !important;
+  border-color: var(--sb-accent) !important;
+}
+
+/* The label, matched to the toggle's icon colour. The light sheet's blanket
+   link rule is (0,4,2) and was repainting it --sb-accent-strong (#075985),
+   so the same :not() chain is repeated here to reach (0,5,1) and win. */
+.sb-auth-actions .sb-auth-pill a:not(.btn):not(.tw-dw-btn):not(.tw-bg-gradient-to-r) {
+  color: var(--sb-text) !important;
+}
+
+/* Theme toggle on the login page. The authenticated header gives its button a
+   translucent-on-dark treatment that disappears on a light page, so the auth
+   copy gets a bordered surface instead. 44px square meets the minimum touch
+   target. */
+.sb-auth-actions .sb-auth-theme-toggle {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--sb-border-strong);
+  border-radius: 9999px;
+  background: var(--sb-surface);
+  color: var(--sb-text);
+  transition: background-color .2s ease, border-color .2s ease;
+}
+
+.sb-auth-actions .sb-auth-theme-toggle:hover,
+.sb-auth-actions .sb-auth-theme-toggle:focus-visible {
+  background: var(--sb-surface-hover);
+  border-color: var(--sb-accent);
+}
+
+/* Registration wizard steps --------------------------------------------------
+   jQuery Steps renders each step as <li><a>, and relies on its own white
+   label over a coloured chip. The theme's link rule repaints every anchor,
+   so in light mode the labels came out #075985 on a #2184be chip - 1.84:1,
+   effectively unreadable ("1. Business", "2. Business Settings", "3. Owner").
+
+   The chips are restyled here instead of just forcing white back: white on
+   the stock #2184be is only ~3.4:1, still under AA. The current step uses a
+   fixed #075985 (white on it is 7.56:1 in both themes - a token would
+   resolve to the lighter #0284c7 in dark and fall to ~3.9:1); the other
+   steps become quiet surfaces rather than pale blue. */
+.wizard .steps li > a {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-muted) !important;
+  border-radius: 10px;
+}
+
+.wizard .steps li.done > a {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+}
+
+/* No font-weight bump: the other two steps stay at their normal weight, so
+   bolding only the current one made the row look mismatched. The filled
+   chip is already the "you are here" signal. */
+.wizard .steps li.current > a {
+  background: #075985 !important;
+  color: #ffffff !important;
+}
+
+.wizard .steps li > a .number {
+  color: inherit !important;
+  opacity: .8;
+}
+
+/* Disabled "Previous" was #aaa on #eee (2.00:1). Disabled controls are
+   exempt from the contrast minimum, but that is too faint to read at all;
+   --sb-faint keeps it clearly inactive while staying legible. */
+.wizard .actions a.tw-dw-btn[disabled],
+.wizard .actions .disabled > a {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-faint) !important;
+}
+
+/* jQuery Steps hardcodes a white background on its content panel. The card
+   around it themes correctly, so in dark mode the panel stayed white while
+   the labels inside went light - "Business details:", "Business Name:*" and
+   the rest sat at about 1.1:1. Transparent lets the card show through, which
+   is correct in both themes (the card is white in light anyway). */
+.wizard > .content,
+.wizard > .content > .body {
+  background: transparent !important;
+}
+
+/* Wizard steps on hover, dark side. Same idea as the light sheet: the
+   surface shifts, the label colour holds. */
+.wizard .steps li > a:hover,
+.wizard .steps li > a:focus {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+}
+
+.wizard .steps li.current > a:hover,
+.wizard .steps li.current > a:focus {
+  background: #0a6ea3 !important;
+  color: #ffffff !important;
+}
+
+/* Registration wizard actions ------------------------------------------------
+   Next/Register were daisyUI's stock primary - oklch(0.4912 0.3096 275.75),
+   an electric violet at chroma 0.31 that belongs to no other control in this
+   app. They now use the same indigo->blue gradient as the Login button and
+   the "Add" buttons, so the wizard's CTA matches every other primary action.
+   White on #4f46e5 is 6.3:1 and on #1d4ed8 is 6.7:1, so the pair is safe on
+   either theme's card.
+
+   Semibold, and the label is centred on both axes. jQuery Steps ships these
+   as plain anchors, so the label sat on the text baseline rather than in the
+   middle of the pill; inline-flex with both centring axes and line-height 1
+   puts it dead centre whatever the button's height ends up being. */
+.wizard .actions a.tw-dw-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  line-height: 1 !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  padding-left: 18px !important;
+  padding-right: 18px !important;
+}
+
+.wizard .actions a.tw-dw-btn-primary {
+  background-color: transparent !important;
+  background-image: linear-gradient(to right, #4f46e5, #1d4ed8) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+}
+
+.wizard .actions a.tw-dw-btn-primary:hover,
+.wizard .actions a.tw-dw-btn-primary:focus {
+  background-image: linear-gradient(to right, #4338ca, #1e40af) !important;
+}
+
+/* Previous, enabled: a quiet secondary next to that CTA. */
+.wizard .actions li:not(.disabled) > a.tw-dw-btn:not(.tw-dw-btn-primary) {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+  border: 1px solid var(--sb-border-strong) !important;
+}
+
+.wizard .actions li:not(.disabled) > a.tw-dw-btn:not(.tw-dw-btn-primary):hover {
+  background: var(--sb-surface-hover) !important;
+  border-color: var(--sb-accent) !important;
+}
+
+/* The Total Walk-In KPI is an <a> into /walk-ins, matching the test install.
+   Every child (__icon, __label, __value, __hint) sets its own colour in both
+   themes, so nothing inherits the theme's link colour and no override is
+   needed for that - these rules only kill the underline bootstrap adds on
+   hover (text-decoration inherits, so it would underline the whole tile) and
+   give the tile a hover affordance so it reads as clickable. */
+a.sb-dashboard-kpi {
+  transition: transform .15s ease;
+}
+
+a.sb-dashboard-kpi,
+a.sb-dashboard-kpi:hover,
+a.sb-dashboard-kpi:focus {
+  text-decoration: none !important;
+}
+
+a.sb-dashboard-kpi:hover {
+  transform: translateY(-1px);
+}
+
+/* The POS "+ WALK-IN" button shipped as btn-success, painting it #047857 -
+   an emerald that appears nowhere else in this app. It now uses the same
+   indigo->blue primary gradient as the Login button, the Add buttons and
+   the registration wizard's Next. */
+#walk-in-pos-controls #capture_walk_in {
+  background-color: transparent !important;
+  background-image: linear-gradient(to right, #4f46e5, #1d4ed8) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+}
+
+#walk-in-pos-controls #capture_walk_in:hover,
+#walk-in-pos-controls #capture_walk_in:focus {
+  background-image: linear-gradient(to right, #4338ca, #1e40af) !important;
+}
+
+/* Disabled POS footer actions. Card, Cash and Multiple Pay are disabled
+   until the cart has a line, but they kept their saturated fills at
+   partial strength, so they read as low-contrast enabled buttons rather
+   than as unavailable ones. */
+body.lockscreen .pos-form-actions button:disabled,
+body.lockscreen .pos-form-actions button[disabled] {
+  opacity: .45 !important;
+  filter: grayscale(.4);
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+/* Slim scrollbar for the notifications dropdown. Colour lives here because
+   saverbro-layout.css is colour-free; the track stays transparent so the
+   panel's own surface shows through in both themes. */
+.notifications-menu > .dropdown-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notifications-menu > .dropdown-menu::-webkit-scrollbar-thumb {
+  background: var(--sb-border-strong);
+  border-radius: 3px;
+}
+
+.notifications-menu > .dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: var(--sb-muted);
+}
+
+/* Solid success buttons ---------------------------------------------------
+   daisyUI's success fill is oklch(0.648 0.15 160) - light enough that a white
+   label lands near 2.3:1, which is why the rule above forces dark ink on the
+   other solid colours. Green buttons elsewhere in the app (POS Suspend and
+   Credit Sale) are white on the darker emerald, so matching that fill here
+   gives the white label the rest of the UI uses and clears AA at the same
+   time: 5.49:1 at #047857 rising to 7.69:1 at #065f46. */
+.tw-dw-btn.tw-dw-btn-success:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link) {
+  background-color: transparent !important;
+  background-image: linear-gradient(135deg, #047857, #065f46) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+}
+
+.tw-dw-btn.tw-dw-btn-success:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link):hover,
+.tw-dw-btn.tw-dw-btn-success:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link):focus {
+  background-image: linear-gradient(135deg, #065f46, #064e3b) !important;
+  color: #ffffff !important;
 }

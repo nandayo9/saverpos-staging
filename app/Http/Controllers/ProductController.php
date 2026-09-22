@@ -68,7 +68,15 @@ class ProductController extends Controller
         }
         $business_id = request()->session()->get('user.business_id');
         $selling_price_group_count = SellingPriceGroup::countSellingPriceGroups($business_id);
-        $is_woocommerce = $this->moduleUtil->isModuleInstalled('Woocommerce');
+        // The Woocommerce module package is absent from this install, but the
+        // sync UI is core rather than module code: the button in
+        // product/partials/product_list.blade.php, the modal, the
+        // toggle-woocommerce-sync route and the
+        // products.woocommerce_disable_sync column all ship here. The
+        // Woocommerce facade in this app is enough to surface it, so
+        // /products matches production.
+        $is_woocommerce = $this->moduleUtil->isModuleInstalled('Woocommerce')
+            || class_exists(\App\Http\Controllers\WoocommerceController::class);
 
         if (request()->ajax()) {
             //Filter by location
@@ -264,7 +272,7 @@ class ProductController extends Controller
                         '</span>' : $product;
 
                     if ($is_woocommerce && ! $row->woocommerce_disable_sync) {
-                        $product = $product.'<br><i class="fab fa-wordpress"></i>';
+                        $product = $product.' <i class="fab fa-wordpress"></i>';
                     }
 
                     return $product;
@@ -2502,7 +2510,10 @@ class ProductController extends Controller
             $product_ids = explode(',', $selected_products);
 
             DB::beginTransaction();
-            if ($this->moduleUtil->isModuleInstalled('Woocommerce')) {
+            // Same condition as the gate in index(): without this the button
+            // would open, submit and report success while writing nothing.
+            if ($this->moduleUtil->isModuleInstalled('Woocommerce')
+                || class_exists(\App\Http\Controllers\WoocommerceController::class)) {
                 Product::where('business_id', $business_id)
                         ->whereIn('id', $product_ids)
                         ->update(['woocommerce_disable_sync' => $woocommerce_disable_sync]);

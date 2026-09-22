@@ -1841,11 +1841,20 @@ class ProductUtil extends Util
             $location_filter = 'AND transactions.location_id=l.id';
         }
 
-        $products = $query->select(
-            // DB::raw("(SELECT SUM(quantity) FROM transaction_sell_lines LEFT JOIN transactions ON transaction_sell_lines.transaction_id=transactions.id WHERE transactions.status='final' $location_filter AND
-            //     transaction_sell_lines.product_id=products.id) as total_sold"),
-
-            DB::raw("(SELECT SUM(TSL.quantity - TSL.quantity_returned) FROM transactions 
+        // The four subqueries below are correlated - MySQL evaluates each one
+        // per group. Combined with the GROUP BY and ORDER BY at the end of this
+        // select, every group has to be materialised before a LIMIT can apply,
+        // so rendering 25 rows of the stock report ran them across all 2,202
+        // groups (~8,800 executions, ~5.2s measured). Each individual subquery
+        // is already optimal - EXPLAIN shows ref on variation_id over 9 rows
+        // plus an eq_ref primary-key hit - so the cost is purely the repetition.
+        //
+        // Callers that page the results (the stock report datatable) pass
+        // defer_aggregates and fill these four columns in afterwards for the
+        // handful of rows they actually display. Callers that need every value
+        // up front, such as the product stock modal, simply omit the flag.
+        $heavy_aggregates = ! empty($filters['defer_aggregates']) ? [] : [
+            DB::raw("(SELECT SUM(TSL.quantity - TSL.quantity_returned) FROM transactions
                   JOIN transaction_sell_lines AS TSL ON transactions.id=TSL.transaction_id
                   WHERE transactions.status='final' AND transactions.type='sell' AND transactions.location_id=vld.location_id
                   AND TSL.variation_id=variations.id) as total_sold"),
@@ -1860,6 +1869,11 @@ class ProductUtil extends Util
                   JOIN purchase_lines AS pl ON transactions.id=pl.transaction_id
                   WHERE (transactions.status='received' OR transactions.type='purchase_return')  AND transactions.location_id=vld.location_id 
                   AND (pl.variation_id=variations.id)) as stock_price"),
+        ];
+
+        $products = $query->select(array_merge($heavy_aggregates, [
+            // Plain aggregate over the already-joined rows, not a correlated
+            // subquery, so this one stays regardless.
             DB::raw('SUM(vld.qty_available) as stock'),
             'variations.sub_sku as sku',
             'p.name as product',
@@ -1878,8 +1892,8 @@ class ProductUtil extends Util
             'p.product_custom_field1',
             'p.product_custom_field2',
             'p.product_custom_field3',
-            'p.product_custom_field4'
-        )->groupBy('variations.id', 'vld.location_id');
+            'p.product_custom_field4',
+        ]))->groupBy('variations.id', 'vld.location_id');
 
         if (isset($filters['show_manufacturing_data']) && $filters['show_manufacturing_data']) {
             $pl_query_string = $this->get_pl_quantity_sum_string('PL');

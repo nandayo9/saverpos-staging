@@ -96,5 +96,5 @@
 @endsection
 
 @section('javascript')
-    <script src="{{ asset('js/report.js?v=' . $asset_v) }}"></script>
+    <script src="{{ asset('js/report.js?v=' . $asset_v . '&mtime=' . filemtime(public_path('js/report.js'))) }}"></script>
 @endsection

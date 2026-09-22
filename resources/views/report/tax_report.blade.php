@@ -264,6 +264,8 @@
         );
 
         input_tax_table = $('#input_tax_table').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
             processing: true,
             serverSide: true,
             fixedHeader:false,
@@ -284,15 +286,15 @@
                 }
             },
             columns: [
-                { data: 'transaction_date', name: 'transaction_date' },
-                { data: 'ref_no', name: 'ref_no' },
-                { data: 'contact_name', name: 'c.name' },
-                { data: 'tax_number', name: 'c.tax_number' },
-                { data: 'total_before_tax', name: 'total_before_tax' },
-                { data: 'payment_methods', orderable: false, "searchable": false},
-                { data: 'discount_amount', name: 'discount_amount' },
+                { data: 'transaction_date', name: 'transaction_date', className: 'text-center' },
+                { data: 'ref_no', name: 'ref_no', className: 'text-center' },
+                { data: 'contact_name', name: 'c.name', className: 'text-center' },
+                { data: 'tax_number', name: 'c.tax_number', className: 'text-center' },
+                { data: 'total_before_tax', name: 'total_before_tax', className: 'text-center' },
+                { data: 'payment_methods', orderable: false, "searchable": false, className: 'text-center'},
+                { data: 'discount_amount', name: 'discount_amount', className: 'text-center' },
                 @foreach($taxes as $tax)
-                { data: "tax_{{$tax['id']}}", searchable: false, orderable: false },
+                { data: "tax_{{$tax['id']}}", searchable: false, orderable: false, className: 'text-center' },
                 @endforeach
             ],
             "footerCallback": function ( row, data, start, end, display ) {
@@ -315,6 +317,8 @@
             if ($(e.target).attr('href') == '#output_tax_tab') {
                 if (typeof (output_tax_datatable) == 'undefined') {
                     output_tax_datatable = $('#output_tax_table').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
                         processing: true,
                         serverSide: true,
                         fixedHeader:false,
@@ -336,15 +340,15 @@
                             }
                         },
                         columns: [
-                            { data: 'transaction_date', name: 'transaction_date' },
-                            { data: 'invoice_no', name: 'invoice_no' },
-                            { data: 'contact_name', name: 'c.name' },
-                            { data: 'tax_number', name: 'c.tax_number' },
-                            { data: 'total_before_tax', name: 'total_before_tax' },
-                            { data: 'payment_methods', orderable: false, "searchable": false},
-                            { data: 'discount_amount', name: 'discount_amount' },
+                            { data: 'transaction_date', name: 'transaction_date', className: 'text-center' },
+                            { data: 'invoice_no', name: 'invoice_no', className: 'text-center' },
+                            { data: 'contact_name', name: 'c.name', className: 'text-center' },
+                            { data: 'tax_number', name: 'c.tax_number', className: 'text-center' },
+                            { data: 'total_before_tax', name: 'total_before_tax', className: 'text-center' },
+                            { data: 'payment_methods', orderable: false, "searchable": false, className: 'text-center'},
+                            { data: 'discount_amount', name: 'discount_amount', className: 'text-center' },
                             @foreach($taxes as $tax)
-                            { data: "tax_{{$tax['id']}}", searchable: false, orderable: false },
+                            { data: "tax_{{$tax['id']}}", searchable: false, orderable: false, className: 'text-center' },
                             @endforeach
                         ],
                         "footerCallback": function ( row, data, start, end, display ) {
@@ -386,13 +390,13 @@
                             }
                         },
                         columns: [
-                            { data: 'transaction_date', name: 'transaction_date' },
-                            { data: 'ref_no', name: 'ref_no' },
-                            { data: 'tax_number', name: 'c.tax_number' },
-                            { data: 'total_before_tax', name: 'total_before_tax' },
-                            { data: 'payment_methods', orderable: false, "searchable": false},
+                            { data: 'transaction_date', name: 'transaction_date', className: 'text-center' },
+                            { data: 'ref_no', name: 'ref_no', className: 'text-center' },
+                            { data: 'tax_number', name: 'c.tax_number', className: 'text-center' },
+                            { data: 'total_before_tax', name: 'total_before_tax', className: 'text-center' },
+                            { data: 'payment_methods', orderable: false, "searchable": false, className: 'text-center'},
                             @foreach($taxes as $tax)
-                            { data: "tax_{{$tax['id']}}", searchable: false, orderable: false },
+                            { data: "tax_{{$tax['id']}}", searchable: false, orderable: false, className: 'text-center' },
                             @endforeach
                         ],
                         "footerCallback": function ( row, data, start, end, display ) {

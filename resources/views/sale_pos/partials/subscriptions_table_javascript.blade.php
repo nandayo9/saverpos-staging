@@ -10,6 +10,8 @@ $(document).ready( function(){
     );
     
     subscriptions_table = $('#subscriptions_table').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
         processing: true,
         serverSide: true,
         fixedHeader:false,
