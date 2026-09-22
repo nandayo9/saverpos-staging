@@ -44,6 +44,16 @@ class AuthorizationGate
             && $this->cohortPolicy->allowsBusiness($businessId);
     }
 
+    /**
+     * The cohort's configured location ids (with the legacy singular-value
+     * fallback applied). For callers that need the actual list, such as
+     * populating a location picker, rather than a single membership check.
+     */
+    public function configuredLocationIds(): array
+    {
+        return $this->cohortPolicy->configuredLocationIds();
+    }
+
     protected function hasPermission($user, string $permission): bool
     {
         $permissions = config('recommerce.permissions', []);

@@ -27,14 +27,8 @@ class ReconciliationController extends Controller
     {
         $user = auth()->user();
         $businessId = (int) $user->business_id;
-        $configuredLocationIds = array_values(array_unique(array_filter(array_map(
-            'intval',
-            (array) config('recommerce.cohort.location_ids', [config('recommerce.cohort.location_id')])
-        ))));
+        $configuredLocationIds = $authorizationGate->configuredLocationIds();
         $locationId = (int) $request->query('location_id', config('recommerce.cohort.location_id'));
-        if (! in_array($locationId, $configuredLocationIds, true)) {
-            abort(404);
-        }
 
         if (! User::can_access_this_location($locationId, $businessId)
             || ! $authorizationGate->allowsRead($user, 'recommerce.stock.reconcile', $businessId, $locationId)) {
