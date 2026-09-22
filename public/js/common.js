@@ -163,6 +163,203 @@ $(document).ready(function () {
         return str.trim();
     }
 
+
+    /* Circular loader ----------------------------------------------------
+     *
+     * One ring serves both loading indicators in the app: the DataTables
+     * "Processing" box and the POS product-list loader. Styles are in
+     * saverbro-layout.css (structure) and saverbro-dark-pos.css (colours via
+     * --sb-* tokens, so dark and light both work without a second copy).
+     *
+     * GSAP animates it, but the CSS keyframe spin in the layout sheet runs on
+     * its own. We only add .sb-loader--js - which switches that keyframe off -
+     * once GSAP is confirmed present, so a missing gsap.min.js degrades to a
+     * plain CSS spinner instead of a frozen ring.
+     */
+
+    // r=20 in the 48x48 viewBox.
+    var SB_LOADER_CIRCUMFERENCE = 2 * Math.PI * 20;
+
+    function sb_loader_markup(label) {
+        var text = label === undefined ? LANG.table_processing : label;
+        return (
+            '<span class="sb-loader" role="status">' +
+            '<svg class="sb-loader-svg" viewBox="0 0 48 48" aria-hidden="true" focusable="false">' +
+            '<circle class="sb-loader-track" cx="24" cy="24" r="20"></circle>' +
+            '<circle class="sb-loader-arc" cx="24" cy="24" r="20"></circle>' +
+            '</svg>' +
+            (text ? '<span class="sb-loader-label">' + text + '</span>' : '') +
+            '</span>'
+        );
+    }
+
+    function sb_reduced_motion() {
+        return (
+            window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        );
+    }
+
+    /* Builds the GSAP timelines for one .sb-loader and remembers them on the
+     * element, so re-showing a loader reuses its timelines instead of stacking
+     * a new pair every time a table redraws. */
+    function sb_loader_animate(el) {
+        if (!el || typeof window.gsap === 'undefined') return null;
+
+        var $el = $(el);
+        var existing = $el.data('sbLoaderAnim');
+        if (existing) {
+            existing.spin.play();
+            existing.pulse.play();
+            return existing;
+        }
+
+        var svg = $el.find('.sb-loader-svg')[0];
+        var arc = $el.find('.sb-loader-arc')[0];
+        if (!svg || !arc) return null;
+
+        var slow = sb_reduced_motion();
+
+        gsap.set(arc, {
+            strokeDasharray: SB_LOADER_CIRCUMFERENCE,
+            strokeDashoffset: SB_LOADER_CIRCUMFERENCE * 0.75,
+        });
+
+        var anim = {
+            // Steady rotation carries the "busy" read.
+            spin: gsap.to(svg, {
+                rotation: 360,
+                duration: slow ? 3 : 1.1,
+                ease: 'none',
+                repeat: -1,
+                transformOrigin: '50% 50%',
+            }),
+            // The arc grows and shrinks against that rotation, which is what
+            // stops it reading as a plain rotating dash.
+            pulse: gsap.to(arc, {
+                strokeDashoffset: SB_LOADER_CIRCUMFERENCE * 0.28,
+                duration: slow ? 1.6 : 0.75,
+                ease: 'power2.inOut',
+                yoyo: true,
+                repeat: -1,
+            }),
+        };
+
+        $el.addClass('sb-loader--js').data('sbLoaderAnim', anim);
+        return anim;
+    }
+
+    function sb_loader_pause(el) {
+        var anim = $(el).data('sbLoaderAnim');
+        if (!anim) return;
+        anim.spin.pause();
+        anim.pulse.pause();
+    }
+
+    /* While loading, the ring is lifted out of the table and shown on its own.
+     * position:fixed alone centres it on the whole viewport, which includes the
+     * sidebar and the top bar - so it landed left of, and above, the middle of
+     * the area the user actually reads. #scrollable-container is the content
+     * region itself, so its centre is the right target. Measured rather than
+     * expressed in CSS because the sidebar collapses, which moves that centre.
+     *
+     * The CSS keeps top/left: 50% as a fallback, so the ring is still roughly
+     * placed if this never runs. */
+    function sb_centre_loader_box(box) {
+        if (!box) return;
+        var host = document.getElementById('scrollable-container');
+        if (!host) return;
+        var r = host.getBoundingClientRect();
+        box.style.left = Math.round(r.left + r.width / 2) + 'px';
+        box.style.top = Math.round(r.top + r.height / 2) + 'px';
+    }
+
+    /* Cleared on hide: the inline values would otherwise survive into the idle
+     * state, where the box goes back to being absolutely positioned on its own
+     * table and the CSS rule above no longer applies. */
+    function sb_reset_loader_box(box) {
+        if (!box) return;
+        box.style.left = '';
+        box.style.top = '';
+    }
+
+    /* The page heading and the widget's own header sit outside the DataTables
+     * wrapper, so blanking them needs a page-level hook rather than the
+     * per-wrapper class. Derived from the DOM instead of a counter so repeated
+     * or unbalanced processing events can never leave the page stuck blank. */
+    function sb_sync_page_loading() {
+        $('body').toggleClass(
+            'sb-page-loading',
+            $('.dataTables_wrapper.sb-table-busy').length > 0
+        );
+    }
+
+    /* DataTables rebuilds the processing box's contents each time it shows, so
+     * the timelines are attached on the processing event rather than once at
+     * init. Paused while hidden so an off-screen table isn't driving a ticker.
+     *
+     * .sb-table-busy on the wrapper blanks the table for as long as the ring is
+     * spinning, so a reload shows the spinner alone rather than the spinner on
+     * top of the previous page's header, scrollbar and totals row. The class
+     * goes on before the loader check so the blanking still happens on tables
+     * whose processing box has not been built yet. */
+    $(document).on('processing.dt', function (e, settings, show) {
+        var $wrapper = $(settings.nTableWrapper);
+        $wrapper.toggleClass('sb-table-busy', !!show);
+        sb_sync_page_loading();
+
+        var box = $wrapper.find('.dataTables_processing')[0];
+        if (show) {
+            sb_centre_loader_box(box);
+        } else {
+            sb_reset_loader_box(box);
+        }
+
+        var $loader = $wrapper.find('.dataTables_processing .sb-loader');
+        if (!$loader.length) return;
+
+        if (show) {
+            sb_loader_animate($loader[0]);
+        } else {
+            sb_loader_pause($loader[0]);
+        }
+    });
+
+    /* The content region's centre moves when the window is resized (and when
+     * the sidebar collapses, if that triggers a resize), so a ring shown at the
+     * old centre would sit off to one side. Cheap to re-measure. */
+    $(window).on('resize', function () {
+        $('.dataTables_wrapper.sb-table-busy .dataTables_processing').each(function () {
+            sb_centre_loader_box(this);
+        });
+    });
+
+    /* The POS product list used a Font Awesome fa-spinner. Swap in the same
+     * ring so both loading states in the app look like one component. The
+     * element is hidden until the POS code shows it, so this watches for that
+     * rather than animating straight away. */
+    $(function () {
+        var $pos = $('#suggestion_page_loader');
+        if (!$pos.length) return;
+
+        $pos.html(sb_loader_markup(''));
+
+        if (typeof MutationObserver === 'undefined') {
+            sb_loader_animate($pos.find('.sb-loader')[0]);
+            return;
+        }
+
+        var observer = new MutationObserver(function () {
+            var visible = $pos.is(':visible');
+            var loader = $pos.find('.sb-loader')[0];
+            if (visible) {
+                sb_loader_animate(loader);
+            } else {
+                sb_loader_pause(loader);
+            }
+        });
+        observer.observe($pos[0], { attributes: true, attributeFilter: ['style', 'class'] });
+    });
     var buttons = [
         // {
         //     extend: 'copy',
@@ -173,6 +370,15 @@ $(document).ready(function () {
         //     },
         //     footer: true,
         // },
+        {
+            extend: 'colvis',
+            text: '<i class="fa fa-columns" aria-hidden="true"></i> ' + LANG.col_vis,
+            className: 'tw-dw-btn-xs  tw-dw-btn tw-dw-btn-outline tw-my-2',
+            // Custom-field columns are hidden on init (see the init.dt handler
+            // below). Leaving them out of this list too stops them being
+            // switched back on from the dropdown.
+            columns: ':not(.sb-custom-field)',
+        },
         {
             extend: 'csv',
             text: '<i class="fa fa-file-csv" aria-hidden="true"></i> ' + LANG.export_to_csv,
@@ -233,36 +439,6 @@ $(document).ready(function () {
                 if ($(dt.table().node()).hasClass('hide-footer')) config.footer = false;
                 $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e, dt, button, config);
             },
-        },
-        {
-            extend: 'print',
-            text: '<i class="fa fa-print" aria-hidden="true"></i> ' + LANG.print,
-            className: 'tw-dw-btn-xs  tw-dw-btn tw-dw-btn-outline tw-my-2',
-            exportOptions: {
-                columns: ':visible',
-                stripHtml: true,
-            },
-            footer: true,
-            customize: function (win) {
-                if ($('.print_table_part').length > 0) {
-                    $($('.print_table_part').html()).insertBefore(
-                        $(win.document.body).find('table')
-                    );
-                }
-                if ($(win.document.body).find('table.hide-footer').length) {
-                    $(win.document.body).find('table.hide-footer tfoot').remove();
-                }
-                __currency_convert_recursively($(win.document.body).find('table'));
-            },
-        },
-        {
-            extend: 'colvis',
-            text: '<i class="fa fa-columns" aria-hidden="true"></i> ' + LANG.col_vis,
-            className: 'tw-dw-btn-xs  tw-dw-btn tw-dw-btn-outline tw-my-2',
-            // Custom-field columns are hidden on init (see the init.dt handler
-            // below). Leaving them out of this list too stops them being
-            // switched back on from the dropdown.
-            columns: ':not(.sb-custom-field)',
         },
     ];
 
@@ -371,9 +547,36 @@ $(document).ready(function () {
         ],
     };
 
+    /* Print closes the toolbar, after the three exports. It is defined here
+       and pushed below rather than sitting in the array literal, because the
+       PDF dropdown is appended at runtime and has to land ahead of it. */
+    var print_btn = {
+        extend: 'print',
+        text: '<i class="fa fa-print" aria-hidden="true"></i> ' + LANG.print,
+        className: 'tw-dw-btn-xs  tw-dw-btn tw-dw-btn-outline tw-my-2',
+        exportOptions: {
+            columns: ':visible',
+            stripHtml: true,
+        },
+        footer: true,
+        customize: function (win) {
+            if ($('.print_table_part').length > 0) {
+                $($('.print_table_part').html()).insertBefore(
+                    $(win.document.body).find('table')
+                );
+            }
+            if ($(win.document.body).find('table.hide-footer').length) {
+                $(win.document.body).find('table.hide-footer tfoot').remove();
+            }
+            __currency_convert_recursively($(win.document.body).find('table'));
+        },
+    };
+
     if (non_utf8_languages.indexOf(app_locale) == -1) {
         buttons.push(pdf_dropdown);
     }
+
+    buttons.push(print_btn);
 
     if ($('#view_export_buttons').length < 1) {
         buttons = [];
@@ -665,7 +868,12 @@ $(document).ready(function () {
         //Uncomment below line to enable save state of datatable.
         //stateSave: true,
         fixedHeader: true,
-        dom: '<"row margin-bottom-20 text-center"<"col-sm-1"l><"col-sm-8"B><"col-sm-3"f> r>tip',
+        // col-sm-1 for the length control ("Show X entries") is only ~8% of
+        // the row - too narrow for its own label text once select2 renders
+        // the dropdown inside it, so "Show" and "entries" overflowed past
+        // the label's edge on every table that uses these defaults. This
+        // touches every DataTable in the app that doesn't set its own dom.
+        dom: '<"row margin-bottom-20 text-center"<"col-sm-2"l><"col-sm-7"B><"col-sm-3"f> r>tip',
         buttons: buttons,
         aLengthMenu: [
             [5, 10, 15, 25, 50, 100, 200, 500, 1000, -1],
@@ -683,7 +891,10 @@ $(document).ready(function () {
             info: LANG.table_info,
             infoEmpty: LANG.table_infoEmpty,
             loadingRecords: LANG.table_loadingRecords,
-            processing: LANG.table_processing,
+            // Markup, not plain text: DataTables inserts this as HTML. Passing an
+            // empty label leaves just the ring - the box itself is transparent
+            // (see saverbro-dark-pos.css), so the spinner floats over the table.
+            processing: sb_loader_markup(''),
             zeroRecords: LANG.table_zeroRecords,
             paginate: {
                 first: LANG.first,
@@ -1191,7 +1402,16 @@ $(function () {
     $(document).on('click', '.drop_down', function (event) {
         event.preventDefault();
         var $chiled = $(this).next('.chiled');
-        $('.chiled').not($chiled).slideUp();
+        // Nested dropdowns (e.g. Products > Product Listing > List/Add
+        // Products) put a .drop_down/.chiled pair inside another .chiled.
+        // Closing every OTHER panel used to also close this one's ancestor,
+        // so opening a nested item instantly hid the toggle you just
+        // clicked. Only close panels unrelated to this one.
+        $('.chiled')
+            .not($chiled)
+            .not($chiled.parents('.chiled'))
+            .not($chiled.find('.chiled'))
+            .slideUp();
         $chiled.slideToggle(function () {
             $('.svg').each(function () {
                 var $currentSvgElement = $(this);

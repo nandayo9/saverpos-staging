@@ -24,6 +24,12 @@
 
 <script src="{{ asset('js/vendor.js?v=' . $asset_v) }}"></script>
 
+{{-- GSAP drives the circular loader in common.js. Vendored into public/js
+     rather than pulled from a CDN so the POS keeps animating when the shop's
+     connection drops. The loader falls back to a CSS keyframe spin if this
+     file ever fails to load, so nothing breaks if it goes missing. --}}
+<script src="{{ asset('js/gsap.min.js?v=' . $asset_v) }}"></script>
+
 @if (file_exists(public_path('js/lang/' . session()->get('user.language', config('app.locale')) . '.js')))
     <script src="{{ asset('js/lang/' . session()->get('user.language', config('app.locale')) . '.js?v=' . $asset_v) }}">
     </script>

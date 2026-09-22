@@ -385,6 +385,17 @@ table.table-border-center-col > tfoot > tr > td:nth-child(2)
   font-size: 18px;
   font-weight: 600;
 }
+
+/* The active tab's accent (e.g. Recent Transactions' Final/Quotation/Draft)
+   ships at AdminLTE's default 2px, which reads as a hairline once a
+   screenshot or a lower-DPI screen compresses it - easy to miss which tab
+   is open. 3px plus rounded top corners reads as a deliberate highlight
+   sitting on the tab rather than an accidental 1px seam. */
+.nav-tabs-custom > .nav-tabs > li.active {
+  border-top-width: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
 .table-transparent, .table-transparent th {
     background-color: transparent !important;
     color: #000 !important;
@@ -684,6 +695,15 @@ tr.details td.details-control {
     background-color: white;
     padding: 6px 9px;
 }
+
+/* POS qty stepper icons: the tw-text-red-600 / tw-text-emerald-600 utilities
+   on .quantity-down / .quantity-up lose to saverbro-dark-pos.css's
+   .input-group-btn .btn color rule (2 classes beats 1, both !important), so
+   the -/+ glyphs always rendered in the theme's plain text colour instead of
+   the intended red/green. Matching them on the same .input-group-btn .btn
+   specificity wins the tie in both themes. */
+html[data-theme] .input-group-btn .btn.quantity-down { color: #dc2626 !important; }
+html[data-theme] .input-group-btn .btn.quantity-up   { color: #059669 !important; }
 
 .width-50{
     width: 50% !important;
@@ -1195,6 +1215,55 @@ body.lockscreen #pos_table .input-group-btn .btn {
   font-size: 14px;
   line-height: 32px;
 }
+/* The stepper's three segments (-, qty, +) all forced to 0 radius above
+   read as three separate boxes glued together. Rounding just the group's
+   outer corners turns it back into one control without touching the square
+   seam between each segment. */
+body.lockscreen #pos_table .input-group.input-number .quantity-down,
+body.lockscreen #pos_table .input-group.input-number .quantity-up {
+  /* padding: 0 12px above (from .input-group-btn .btn) makes each button
+     ~38px wide - about as wide as the "1" it flanks. 4px brings them down
+     to icon-sized, so the group reads as compact instead of stretched. */
+  padding: 0 4px !important;
+  /* saverbro-layout.css's POS control-sizing block puts min-height: 40px
+     !important on every .input-group-btn > button on this page (it's meant
+     for the header search/select row, not the cart's own stepper). Since
+     height alone can't beat a separate min-height constraint, that 40px
+     floor was winning over the 32px height right below and stretching
+     these past the "1" field they flank - the actual source of "too
+     large", not the padding. */
+  height: 32px !important;
+  min-height: 32px !important;
+}
+/* .input-group { width: 100% } above stretches the whole stepper to fill
+   the QUANTITY column, so shrinking the buttons and the "1" field just left
+   a gap where the group's own box kept the column's full width - it never
+   got shorter, only its contents did. A display:table box ignores width:
+   auto here (it keeps sizing to the containing block rather than its
+   content, unlike an inline-block), so this needs an explicit width sized
+   to the three segments (22 + 44 + 22px, plus ~4px of borders) instead of
+   "auto", with margin:auto to keep it centered under "QUANTITY" the same
+   way .pos-unit-label already centers "Pieces" beneath it. */
+body.lockscreen #pos_table .input-group.input-number {
+  /* 92px (22 + 44 + 22 + ~4px border) left a 6px gap before the + button
+     specifically - the browser's table layout wasn't splitting the leftover
+     space evenly between the two sides. 86px removes the slack so + sits
+     flush against the field the same way - already does. */
+  width: 86px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+body.lockscreen #pos_table .input-group.input-number .pos_quantity {
+  width: 44px !important;
+}
+body.lockscreen #pos_table .input-group.input-number .quantity-down {
+  border-top-left-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+}
+body.lockscreen #pos_table .input-group.input-number .quantity-up {
+  border-top-right-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+}
 body.lockscreen #pos_table .display_currency.pos_line_total_text {
   font-size: 13px;
   font-weight: 500;
@@ -1208,6 +1277,15 @@ body.lockscreen #pos_table .sub_unit {
   font-size: 11px !important;
   padding: 0 4px !important;
   margin-top: 2px;
+}
+/* Single-unit products render a plain label ("Pieces") instead of the
+   .sub_unit select above. It was left inline-block/left-aligned, so it sat
+   flush against the stepper's left edge instead of reading as a caption
+   under the whole control - same treatment as .pos_line_total_text, which
+   centers the SUBTOTAL column's text the same way. */
+body.lockscreen #pos_table .pos-unit-label {
+  display: block;
+  text-align: center;
 }
 body.lockscreen #pos_table .lot_number {
   height: 26px !important;

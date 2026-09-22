@@ -568,7 +568,6 @@ body .theme-header-bg {
 
 /* DataTables and date widgets are injected after page load and otherwise
    fall back to the legacy white Bootstrap skin. */
-.dataTables_wrapper .dataTables_processing,
 .dataTables_wrapper .dataTables_length select,
 .dataTables_wrapper .dataTables_filter input,
 .datepicker,
@@ -579,11 +578,6 @@ body .theme-header-bg {
   color: var(--sb-text) !important;
   border-color: var(--sb-border) !important;
   box-shadow: 0 18px 45px rgba(0, 0, 0, .3) !important;
-}
-
-.dataTables_wrapper .dataTables_processing {
-  border: 1px solid var(--sb-border-strong) !important;
-  border-radius: 10px;
 }
 
 .datepicker table tr td,
@@ -604,6 +598,38 @@ body .theme-header-bg {
   color: white !important;
 }
 
+/* SweetAlert (the t4t5/sweetalert confirm/alert dialogs used sitewide via
+   swal() in app.js) ships in extracss.blade.php as plain vendor CSS with a
+   hardcoded white modal and near-black text, and nothing in either theme
+   sheet ever touched it - so "Are you sure?" and every other confirm popup
+   broke the dark theme, on every page. The confirm/danger buttons already
+   carry white text on a saturated fill, so they're left alone. */
+.swal-overlay {
+  background-color: rgba(2, 6, 15, .6) !important;
+}
+
+.swal-modal {
+  background-color: var(--sb-surface) !important;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, .35) !important;
+}
+
+.swal-title {
+  color: var(--sb-text) !important;
+}
+
+.swal-text {
+  color: var(--sb-muted) !important;
+}
+
+.swal-button--cancel {
+  background-color: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+}
+
+.swal-button--cancel[not\:disabled]:hover {
+  background-color: var(--sb-surface-hover) !important;
+}
+
 .box-header,
 .box-footer,
 .nav-tabs-custom > .nav-tabs,
@@ -618,6 +644,19 @@ body .theme-header-bg {
      the headings were unaffected because they are coloured separately just
      below. The token resolves per theme, so light mode is unchanged. */
   color: var(--sb-text) !important;
+}
+
+/* The header sits directly on the card it titles, so the faint white wash the
+   rule above gives the whole family read as a separate bar across the top of
+   every box. Only .box-header is reset - .box-footer, the modal chrome and the
+   tab strip still want that lift to separate them from their content. Listed
+   after the group rather than pulled out of it so the border and text colour
+   set there still apply; same specificity, later source order wins.
+
+   This sheet loads in both themes, so light mode is covered too - there the
+   wash was over white, and the card's own surface now shows through. */
+.box-header {
+  background: transparent !important;
 }
 
 /* Those subtitles are secondary text, so they take the muted tone rather
@@ -859,8 +898,14 @@ table.dataTable tfoot > tr > td {
   color: var(--sb-text) !important;
 }
 
+/* vendor.css sets .nav-tabs to 1px solid #ddd, then immediately weakens it to
+   #f4f4f4 for .nav-tabs-custom, which all but erases the rule under the tab
+   strip. --sb-border is nearly as faint (#e2e8f0 light), so the strip read as
+   floating with no baseline. --sb-border-strong is the token meant for lines
+   that have to be seen; width and style are restated so the vendor shorthand
+   cannot leave a 0-width edge behind. */
 .nav-tabs-custom > .nav-tabs {
-  border-bottom-color: var(--sb-border) !important;
+  border-bottom: 1px solid var(--sb-border-strong) !important;
 }
 
 .nav-tabs-custom > .nav-tabs > li > a {
@@ -1895,6 +1940,28 @@ body.lockscreen .pos-card-name {
   color: var(--sb-text) !important;
 }
 
+/* Subcategory pill strip (injected below a tapped category card). app.css
+   hardcodes it to a light indigo wash (#eef2ff) with white pills, since
+   that's the only rule that ever existed for it - so it rendered as a pale
+   card floating inside the otherwise dark drawer. */
+body.lockscreen .pos-subcat-strip {
+  background: var(--sb-surface-raised) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+body.lockscreen .pos-subcat-pill {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border-strong) !important;
+  color: var(--sb-accent) !important;
+}
+
+body.lockscreen .pos-subcat-pill:active,
+body.lockscreen .pos-subcat-pill.is-active {
+  background: #4f46e5 !important;
+  border-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
 body.lockscreen .product_box {
   background: #142237 !important;
   border-color: var(--sb-border) !important;
@@ -2681,7 +2748,7 @@ button.tw-bg-gradient-to-r.tw-from-indigo-500:focus {
    The underline is an inset box-shadow rather than a border so it does not
    shift the tab by a pixel when it becomes active. */
 .wc-tabs > .nav-tabs {
-  border-bottom: 1px solid var(--sb-border) !important;
+  border-bottom: 1px solid var(--sb-border-strong) !important;
 }
 
 .wc-tabs > .nav-tabs > li.active > a,
@@ -2975,4 +3042,92 @@ body.lockscreen .pos-form-actions button[disabled] {
 .tw-dw-btn.tw-dw-btn-success:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link):focus {
   background-image: linear-gradient(135deg, #065f46, #064e3b) !important;
   color: #ffffff !important;
+}
+
+/* Circular loader colours -------------------------------------------------
+   Structure lives in saverbro-layout.css. This sheet loads in both themes and
+   the tokens are redefined per theme, so one block covers dark and light:
+   the track picks up --sb-border-strong (#354966 dark / #cbd5e1 light) and the
+   arc --sb-accent (#38bdf8 / #0369a1), both of which already clear AA against
+   their own surface. */
+
+.sb-loader-track {
+  stroke: var(--sb-border-strong);
+}
+
+.sb-loader-arc {
+  stroke: var(--sb-accent);
+}
+
+.sb-loader-label {
+  color: var(--sb-muted);
+}
+
+/* The DataTables processing box is the loader's main home. The ring is the
+   whole indicator now - no label, no card - so this strips the box back to
+   nothing but a positioned, centred container for it. */
+.dataTables_wrapper .dataTables_processing .sb-loader {
+  justify-content: center;
+}
+
+.dataTables_wrapper .dataTables_processing {
+  /* Transparent: the ring is the whole indicator, floating over the table
+     rather than sitting on a panel. !important is needed on every line here,
+     for two different reasons:
+
+     - DataTables gives this element `class="dataTables_processing panel
+       panel-default"`, and the .panel/.panel-default rules - vendor's and this
+       sheet's own - set background, border and shadow, this sheet's with
+       !important.
+     - vendor.css targets it as `div.dataTables_wrapper div.dataTables_processing`,
+       which is (0,2,2) against this selector's (0,2,0), so its `padding: 1em 0`
+       wins on specificity. */
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  /* DataTables' `dom` string puts the processing div (r) before the table (t),
+     and the box ships with no stacking context of its own, so the rows painted
+     over it and the loader sat hidden behind data on every reload. Lifting it
+     here fixes that without touching layout. */
+  z-index: 20;
+}
+
+/* Dashboard tile backdrop -------------------------------------------------
+   home/index.blade.php lays a two-row grid behind the summary tiles: a
+   .theme-header-bg gradient on top and a tw-bg-gray-100 block underneath.
+   The tiles straddle the seam, so the strip behind them was split into two
+   tones - the gradient (#080e19 -> #0d1d31) above and a flat #111d2e below.
+
+   Flattening both to transparent lets the page's own background show through
+   as one colour, which is what saverbro-light.css:109 already does for light
+   mode - this brings dark into line rather than inventing a third treatment.
+
+   Scoped to the backdrop's own children: .theme-header-bg is also on the
+   command header and on the dashboard root, and both must keep their gradient.
+   `.tw-absolute.tw-inset-0.tw-grid` matches only this backdrop.
+
+   The #scrollable-container prefix is not decoration: the bottom half is held
+   by `#scrollable-container .tw-bg-gray-100 { ... !important }`, and an ID puts
+   that at (1,1,0). Without the id here this rule was (0,4,0) and lost. */
+#scrollable-container .saverbro-dashboard .tw-absolute.tw-inset-0.tw-grid > * {
+  background-image: none !important;
+  background-color: transparent !important;
+}
+
+/* The dashboard wrapper carries .theme-header-bg, whose gradient sat behind
+   both tile rows. Removing it lets the tiles sit on the page background, which
+   is what saverbro-light.css:106 already does for light mode - so this brings
+   dark into line rather than inventing a different treatment.
+
+   Only the wrapper itself is cleared. .theme-header-bg is also on the command
+   header card ("SAVERPOS Command Center"), which is a child of this element
+   and keeps its own gradient - that panel is still wanted.
+
+   The id is for specificity, not decoration: the gradient is declared as
+   `.theme-header-bg, body .theme-header-bg { ... !important }` near the top of
+   this sheet, so a class-only rule here would tie and lose on source order. */
+#scrollable-container .saverbro-dashboard {
+  background-image: none !important;
+  background-color: transparent !important;
 }

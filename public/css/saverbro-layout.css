@@ -6,6 +6,45 @@
    Colour work lives in saverbro-dark-pos.css, which is disabled in light mode.
    --------------------------------------------------------------------------- */
 
+/* Buttons ------------------------------------------------------------------- */
+
+/* Applied via columnDefs to the "Category Name" column on the expense
+   categories DataTable (app.js:~1498) - text-left plus explicit middle
+   vertical-align, since the column was previously text-center like its
+   siblings. */
+.sb-valign-middle {
+  vertical-align: middle !important;
+}
+
+/* Page-load indicator --------------------------------------------------- */
+
+/* Pace.js (bundled in vendor.js/vendor.css) injects its own .pace element
+   into <body> on every navigation and shows a spinner at the top of the
+   page until the load finishes. app.js:19 still calls Pace.restart() on
+   ajax completion, so the library itself is left running rather than
+   ripped out of the vendor bundle - that call is a harmless no-op against
+   a hidden element, and editing the minified vendor files directly would
+   be much riskier than hiding the one element it renders. */
+.pace {
+  display: none !important;
+}
+
+/* The "+ Add" / "Download Excel" pill buttons on every list page (Products,
+   Purchases, Contacts, ...) share one exact Tailwind utility combo -
+   tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-text-xs tw-px-3
+   tw-py-1 - copy-pasted into ~40 blade files rather than a shared component.
+   Matching that combo here bumps them all from one rule instead of editing
+   every file; selecting on the gradient + text-xs + px-3 + py-1 combination
+   keeps this from also catching the differently-sized auth/login buttons,
+   which use h-12/text-sm and don't carry tw-px-3 tw-py-1 tw-text-xs. */
+.tw-bg-gradient-to-r.tw-from-indigo-500.tw-to-blue-500.tw-text-xs.tw-px-3.tw-py-1 {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  font-size: 13px !important;
+}
+
 /* Branding ---------------------------------------------------------------- */
 
 /* The logo is a 512px asset; without an explicit size it renders at its
@@ -53,6 +92,21 @@
 .nav-tabs-custom > .nav-tabs > li > a > i {
   font-size: 14px !important;
   margin-right: 4px;
+}
+
+/* vendor.css sets margin-right:5px on each tab. That 5px is what makes the
+   active tab's coloured top border stop short of its neighbour, reading as a
+   gap on the right of one tab and the left of the next. The labels are already
+   separated by their own 14px side padding, so the tabs can sit flush and the
+   top border runs the full width of the tab it marks. */
+.nav-tabs-custom > .nav-tabs > li {
+  margin-right: 0 !important;
+  /* vendor.css also pulls each tab 2px down over the strip's bottom border.
+     The inactive tabs are transparent so the line shows through them, but the
+     active tab is painted the panel's colour and erased the line underneath
+     itself. Sitting the tabs on the border instead of over it keeps that
+     baseline unbroken across the whole strip. */
+  margin-bottom: 0 !important;
 }
 
 /* Buttons ----------------------------------------------------------------- */
@@ -449,6 +503,17 @@ div.dataTables_wrapper div.dataTables_length label {
   margin-left: auto;
 }
 
+/* Same failure mode as above, opposite direction: this select2 lives inside
+   a Bootstrap modal that's still display:none when select2() runs on page
+   load, so it can't measure the .col-md-3 it sits in and falls back to a
+   ~60px container. The dropdown panel inherits that, so "MasterCard"
+   truncated to "MasterC" with a horizontal scrollbar instead of wrapping or
+   widening. Forcing the container back to the column's actual 100% fixes
+   both the closed control and the panel it drives. */
+#card_type + .select2-container {
+  width: 100% !important;
+}
+
 /* Sidebar submenu links ------------------------------------------------------
    The child links (Users, Roles, Sales Commission Agents ...) carry tw-py-1
    and no horizontal padding at all, so the hover and active highlight stops
@@ -509,6 +574,23 @@ div.dataTables_wrapper div.dataTables_length label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* btn-block stretches #capture_walk_in to its full col-md-3, which reads as
+   an oversized pill next to the compact select and Dashboard button beside
+   it. Sizing it to its own content instead leaves it left-aligned in that
+   column at the width the other two controls already have. */
+#walk-in-pos-controls #capture_walk_in {
+  width: auto;
+  min-width: 0;
+}
+
+/* flex containers collapse a whitespace-only text node between inline
+   children to zero width, so the space in "<i></i> WALK-IN" was lost and
+   the icon ran straight into the label. gap puts it back without touching
+   the markup. */
+#walk-in-pos-controls #capture_walk_in {
+  gap: 6px;
 }
 
 /* POS footer actions ----------------------------------------------------
@@ -684,4 +766,183 @@ table.dataTable > tbody > tr > td {
 #profit_by_day_table > thead > tr > th:nth-child(1),
 #profit_by_day_table > tbody > tr > td:nth-child(1) {
   text-align: center !important;
+}
+
+/* Circular loader --------------------------------------------------------
+   One ring shared by the two loading indicators in the app: the DataTables
+   "Processing" box (common.js sets language.processing to this markup) and
+   the POS product-list loader, which used to be a Font Awesome fa-spinner.
+
+   Structure only - every colour comes from --sb-* tokens in the palette
+   sheets, so dark and light are handled by the tokens rather than by
+   duplicating this block.
+
+   GSAP animates the ring, but the CSS keyframes below run on their own so
+   the loader still spins if gsap.min.js fails to load. common.js adds
+   .sb-loader--js once GSAP has taken over, which switches the CSS animation
+   off so the two never fight over the same transform. */
+
+.sb-loader {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1;
+}
+
+.sb-loader-svg {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  display: block;
+  overflow: visible;
+  animation: sb-loader-spin 1.1s linear infinite;
+}
+
+/* GSAP owns the rotation once it is running. */
+.sb-loader--js .sb-loader-svg {
+  animation: none;
+}
+
+.sb-loader-track,
+.sb-loader-arc {
+  fill: none;
+  stroke-width: 4;
+}
+
+.sb-loader-arc {
+  stroke-linecap: round;
+  /* r=20 -> circumference 125.66. The dash pattern is set here so the arc is
+     already the right length on the first frame, before GSAP starts. */
+  stroke-dasharray: 125.66;
+  stroke-dashoffset: 94;
+  transform-origin: 50% 50%;
+}
+
+.sb-loader-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+
+@keyframes sb-loader-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* A spinner is decorative motion, so honour the OS setting: keep it moving
+   slowly enough to still read as "busy" without the fast rotation. common.js
+   checks the same query and stretches its GSAP timelines to match. */
+@media (prefers-reduced-motion: reduce) {
+  .sb-loader-svg { animation-duration: 3s; }
+}
+
+/* Blank the table while the loader spins ----------------------------------
+   common.js puts .sb-table-busy on the DataTables wrapper for as long as the
+   processing ring is animating. Without this the spinner sits on top of the
+   outgoing page - header row, horizontal scrollbar and totals row all still
+   visible behind it - which reads as a half-loaded table rather than a load.
+
+   visibility rather than display: the wrapper keeps its height, so the box
+   does not collapse and snap back as rows arrive, and the processing div -
+   which DataTables centres on the wrapper - stays put instead of jumping.
+   visibility is inherited, so one rule per layout covers head, body, footer
+   and the scrollbar beneath them.
+
+   Two selectors because DataTables builds a different tree per mode: tables
+   with scrollX get wrapper > .dataTables_scroll > (head|body|foot), plain
+   ones get wrapper > table.dataTable. The processing box is a sibling of
+   both, so it is never caught by either rule. */
+.dataTables_wrapper.sb-table-busy .dataTables_scroll,
+.dataTables_wrapper.sb-table-busy > table.dataTable {
+  visibility: hidden;
+}
+
+/* ...and everything around it -----------------------------------------------
+   The table alone was not enough: the page heading, the widget's "All
+   Purchases" header with its action button, and the toolbar row (length menu,
+   export buttons, search) all stayed on screen behind the ring.
+
+   Two hooks are needed because they live in different places. The heading and
+   the widget header sit outside the DataTables wrapper, so they hang off
+   body.sb-page-loading. The toolbar, info and pagination are inside it, so
+   they stay on the per-wrapper class - which matters when a page has one table
+   loading and another idle.
+
+   The toolbar row is selected by its column children rather than as a whole,
+   because DataTables puts the processing box inside that same row (the `r` in
+   the dom string sits next to `l`, `B` and `f`). Hiding the row would hide the
+   ring with it; [class*="col-"] catches the three Bootstrap columns and leaves
+   .dataTables_processing alone.
+
+   The Filters panel is in the list too. Its root only carried an ephemeral
+   pf_<uniqid> id and Tailwind utility classes, so components/filters.blade.php
+   now adds a .pf-card class to give it something stable to select on.
+   Pages differ in what provides the visible panel: most use the widget card,
+   but tabbed ones (Products, several reports) put the table straight into a
+   .nav-tabs-custom panel with no card at all, so both are listed here. */
+body.sb-page-loading .sb-widget-card,
+body.sb-page-loading .nav-tabs-custom,
+body.sb-page-loading .sb-app-footer,
+body.sb-page-loading .content-header h1,
+body.sb-page-loading .pf-card,
+body.sb-page-loading .box-header {
+  visibility: hidden;
+}
+
+.dataTables_wrapper.sb-table-busy > .row > [class*="col-"],
+.dataTables_wrapper.sb-table-busy .dataTables_info,
+.dataTables_wrapper.sb-table-busy .dataTables_paginate {
+  visibility: hidden;
+}
+
+/* The ring, centred on the page ------------------------------------------
+   The processing box lives inside .sb-widget-card, which is now hidden while
+   loading. visibility is inherited, but a descendant can opt back in, which is
+   why the box sets visibility: visible here rather than the card being left
+   partly visible for its sake.
+
+   Positioning moves from the table to the viewport: vendor.css centres the box
+   on its wrapper with position:absolute plus the width:200px/margin-left:-100px
+   trick, which put the ring wherever the table happened to be. Fixed
+   positioning with a translate centres it on the page instead, and width:auto
+   lets the box shrink to the ring now that there is no label beside it.
+
+   No !important needed - this selector is (0,4,1) against vendor's (0,1,0). */
+body.sb-page-loading .dataTables_wrapper.sb-table-busy .dataTables_processing {
+  visibility: visible;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: auto;
+  margin: 0;
+}
+
+/* Tailwind's tw-transition-all on the widget card animates every property,
+   visibility included. That made the blanking lag the ring by 200ms, and made
+   restoring it depend on a transition completing - which does not happen while
+   a tab is backgrounded, leaving the card stuck hidden. The card only ever
+   wants its shadow to animate on hover, so narrowing the property list fixes
+   both directions at the source. (.pf-card already uses tw-transition-shadow,
+   so it was never affected.) */
+.sb-widget-card {
+  transition-property: box-shadow;
+}
+
+/* Catch-all for pages with bespoke layouts --------------------------------
+   The named selectors above cover the standard list pages, but they assume a
+   page is built from a widget card, a tab panel or a .box-header. The
+   dashboard (/home) uses none of those - no .sb-widget-card, no
+   .nav-tabs-custom, not even a section.content - so almost nothing blanked
+   there while its five tables loaded.
+
+   #scrollable-container is the one container every page shares, so hiding its
+   children blanks whatever a page happens to be made of. The ring still shows
+   because it sets visibility: visible on itself, which a descendant is allowed
+   to do against an inherited hidden.
+
+   The named rules above are kept rather than replaced: they also cover the
+   footer, which sits outside this container. */
+body.sb-page-loading #scrollable-container > * {
+  visibility: hidden;
 }

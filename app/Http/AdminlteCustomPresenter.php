@@ -133,6 +133,28 @@ class AdminlteCustomPresenter extends Presenter
 
             foreach ($item->getChilds() as $child) {
 
+                // A child built with $sub->dropdown(...) instead of
+                // $sub->url(...) has its own childs and no real URL - render
+                // it as a nested toggle (same drop_down/chiled pattern as
+                // the top level) and recurse, rather than treating it as a
+                // dead link. getChildMenuItems() cascades the same
+                // padding-inline-start on its way back in, so the indent
+                // deepens on its own without a separate nested style.
+                if (count($child->getChilds()) > 0) {
+                    $isActive = $child->hasActiveOnChild() ? 'theme-sidebar-child-active' : '';
+
+                    $children .= '<div>' .
+                    '<a href="#" title="" class="drop_down tw-flex tw-items-center tw-gap-2 tw-text-sm tw-font-normal tw-text-gray-600 tw-transition-all tw-duration-200 tw-py-1 theme-sidebar-child-hover tw-whitespace-nowrap ' . $isActive . '" ' . $child->getAttributes() . '>' .
+                    '<span class="tw-truncate">' . $child->title . '</span>' .
+                    '<svg aria-hidden="true" class="svg tw-text-gray-500 tw-size-3.5 tw-shrink-0" style="margin-inline-start:auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">' . $this->getArray($child) .
+                    '</svg>' .
+                    '</a>' .
+                    $this->getChildMenuItems($child) .
+                    '</div>' . PHP_EOL;
+
+                    continue;
+                }
+
                 $isActive = $child->isActive() ? 'theme-sidebar-child-active' : '';
 
                 $children .= '<a href="' . $child->getUrl() . '" title="" class="tw-flex tw-text-sm tw-font-normal tw-text-gray-600 tw-truncate tw-transition-all tw-duration-200 tw-py-1 theme-sidebar-child-hover tw-whitespace-nowrap ' . $isActive . '" ' . $child->getAttributes() . '>' .

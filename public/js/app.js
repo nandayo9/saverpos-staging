@@ -1501,7 +1501,11 @@ $(document).ready(function () {
         ajax: '/expense-categories',
         columnDefs: [
             {
-                targets: [0, 1],
+                targets: 0,
+                className: 'text-left sb-valign-middle',
+            },
+            {
+                targets: 1,
                 className: 'text-center',
             },
             {

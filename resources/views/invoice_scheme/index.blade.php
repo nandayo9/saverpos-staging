@@ -20,7 +20,7 @@
         <div class="col-md-12">
             <!-- Custom Tabs -->
             @component('components.widget')
-            <div class="">
+            <div class="nav-tabs-custom">
                 <ul class="nav nav-tabs">
                     <li class="active"><a href="#tab_1" data-toggle="tab" aria-expanded="true">@lang('invoice.invoice_schemes')</a></li>
                     <li class=""><a href="#tab_2" data-toggle="tab" aria-expanded="false">@lang('invoice.invoice_layouts')</a></li>

@@ -90,7 +90,7 @@
                                         </div>
                                         <div class="col-sm-12">
                                             <br>
-                                            <div class="table-responsive">
+                                            <div class="sb-table-host">
                                                 <table class="table table-bordered table-striped" id="other_account_table">
                                                     <thead>
                                                         <tr>
@@ -332,8 +332,14 @@
             });
             // capital_account_table
             other_account_table = $('#other_account_table').DataTable({
-        scrollX: true,
-        scrollCollapse: true,
+                // Wrapper is .sb-table-host, not .table-responsive, so the
+                // horizontal scrolling happens inside DataTables' own scrollX
+                // panes. That keeps the search box, "Showing x to y" info and
+                // the pagination outside the scrolling area instead of sliding
+                // away with the columns. common.js realigns the panes on draw
+                // and on resize via columns.adjust().
+                scrollX: true,
+                scrollCollapse: true,
                 processing: true,
                 serverSide: true,
                 fixedHeader:false,
@@ -348,6 +354,9 @@
                     "targets": [6, 8],
                     "orderable": false,
                     "searchable": false
+                }, {
+                    "targets": [0, 1, 3, 5],
+                    "className": "text-center sb-valign-middle"
                 }],
                 columns: [{
                         data: 'name',

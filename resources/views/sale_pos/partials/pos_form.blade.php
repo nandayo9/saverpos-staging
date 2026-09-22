@@ -1,10 +1,10 @@
 @if(auth()->user()->can('walkin.create') || auth()->user()->can('walkin.assign'))
 <div class="row" id="walk-in-pos-controls">
     @can('walkin.create')
-    <div class="col-md-3"><button type="button" class="btn btn-success btn-block" id="capture_walk_in"><i class="fa fa-plus"></i> WALK-IN</button></div>
+    <div class="col-md-2"><button type="button" class="btn btn-success btn-block" id="capture_walk_in"><i class="fa fa-plus"></i> WALK-IN</button></div>
     @endcan
     @can('walkin.assign')
-    <div class="col-md-5"><label class="sr-only" for="walk_in_id">Walk-in to attribute to this checkout</label><select name="walk_in_id" id="walk_in_id" class="form-control"><option value="">Attribute this checkout to today's open walk-in (optional)</option>@foreach($open_walk_ins as $openWalkIn)<option value="{{ $openWalkIn->id }}">Walk-In #{{ $openWalkIn->id }} · {{ $openWalkIn->arrived_at->format('H:i') }}</option>@endforeach</select></div>
+    <div class="col-md-6"><label class="sr-only" for="walk_in_id">Walk-in to attribute to this checkout</label><select name="walk_in_id" id="walk_in_id" class="form-control"><option value="">Attribute this checkout to today's open walk-in (optional)</option>@foreach($open_walk_ins as $openWalkIn)<option value="{{ $openWalkIn->id }}">Walk-In #{{ $openWalkIn->id }} · {{ $openWalkIn->arrived_at->format('H:i') }}</option>@endforeach</select></div>
     @endcan
     <div class="col-md-4"><a class="btn btn-default btn-block" href="{{ route('walk-ins.index') }}">Walk-In Dashboard</a></div>
 </div>

@@ -325,6 +325,17 @@ html[data-theme='light'] .input-group-addon {
   border-color: var(--sb-border-strong) !important;
 }
 
+/* saverbro-dark-pos.css:678 paints .input-group-btn .btn (the POS qty
+   stepper's -/+ buttons) with a hardcoded dark fill, and this file never
+   took it back - so in light mode the buttons rendered as solid dark
+   squares with dark-on-dark icons. Same treatment as .input-group-addon
+   above, since both sit in the same input-group. */
+html[data-theme='light'] .input-group-btn .btn {
+  background-color: var(--sb-surface-raised) !important;
+  color: var(--sb-muted) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
 /* Modals ------------------------------------------------------------------ */
 
 html[data-theme='light'] .modal-content,
@@ -932,7 +943,47 @@ html[data-theme="light"] .nav-tabs-custom > .nav-tabs > li > a {
 html[data-theme="light"] .nav-tabs-custom > .nav-tabs > li.active:not(.wc-tab-brand) > a,
 html[data-theme="light"] .nav-tabs-custom > .nav-tabs > li:not(.wc-tab-brand) > a:hover {
   color: var(--sb-text) !important;
+}
+
+/* The active tab used to take --sb-surface-hover too, inherited from being
+   grouped with the hover selector above. That painted a grey block against the
+   white panel below it, and the edge of that block - with the 5px gap the
+   theme puts between tabs - read as a vertical separator between the two tab
+   labels. The active tab is already marked by its blue top border, so matching
+   the panel's own surface is enough. Hover keeps the tint, since there it is a
+   genuine hover affordance, and it still wins on an active tab by source order. */
+html[data-theme="light"] .nav-tabs-custom > .nav-tabs > li.active:not(.wc-tab-brand) > a {
+  background: var(--sb-surface) !important;
+}
+
+html[data-theme="light"] .nav-tabs-custom > .nav-tabs > li:not(.wc-tab-brand) > a:hover {
   background: var(--sb-surface-hover) !important;
+}
+
+/* SweetAlert ---------------------------------------------------------------
+   Re-points the dark defaults saverbro-dark-pos.css adds for .swal-* back to
+   this theme's own light surface, the same way every other vendor widget in
+   this file does. */
+
+html[data-theme="light"] .swal-overlay {
+  background-color: rgba(15, 23, 42, .4) !important;
+}
+
+html[data-theme="light"] .swal-modal {
+  background-color: var(--sb-surface) !important;
+}
+
+html[data-theme="light"] .swal-title {
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .swal-text {
+  color: var(--sb-muted) !important;
+}
+
+html[data-theme="light"] .swal-button--cancel {
+  background-color: var(--sb-surface-raised) !important;
+  color: var(--sb-muted) !important;
 }
 
 /* Datepicker -------------------------------------------------------------- */
@@ -1758,4 +1809,18 @@ html[data-theme="light"] .wizard .steps li.current > a:hover,
 html[data-theme="light"] .wizard .steps li.current > a:focus {
   background: #064a6e !important;
   color: #ffffff !important;
+}
+
+/* Loader box ---------------------------------------------------------------
+   DataTables gives the processing box `class="dataTables_processing panel
+   panel-default"`, so this sheet's own `html[data-theme="light"] .panel-default`
+   rule paints it --sb-surface-raised with !important. That selector is (0,2,1)
+   and beats the (0,2,0) transparent rule in saverbro-dark-pos.css even with
+   !important on both, which left a white card behind the ring in light mode
+   only. Matching the theme prefix here takes this to (0,3,1) so the ring floats
+   over the table in both themes. */
+html[data-theme="light"] .dataTables_wrapper .dataTables_processing {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
