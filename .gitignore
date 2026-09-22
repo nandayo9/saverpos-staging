@@ -47,3 +47,5 @@ npm-debug.log
 !/public/modules/**
 !/public/mix-manifest.json
 /public/js/icons/
+.claude-flow/neural/stats.json
+.claude-flow/policy/state.json
