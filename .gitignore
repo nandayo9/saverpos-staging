@@ -49,3 +49,8 @@ npm-debug.log
 /public/js/icons/
 .claude-flow/neural/stats.json
 .claude-flow/policy/state.json
+*.sql
+.swarm/agentdb-memory.db
+.swarm/agentdb-memory.db
+.swarm/agentdb-memory.db
+/.swarm
