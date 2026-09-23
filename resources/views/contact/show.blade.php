@@ -343,6 +343,8 @@ $(document).ready( function(){
     });
 
     supplier_stock_report_table = $('#supplier_stock_report_table').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
         processing: true,
         serverSide: true,
         fixedHeader:false,

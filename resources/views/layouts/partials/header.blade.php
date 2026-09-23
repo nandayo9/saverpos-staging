@@ -189,6 +189,20 @@
                     </button>
                 @endcan
 
+                <button type="button" id="sb-theme-toggle" title="Theme" aria-label="Theme"
+                    class="tw-inline-flex tw-transition-all tw-ring-1 tw-ring-white/10 tw-duration-200 theme-btn-bg tw-p-2 tw-rounded-lg tw-items-center tw-justify-center tw-text-white hover:tw-text-white">
+                    {{-- Sun shows in dark mode (click for light); moon in light mode. --}}
+                    <svg class="sb-theme-icon-sun tw-w-5 tw-h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4" />
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                    </svg>
+                    <svg class="sb-theme-icon-moon tw-w-5 tw-h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                </button>
+
                 <button type="button"
                     class="sb-command-header__date tw-hidden lg:tw-inline-flex tw-transition-all tw-ring-1 tw-ring-white/10 tw-duration-200 theme-btn-bg tw-py-1.5 tw-px-3 tw-rounded-lg tw-items-center tw-justify-center tw-text-sm tw-font-medium tw-text-white hover:tw-text-white tw-font-mono">
                     {{ @format_date('now') }}

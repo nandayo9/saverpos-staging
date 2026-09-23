@@ -160,12 +160,12 @@
                             <div class="tab-pane active " id="product_list_tab">
                                 @if ($is_admin)
 
-                                    <a class="tw-dw-btn tw-bg-gradient-to-r tw-from-indigo-600 tw-to-blue-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full pull-right tw-m-2"
+                                    <a class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700 pull-right tw-m-2"
                                         href="{{ action([\App\Http\Controllers\ProductController::class, 'downloadExcel']) }}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
-                                            class="icon icon-tabler icons-tabler-outline icon-tabler-download">
+                                            class="icon icon-tabler icons-tabler-outline icon-tabler-download tw-mr-1">
                                             <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                             <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" />
                                             <path d="M7 11l5 5l5 -5" />
@@ -175,11 +175,11 @@
                                 @endif
                                 @can('product.create')
 
-                                    <a class="tw-dw-btn tw-bg-gradient-to-r tw-from-indigo-600 tw-to-blue-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full pull-right tw-m-2"
+                                    <a class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700 pull-right tw-m-2"
                                         href="{{ action([\App\Http\Controllers\ProductController::class, 'create']) }}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                            stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus">
+                                            stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus tw-mr-1">
                                             <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                             <path d="M12 5l0 14" />
                                             <path d="M5 12l14 0" />
@@ -270,7 +270,8 @@
                     },
                     {
                         data: 'image',
-                        name: 'products.image'
+                        name: 'products.image',
+                        className: 'text-center'
                     },
                     {
                         data: 'action',
@@ -288,22 +289,26 @@
                         {
                             data: 'purchase_price',
                             name: 'max_purchase_price',
-                            searchable: false
+                            searchable: false,
+                            className: 'text-center'
                         },
                     @endcan
                     @can('access_default_selling_price')
                         {
                             data: 'selling_price',
                             name: 'max_price',
-                            searchable: false
+                            searchable: false,
+                            className: 'text-center'
                         },
                     @endcan {
                         data: 'current_stock',
-                        searchable: false
+                        searchable: false,
+                        className: 'text-center'
                     },
                     {
                         data: 'type',
-                        name: 'products.type'
+                        name: 'products.type',
+                        className: 'text-center'
                     },
                     {
                         data: 'category',
@@ -311,16 +316,19 @@
                     },
                     {
                         data: 'brand',
-                        name: 'brands.name'
+                        name: 'brands.name',
+                        className: 'text-center'
                     },
                     {
                         data: 'tax',
                         name: 'tax_rates.name',
-                        searchable: false
+                        searchable: false,
+                        className: 'text-center'
                     },
                     {
                         data: 'sku',
-                        name: 'products.sku'
+                        name: 'products.sku',
+                        className: 'text-center'
                     },
                     {
                         data: 'product_custom_field1',
@@ -368,7 +376,7 @@
                             '<i style="margin:auto;" class="fa fa-plus-circle text-success cursor-pointer no-print rack-details" title="' +
                             LANG.details + '"></i>&nbsp;&nbsp;');
                     }
-                    $(row).find('td:eq(0)').attr('class', 'selectable_td');
+                    $(row).find('td:eq(0)').attr('class', 'selectable_td text-center');
                 },
                 fnDrawCallback: function(oSettings) {
                     __currency_convert_recursively($('#product_table'));
@@ -641,7 +649,8 @@
                         },
                         {
                             data: 'sku',
-                            name: 'variations.sub_sku'
+                            name: 'variations.sub_sku',
+                            className: 'text-center'
                         },
                         {
                             data: 'product',
@@ -649,11 +658,13 @@
                         },
                         {
                             data: 'variation',
-                            name: 'variation'
+                            name: 'variation',
+                            className: 'text-center'
                         },
                         {
                             data: 'category_name',
-                            name: 'c.name'
+                            name: 'c.name',
+                            className: 'text-center'
                         },
                         {
                             data: 'location_name',
@@ -661,48 +672,56 @@
                         },
                         {
                             data: 'unit_price',
-                            name: 'variations.sell_price_inc_tax'
+                            name: 'variations.sell_price_inc_tax',
+                            className: 'text-center'
                         },
                         {
                             data: 'stock',
                             name: 'stock',
-                            searchable: false
+                            searchable: false,
+                            className: 'text-center'
                         },
                     ];
                     if ($('th.stock_price').length) {
                         stock_report_cols.push({
                             data: 'stock_price',
                             name: 'stock_price',
-                            searchable: false
+                            searchable: false,
+                            className: 'text-center'
                         });
                         stock_report_cols.push({
                             data: 'stock_value_by_sale_price',
                             name: 'stock_value_by_sale_price',
                             searchable: false,
-                            orderable: false
+                            orderable: false,
+                            className: 'text-center'
                         });
                         stock_report_cols.push({
                             data: 'potential_profit',
                             name: 'potential_profit',
                             searchable: false,
-                            orderable: false
+                            orderable: false,
+                            className: 'text-center'
                         });
                     }
 
                     stock_report_cols.push({
                         data: 'total_sold',
                         name: 'total_sold',
-                        searchable: false
+                        searchable: false,
+                        className: 'text-center'
                     });
                     stock_report_cols.push({
                         data: 'total_transfered',
                         name: 'total_transfered',
-                        searchable: false
+                        searchable: false,
+                        className: 'text-center'
                     });
                     stock_report_cols.push({
                         data: 'total_adjusted',
                         name: 'total_adjusted',
-                        searchable: false
+                        searchable: false,
+                        className: 'text-center'
                     });
                     stock_report_cols.push({
                         data: 'product_custom_field1',
@@ -818,7 +837,21 @@
                         },
                     });
                     data_table_initailized = true;
+
+                    // scrollX splits this table into three - a header clone, the
+                    // body, and a footer clone - and DataTables sizes them from
+                    // the body's content. When a draw returns no rows there is
+                    // nothing to measure, so the footer clone falls back to even
+                    // column widths and stops lining up with the header, which is
+                    // what an empty Stock Report looks like. Re-syncing after every
+                    // draw keeps the three in step whatever the result set.
+                    stock_report_table.on('draw.dt', function() {
+                        stock_report_table.columns.adjust();
+                    });
                 } else {
+                    // The pane was display:none until this moment, so widths
+                    // measured while hidden need recomputing before the reload.
+                    stock_report_table.columns.adjust();
                     stock_report_table.ajax.reload();
                 }
             } else {

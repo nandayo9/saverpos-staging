@@ -20,17 +20,18 @@
             if ($('#category_table').length) {
                 var category_type = $('#category_type').val();
                 category_table = $('#category_table').DataTable({
+        scrollX: true,
                     processing: true,
                     serverSide: true,
                     fixedHeader:false,
                     ajax: '/taxonomies?type=' + category_type,
                     columns: [
-                        { data: 'name', name: 'name', orderable: false, searchable: true },
+                        { data: 'name', name: 'name', orderable: false, searchable: true, className: 'text-left' },
                         @if($cat_code_enabled)
-                            { data: 'short_code', name: 'short_code', orderable: false, searchable: true },
+                            { data: 'short_code', name: 'short_code', orderable: false, searchable: true, className: 'text-center' },
                         @endif
-                        { data: 'description', name: 'description', orderable: false, searchable: true },
-                        { data: 'action', name: 'action', orderable: false, searchable: false},
+                        { data: 'description', name: 'description', orderable: false, searchable: true, className: 'text-left' },
+                        { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center sb-col-fit'},
                     ],
                 });
             }

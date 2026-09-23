@@ -23,12 +23,12 @@
         <h3 class="box-title">@lang( 'restaurant.all_your_modifiers' )</h3>
         @can('restaurant.create')
             <div class="box-tools">
-                    <button class="tw-dw-btn tw-bg-gradient-to-r tw-from-indigo-600 tw-to-blue-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full btn-modal"
+                    <button class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700 btn-modal"
                     data-href="{{action([\App\Http\Controllers\Restaurant\ModifierSetsController::class, 'create'])}}" 
                     data-container=".modifier_modal">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        class="icon icon-tabler icons-tabler-outline icon-tabler-plus">
+                        class="icon icon-tabler icons-tabler-outline icon-tabler-plus tw-mr-1">
                         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                         <path d="M12 5l0 14" />
                         <path d="M5 12l14 0" />
@@ -103,10 +103,10 @@
                         "searchable": false
                     } ],
                     columns: [
-                        { data: 'name', name: 'name'  },
-                        { data: 'variations', name: 'variations'},
-                        { data: 'modifier_products', name: 'modifier_products'},
-                        { data: 'action', name: 'action'}
+                        { data: 'name', name: 'name', className: 'text-center'  },
+                        { data: 'variations', name: 'variations', className: 'text-center'},
+                        { data: 'modifier_products', name: 'modifier_products', className: 'text-center'},
+                        { data: 'action', name: 'action', className: 'text-center sb-col-fit'}
                     ],
                 });
 

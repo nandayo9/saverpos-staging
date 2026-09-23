@@ -1,0 +1,1826 @@
+/* ---------------------------------------------------------------------------
+   SaverPOS light theme.
+
+   saverbro-dark-pos.css carries both the dark palette and the structure for
+   every custom sb-* component, so it always loads. This file re-points the
+   design tokens it is built on, plus the places where that file hardcoded a
+   dark colour instead of using a token.
+
+   Everything is scoped to html[data-theme="light"], so switching themes is an
+   attribute flip with no stylesheet download.
+   --------------------------------------------------------------------------- */
+
+html[data-theme='light'] {
+  color-scheme: light;
+
+  --sb-bg: #eef2f6;
+  --sb-surface: #ffffff;
+  --sb-surface-raised: #f5f8fc;
+  --sb-surface-hover: #e9eef5;
+  --sb-border: #e2e8f0;
+  --sb-border-strong: #cbd5e1;
+  --sb-text: #0f172a;
+  --sb-muted: #475569;
+  --sb-faint: #64748b;
+  --sb-accent: #0369a1;
+  --sb-accent-strong: #075985;
+  --sb-success: #047857;
+  --sb-warning: #b45309;
+  --sb-danger: #be123c;
+  --theme-700: #0284c7;
+  --theme-800: #e0f2fe;
+  --theme-900: #f0f9ff;
+}
+
+/* Page and shell ---------------------------------------------------------- */
+
+html[data-theme='light'] body {
+  background: var(--sb-bg) !important;
+  color: var(--sb-text);
+}
+
+/* The dark file paints the app frame with a gradient built from near-black
+   stops; flatten it to the light page colour. */
+html[data-theme='light'] .thetop,
+html[data-theme='light'] main,
+html[data-theme='light'] #scrollable-container {
+  background: var(--sb-bg) !important;
+}
+
+/* Sidebar ----------------------------------------------------------------- */
+
+html[data-theme='light'] .side-bar,
+html[data-theme='light'] #side-bar,
+html[data-theme='light'] .sb-sidebar-status {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme='light'] #side-bar a,
+html[data-theme='light'] .side-bar a {
+  color: var(--sb-muted) !important;
+}
+
+html[data-theme='light'] #side-bar a:hover,
+html[data-theme='light'] .side-bar a:hover {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+}
+
+/* The status card at the foot of the sidebar uses near-white text, which
+   disappears once the sidebar itself is white. */
+html[data-theme='light'] .sb-sidebar-status,
+html[data-theme='light'] .sb-sidebar-status *,
+html[data-theme='light'] .sb-sidebar-status__brand,
+html[data-theme='light'] .sb-sidebar-status__brand * {
+  color: var(--sb-text) !important;
+}
+
+html[data-theme='light'] .sb-sidebar-status__meta,
+html[data-theme='light'] .sb-sidebar-status small {
+  color: var(--sb-muted) !important;
+}
+
+html[data-theme='light'] #side-bar a.theme-sidebar-child-active {
+  color: var(--sb-accent-strong) !important;
+  background: rgba(2, 132, 199, 0.1) !important;
+}
+
+/* Dashboard --------------------------------------------------------------- */
+
+/* The dashboard defines its own token set on .saverbro-dashboard, so the
+   global --sb-* overrides above do not reach it. */
+html[data-theme='light'] .saverbro-dashboard {
+  --sb-dashboard-card: #ffffff;
+  --sb-dashboard-card-border: rgba(15, 23, 42, 0.1);
+  --sb-dashboard-blue: #0284c7;
+  --sb-dashboard-blue-deep: #0369a1;
+  --sb-dashboard-copy: #0f172a;
+  --sb-dashboard-muted: #475569;
+}
+
+/* The dashboard shell paints a near-black gradient, and the chart frames a
+   flat dark fill; both are hardcoded rather than tokenised. */
+html[data-theme='light'] .saverbro-dashboard,
+html[data-theme='light'] .saverbro-dashboard.theme-header-bg,
+html[data-theme='light'] .sb-dashboard-header-row,
+html[data-theme='light'] .sb-dashboard-intro,
+html[data-theme='light'] .saverbro-dashboard > .tw-relative > .tw-absolute {
+  background-image: none !important;
+  background-color: transparent !important;
+}
+
+/* theme-header-bg is reused as a decorative strip inside the page body, not
+   just on the top bar. Scoped to the scroll container so the branded header
+   above it keeps its own treatment. */
+html[data-theme='light'] #scrollable-container .theme-header-bg {
+  background-image: none !important;
+  background-color: transparent !important;
+}
+
+/* The date filter control is a translucent dark pill; on a light page its own
+   dark label becomes unreadable against it.
+
+   Only the button itself. .sb-dashboard-filter-control is the wrapper holding
+   the "LOCATION" caption as well as the field, so filling it painted a white
+   slab behind the caption too. The select inside is already white on its own,
+   so the wrapper stays transparent and only the field reads as a panel. */
+html[data-theme='light'] .sb-dashboard-filter-button,
+html[data-theme='light'] #scrollable-container .sb-dashboard-filter-button {
+  background: var(--sb-surface) !important;
+  background-color: var(--sb-surface) !important;
+  background-image: none !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+html[data-theme='light'] .sb-dashboard-filter-control,
+html[data-theme='light'] .sb-dashboard-filter-control--date {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+html[data-theme='light'] .sb-dashboard-filter-button *,
+html[data-theme='light'] .sb-dashboard-filter-control * {
+  color: var(--sb-text) !important;
+}
+
+html[data-theme='light'] .sb-dashboard-chart-card,
+html[data-theme='light'] .sb-dashboard-chart-frame,
+html[data-theme='light'] .sb-dashboard-chart-frame > div {
+  background-color: var(--sb-surface) !important;
+  border-color: var(--sb-border) !important;
+}
+
+/* The dark file repaints the light Tailwind surface utilities through an
+   #scrollable-container selector, so those rules carry ID specificity (1,1,0)
+   and win over a plain class override no matter the !important. Match that
+   specificity to hand the utilities back their light values. */
+html[data-theme='light'] #scrollable-container .tw-bg-white,
+html[data-theme='light'] .content .tw-bg-white,
+html[data-theme='light'] .modal .tw-bg-white,
+html[data-theme='light'] .saverbro-dashboard ~ * .tw-bg-white {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme='light'] #scrollable-container .tw-bg-gray-50,
+html[data-theme='light'] #scrollable-container .tw-bg-gray-100,
+html[data-theme='light'] #scrollable-container .tw-bg-gray-200,
+html[data-theme='light'] #scrollable-container .tw-bg-slate-50,
+html[data-theme='light'] #scrollable-container .tw-bg-slate-100,
+html[data-theme='light'] .content .tw-bg-gray-50,
+html[data-theme='light'] .content .tw-bg-gray-100,
+html[data-theme='light'] .content .tw-bg-gray-200,
+html[data-theme='light'] .content .tw-bg-slate-50,
+html[data-theme='light'] .content .tw-bg-slate-100,
+html[data-theme='light'] .saverbro-dashboard ~ * .tw-bg-gray-50,
+html[data-theme='light'] .saverbro-dashboard ~ * .tw-bg-gray-100,
+html[data-theme='light'] .saverbro-dashboard ~ * .tw-bg-slate-50,
+html[data-theme='light'] .saverbro-dashboard ~ * .tw-bg-slate-100,
+html[data-theme='light'] .bg-gray-light,
+html[data-theme='light'] .well,
+html[data-theme='light'] .panel-default,
+html[data-theme='light'] .panel-default > .panel-heading,
+html[data-theme='light'] .list-group-item {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+html[data-theme='light'] .sb-dashboard-eyebrow {
+  color: var(--sb-accent-strong) !important;
+}
+
+html[data-theme='light'] .sb-dashboard-intro h1,
+html[data-theme='light'] .sb-dashboard-kpi__value {
+  color: #0f172a !important;
+}
+
+html[data-theme='light'] .sb-dashboard-kpi__label,
+html[data-theme='light'] .sb-dashboard-filter-label {
+  color: #475569 !important;
+}
+
+html[data-theme='light'] .sb-dashboard-kpi {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+/* Text the dark file tuned for a dark card but which now sits on white. */
+html[data-theme='light'] .sb-dashboard-kpi__hint,
+html[data-theme='light'] .sb-dashboard-kpi__meta {
+  color: var(--sb-muted) !important;
+}
+
+/* Sky-blue link/accent text (#7dd3fc) is 1.67:1 on white.
+   Filled gradient buttons are excluded: some of them also carry .btn-modal,
+   and the id in this selector would otherwise outrank the white-on-gradient
+   rule further down. :not() adds no weight of its own here, so plain
+   .btn-modal links keep exactly the colour they had. */
+html[data-theme='light'] .content a.btn-modal:not(.tw-bg-gradient-to-r),
+html[data-theme='light'] #scrollable-container a.btn-modal:not(.tw-bg-gradient-to-r),
+html[data-theme='light'] #scrollable-container a[class*='tw-text-sky'],
+html[data-theme='light'] #scrollable-container .tw-text-sky-300 {
+  color: var(--sb-accent-strong) !important;
+}
+
+/* Figures inside the coloured KPI tiles are near-white; those tiles lose their
+   fill in light mode, so the numbers need a dark ink. */
+html[data-theme='light'] #scrollable-container strong {
+  color: var(--sb-text) !important;
+}
+
+/* Select2 renders its own control; the dark file paints it dark. */
+html[data-theme='light'] .select2-container--default .select2-selection,
+html[data-theme='light'] .select2-container--default .select2-selection--single,
+html[data-theme='light'] .select2-container--default .select2-selection--multiple,
+html[data-theme='light'] .select2-dropdown,
+html[data-theme='light'] .select2-search__field,
+html[data-theme='light'] .select2-results__option {
+  background-color: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+html[data-theme='light'] .select2-container--default .select2-selection__rendered {
+  color: var(--sb-text) !important;
+}
+
+/* The 1px rule running down each open submenu is marked tw-bg-gray-100, but
+   saverbro-dark-pos.css:116 repoints every .tw-bg-gray-100 in the sidebar to
+   #121e2e and light mode never took it back - so a near-black hairline was
+   drawn beside the child links. Scoped to the guide rules themselves; the
+   search field shares that class and is left alone. */
+html[data-theme='light'] #side-bar .chiled > .tw-bg-gray-100 {
+  background: var(--sb-border) !important;
+}
+
+/* Sidebar active item: slate text on a pale blue wash is only 3.54:1. */
+html[data-theme='light'] #side-bar a.theme-sidebar-child-active,
+html[data-theme='light'] #side-bar .theme-sidebar-active,
+html[data-theme='light'] #side-bar .theme-sidebar-active * {
+  color: #0c4a6e !important;
+}
+
+/* Cards, tables and legacy surfaces --------------------------------------- */
+
+html[data-theme='light'] .content .bg-gray,
+html[data-theme='light'] .content .footer-total,
+html[data-theme='light'] .content .footer-total > td,
+html[data-theme='light'] .content table > tfoot > tr,
+html[data-theme='light'] .content table > tfoot > tr > td,
+html[data-theme='light'] table.dataTable tfoot > tr,
+html[data-theme='light'] table.dataTable tfoot > tr > td {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+html[data-theme='light'] table.bg-gray > thead > tr.bg-green,
+html[data-theme='light'] table.bg-gray > thead > tr.bg-green > th,
+html[data-theme='light'] table.bg-gray > tbody > tr.bg-green,
+html[data-theme='light'] table.bg-gray > tbody > tr.bg-green > th,
+html[data-theme='light'] .add-product-price-table > thead > tr > th,
+html[data-theme='light'] .add-product-price-table > tbody > tr > th,
+html[data-theme='light'] .add-product-price-table th {
+  background-color: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+/* Zebra striping and row hover are white-on-white tints in the dark file. */
+html[data-theme='light'] .table-striped > tbody > tr:nth-of-type(2n + 1),
+html[data-theme='light'] table.dataTable.stripe tbody tr.odd,
+html[data-theme='light'] table.dataTable.display tbody tr.odd {
+  background: rgba(15, 23, 42, 0.025) !important;
+}
+
+html[data-theme='light'] .table-hover > tbody > tr:hover,
+html[data-theme='light'] table.dataTable.hover tbody tr:hover,
+html[data-theme='light'] table.dataTable.display tbody tr:hover {
+  background: rgba(2, 132, 199, 0.07) !important;
+}
+
+/* Form controls ----------------------------------------------------------- */
+
+html[data-theme='light'] .form-control,
+html[data-theme='light'] .content select:not(.form-control):not(.select2-hidden-accessible),
+html[data-theme='light'] .content textarea:not(.form-control) {
+  background-color: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+html[data-theme='light'] .content select option,
+html[data-theme='light'] .content select optgroup {
+  background-color: var(--sb-surface);
+  color: var(--sb-text);
+}
+
+html[data-theme='light'] .input-group-addon {
+  background-color: var(--sb-surface-raised) !important;
+  color: var(--sb-muted) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+/* saverbro-dark-pos.css:678 paints .input-group-btn .btn (the POS qty
+   stepper's -/+ buttons) with a hardcoded dark fill, and this file never
+   took it back - so in light mode the buttons rendered as solid dark
+   squares with dark-on-dark icons. Same treatment as .input-group-addon
+   above, since both sit in the same input-group. */
+html[data-theme='light'] .input-group-btn .btn {
+  background-color: var(--sb-surface-raised) !important;
+  color: var(--sb-muted) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+/* Modals ------------------------------------------------------------------ */
+
+html[data-theme='light'] .modal-content,
+html[data-theme='light'] .modal-header,
+html[data-theme='light'] .modal-body,
+html[data-theme='light'] .modal-footer,
+html[data-theme='light'] .content .tw-bg-white,
+html[data-theme='light'] .modal .tw-bg-white {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+/* Nested tables: Bootstrap paints these white already, which is correct here,
+   but the dark file forces a dark fill. */
+html[data-theme='light'] .content .table .table,
+html[data-theme='light'] .content .table .table > thead > tr > th,
+html[data-theme='light'] .content .table .table > tbody > tr > td,
+html[data-theme='light'] .content .table .table > tbody > tr > th {
+  background-color: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme='light'] .content .table .table > thead > tr > th {
+  background-color: var(--sb-surface-raised) !important;
+}
+
+/* Scrollbars -------------------------------------------------------------- */
+
+/* The POS product grid and drawer force a dark thumb with !important and set
+   no scrollbar-color, so the webkit rule is what shows and it needs matching
+   light values. */
+html[data-theme="light"] body.lockscreen #product_list_body,
+html[data-theme="light"] body.lockscreen .pos-drawer-body {
+  scrollbar-color: #c3cdd9 #eef2f6;
+  scrollbar-width: thin;
+}
+
+html[data-theme="light"] body.lockscreen #product_list_body::-webkit-scrollbar-thumb,
+html[data-theme="light"] body.lockscreen .pos-drawer-body::-webkit-scrollbar-thumb {
+  background: #c3cdd9 !important;
+}
+
+html[data-theme="light"] body.lockscreen #product_list_body::-webkit-scrollbar-track,
+html[data-theme="light"] body.lockscreen .pos-drawer-body::-webkit-scrollbar-track {
+  background: #eef2f6 !important;
+}
+
+html[data-theme='light'] .dataTables_wrapper .dataTables_scrollBody {
+  scrollbar-color: #c3cdd9 #eef2f6;
+}
+
+html[data-theme='light'] .dataTables_wrapper .dataTables_scrollBody::-webkit-scrollbar-thumb {
+  background: #c3cdd9;
+  /* the dark sheet rings the thumb with 2px of #0b1422 */
+  border-color: #eef2f6;
+}
+
+html[data-theme='light'] .dataTables_wrapper .dataTables_scrollBody::-webkit-scrollbar-track {
+  background: #eef2f6;
+}
+
+/* ===========================================================================
+   Hardcoded dark values from saverbro-dark-pos.css.
+
+   The token overrides above only reach rules written as var(--sb-*). A scan of
+   that file found 106 declarations with a literal dark fill or light ink; the
+   rules below cover the ones the tokens cannot.
+   =========================================================================== */
+
+/* Sidebar brand + header controls ---------------------------------------- */
+
+html[data-theme="light"] .side-bar > a:first-child {
+  background: var(--sb-surface) !important;
+  border-bottom: 1px solid var(--sb-border);
+}
+
+html[data-theme="light"] .sb-sidebar-status__name {
+  color: var(--sb-text) !important;
+}
+
+/* The POS control is not a filled button in either theme: in dark it is the
+   same faint tint as its neighbours with sky-300 ink. Its background is left
+   to the .theme-btn-bg rule below, which already gives it the surface the
+   other header controls use; only the ink is set here. */
+/* Account dropdown -------------------------------------------------------- */
+
+html[data-theme="light"] .sb-account-menu__panel {
+  background: var(--sb-surface) !important;
+  border: 1px solid var(--sb-border) !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12) !important;
+}
+
+html[data-theme="light"] .sb-account-menu .sb-account-menu__item,
+html[data-theme="light"] .sb-account-menu__meta > svg,
+html[data-theme="light"] .sb-account-menu__profile-icon,
+html[data-theme="light"] .sb-account-menu__icon {
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .sb-account-menu .sb-account-menu__item:hover,
+html[data-theme="light"] .sb-account-menu .sb-account-menu__item:focus {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .breadcrumb {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-muted) !important;
+}
+
+/* Links ------------------------------------------------------------------- */
+
+/* An anchor that is really a button keeps its own foreground; this rule is
+   !important, so without the exclusions it repaints their labels forcefully.
+   Three kinds have to be skipped:
+     .btn                  Bootstrap buttons marked up as anchors
+     .tw-dw-btn            daisyUI buttons marked up as anchors
+     .tw-bg-gradient-to-r  the gradient "Add" buttons
+   The gradient one matters for a subtle reason: the rule that whitens those
+   labels is (0,2,2), and this rule used to be (0,2,2) as well, so the two
+   tied and source order handed the win to the whitening rule. Adding the
+   tw-dw-btn exclusion took this rule to (0,3,2), broke the tie, and turned
+   every Add button's label to link blue on an indigo fill - 2.78:1. Skipping
+   them outright is what the rule meant all along. */
+html[data-theme="light"] a:not(.btn):not(.tw-dw-btn):not(.tw-bg-gradient-to-r) {
+  color: var(--sb-accent-strong) !important;
+}
+
+html[data-theme="light"] a:not(.btn):not(.tw-dw-btn):not(.tw-bg-gradient-to-r):hover,
+html[data-theme="light"] a:not(.btn):not(.tw-dw-btn):not(.tw-bg-gradient-to-r):focus {
+  color: #075985 !important;
+}
+
+/* Alerts and callouts ----------------------------------------------------- */
+
+html[data-theme="light"] .alert-info,
+html[data-theme="light"] .callout.callout-info {
+  background: #e0f2fe !important;
+  border-color: #7dd3fc !important;
+  color: #075985 !important;
+}
+
+html[data-theme="light"] .alert-success,
+html[data-theme="light"] .callout.callout-success {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+}
+
+html[data-theme="light"] .alert-warning,
+html[data-theme="light"] .callout.callout-warning {
+  background: #fef3c7 !important;
+  border-color: #fcd34d !important;
+  color: #854d0e !important;
+}
+
+html[data-theme="light"] .alert-danger,
+html[data-theme="light"] .callout.callout-danger {
+  background: #ffe4e6 !important;
+  border-color: #fda4af !important;
+  color: #9f1239 !important;
+}
+
+/* Buttons and labels ------------------------------------------------------ */
+
+html[data-theme="light"] .btn-default,
+html[data-theme="light"] .btn-flat.btn-default {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border-strong) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .btn-warning,
+html[data-theme="light"] .label-warning {
+  background: #f59e0b !important;
+  color: #3b2606 !important;
+}
+
+html[data-theme="light"] .btn-info,
+html[data-theme="light"] .label-info {
+  background: #0ea5e9 !important;
+  color: #04293a !important;
+}
+
+html[data-theme="light"] .btn-danger,
+html[data-theme="light"] .label-danger {
+  background: #e11d48 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .label-default {
+  background: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* Tables: striping, scrollbars, charts ------------------------------------ */
+
+html[data-theme="light"] table.dataTable tbody > tr.even,
+html[data-theme="light"] table.dataTable tbody > tr:nth-of-type(even) {
+  background: rgba(15, 23, 42, 0.025) !important;
+}
+
+html[data-theme="light"] #scrollable-container .tw-overflow-x-auto {
+  scrollbar-color: #c3cdd9 #eef2f6;
+}
+
+html[data-theme="light"] #scrollable-container .tw-overflow-x-auto::-webkit-scrollbar-track {
+  background: #eef2f6 !important;
+}
+
+html[data-theme="light"] #scrollable-container .tw-overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #c3cdd9 !important;
+  border-color: #eef2f6 !important;
+}
+
+/* scrollbar-color is the standard property and Chrome lets it win over the
+   ::-webkit-scrollbar-* pseudo-elements, so overriding only the pseudos left
+   the dark palette in charge here and the two rules below did nothing. It is
+   also an inherited property, which is why the dark pair leaked down into
+   everything inside the scroller. */
+html[data-theme="light"] .content .table-responsive {
+  scrollbar-color: #c3cdd9 #eef2f6;
+}
+
+html[data-theme="light"] .content .table-responsive::-webkit-scrollbar-track {
+  background: #eef2f6 !important;
+}
+
+html[data-theme="light"] .content .table-responsive::-webkit-scrollbar-thumb {
+  background: #c3cdd9 !important;
+  border-color: #eef2f6 !important;
+}
+
+html[data-theme="light"] .content .chart-container,
+html[data-theme="light"] .content .highcharts-container,
+html[data-theme="light"] .content svg.highcharts-root {
+  background: var(--sb-surface) !important;
+}
+
+/* Dashboard filter controls ----------------------------------------------- */
+
+html[data-theme="light"] .saverbro-dashboard #dashboard_location,
+html[data-theme="light"] .saverbro-dashboard #dashboard_date_filter {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+html[data-theme="light"] .saverbro-dashboard #dashboard_date_filter:hover,
+html[data-theme="light"] .saverbro-dashboard #dashboard_location:hover,
+html[data-theme="light"] .sb-dashboard-filter-button:hover,
+html[data-theme="light"] .sb-dashboard-filter-button:focus {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+}
+
+/* Coloured KPI tiles: keep the hue, invert the value ---------------------- */
+
+html[data-theme="light"] .sb-dashboard-kpi--revenue,
+html[data-theme="light"] .saverbro-dashboard .sb-dashboard-metrics > div:nth-child(1) {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+}
+
+html[data-theme="light"] .sb-dashboard-kpi--purchase,
+html[data-theme="light"] .saverbro-dashboard .sb-dashboard-metrics > div:nth-child(3) {
+  background: #ede9fe !important;
+  border-color: #c4b5fd !important;
+}
+
+html[data-theme="light"] .sb-dashboard-kpi--due,
+html[data-theme="light"] .sb-dashboard-kpi--adjustments {
+  background: #fef3c7 !important;
+  border-color: #fcd34d !important;
+}
+
+html[data-theme="light"] .sb-dashboard-kpi--visits,
+html[data-theme="light"] .saverbro-dashboard .sb-dashboard-metrics > div:nth-child(2) {
+  background: #e0f2fe !important;
+  border-color: #7dd3fc !important;
+}
+
+html[data-theme="light"] .sb-dashboard-kpi--transactions,
+html[data-theme="light"] .sb-dashboard-kpi--expenses,
+html[data-theme="light"] .saverbro-dashboard .sb-dashboard-metrics > div:nth-child(4) {
+  background: #cffafe !important;
+  border-color: #67e8f9 !important;
+}
+
+html[data-theme="light"] .sb-dashboard-kpi--returns {
+  background: #ffe4e6 !important;
+  border-color: #fda4af !important;
+}
+
+/* Tile icons: the dark palette pastels are about 1.3:1 on these light fills. */
+html[data-theme="light"] .sb-dashboard-kpi__icon {
+  color: #065f46 !important;
+}
+
+html[data-theme="light"] .sb-dashboard-kpi--purchase .sb-dashboard-kpi__icon {
+  color: #5b21b6 !important;
+}
+
+html[data-theme="light"] .sb-dashboard-kpi--due .sb-dashboard-kpi__icon,
+html[data-theme="light"] .sb-dashboard-kpi--adjustments .sb-dashboard-kpi__icon {
+  color: #854d0e !important;
+}
+
+html[data-theme="light"] .sb-dashboard-kpi--visits .sb-dashboard-kpi__icon {
+  color: #075985 !important;
+}
+
+html[data-theme="light"] .sb-dashboard-kpi--returns .sb-dashboard-kpi__icon {
+  color: #9f1239 !important;
+}
+
+/* Second KPI row - Total Purchase, Purchase Due, Total Purchase Return,
+   Expense.
+
+   The top four tiles carry .sb-dashboard-metrics, so the blanket
+   ".sb-dashboard-metrics > div *" rule below darkens their icons along with
+   their text. This second row is a plain tw-grid with no such class, so its
+   icons kept inheriting tw-text-sky-500, which the dark sheet re-points to
+   the sky-300 accent - pale blue on a white tile.
+
+   Only the svg is targeted: the labels here are already tw-text-gray-500 /
+   tw-text-gray-900 and read correctly. Adding .sb-dashboard-metrics to the
+   grid instead would have worked, but that class also carries the per-tile
+   nth-child background colours, which would have repainted all four. */
+html[data-theme="light"] .saverbro-dashboard .tw-px-5.tw-isolate > .tw-grid > div svg {
+  color: #0f172a !important;
+}
+
+/* Text inside the coloured tiles needs dark ink now. */
+html[data-theme="light"] .sb-dashboard-kpi__value,
+html[data-theme="light"] .sb-dashboard-kpi__label,
+html[data-theme="light"] .saverbro-dashboard .sb-dashboard-metrics > div * {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .sb-dashboard-kpi__hint {
+  color: #475569 !important;
+}
+
+/* Misc dashboard surfaces ------------------------------------------------- */
+
+html[data-theme="light"] .sb-walk-in-card,
+html[data-theme="light"] .saverbro-dashboard + .tw-px-5 .tw-border-dashed {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border) !important;
+}
+
+html[data-theme="light"] .right-col input.tw-text-black,
+html[data-theme="light"] .right-col input.tw-bg-transparent {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+}
+
+/* Select2 multi-select chips ---------------------------------------------- */
+
+html[data-theme="light"]
+  .select2-container--default
+  .select2-selection--multiple
+  .select2-selection__choice {
+  background: #e0f2fe !important;
+  border-color: #7dd3fc !important;
+  color: #075985 !important;
+}
+
+/* POS lock screen --------------------------------------------------------- */
+
+html[data-theme="light"] body.lockscreen .pos_form_totals,
+html[data-theme="light"] body.lockscreen .pos_form_totals .pos_totals_left,
+html[data-theme="light"] body.lockscreen .pos_form_totals .pos_totals_right {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] body.lockscreen .pos_totals_right_label {
+  color: #065f46 !important;
+}
+
+html[data-theme="light"] body.lockscreen .pos_totals_right,
+html[data-theme="light"] body.lockscreen .pos-finalize {
+  background: var(--sb-accent) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] body.lockscreen .pos-form-actions {
+  background: var(--sb-surface-raised) !important;
+}
+
+/* ===========================================================================
+   Pass 2 - found by auditing rendered pages in light mode.
+   =========================================================================== */
+
+/* Sidebar brand text is tw-text-white, invisible on the white sidebar. */
+html[data-theme="light"] .side-bar-heading,
+html[data-theme="light"] .side-bar-heading small,
+html[data-theme="light"] .side-bar .tw-text-white,
+html[data-theme="light"] #side-bar .tw-text-white {
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .side-bar-heading small {
+  color: var(--sb-muted) !important;
+}
+
+/* Table headers ----------------------------------------------------------- */
+
+/* thead keeps the dark raised surface (#132035) with pale ink. */
+html[data-theme="light"] table.dataTable thead th,
+html[data-theme="light"] table.dataTable thead td,
+html[data-theme="light"] .dataTables_scrollHead thead th,
+html[data-theme="light"] .table > thead > tr > th,
+html[data-theme="light"] .table-bordered > thead > tr > th {
+  background-color: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+/* Sort glyphs follow the header ink. */
+html[data-theme="light"] table.dataTable thead th.sorting::after,
+html[data-theme="light"] table.dataTable thead th.sorting_asc::after,
+html[data-theme="light"] table.dataTable thead th.sorting_desc::after {
+  color: var(--sb-muted) !important;
+}
+
+/* Body cells and their borders. */
+html[data-theme="light"] table.dataTable tbody td,
+html[data-theme="light"] table.dataTable tbody th,
+html[data-theme="light"] .table > tbody > tr > td,
+html[data-theme="light"] .table-bordered > tbody > tr > td {
+  border-color: var(--sb-border) !important;
+}
+
+/* Top command bar --------------------------------------------------------- */
+
+/* Painted with a near-black gradient. A white sidebar under a near-black bar
+   reads as two different themes, so bring the bar across too. */
+html[data-theme="light"] .sb-command-header {
+  background-image: none !important;
+  background-color: var(--sb-surface) !important;
+  border-bottom: 1px solid var(--sb-border) !important;
+}
+
+html[data-theme="light"] .sb-command-header,
+html[data-theme="light"] .sb-command-header a,
+html[data-theme="light"] .sb-command-header button,
+html[data-theme="light"] .sb-command-header svg,
+html[data-theme="light"] .sb-command-header span,
+html[data-theme="light"] .sb-command-header .tw-text-white,
+html[data-theme="light"] .sb-command-header__date {
+  color: var(--sb-text) !important;
+}
+
+/* The pill controls in that bar sat on the dark gradient. */
+html[data-theme="light"] .sb-command-header .theme-btn-bg {
+  background: var(--sb-surface-raised) !important;
+  border: 1px solid var(--sb-border) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .sb-command-header .theme-btn-bg:hover {
+  background: var(--sb-surface-hover) !important;
+}
+
+/* Keep the primary action reading as the accent - as ink, not as a fill.
+   Setting background-color here as well was painting an opaque accent block
+   behind the grid icon, which is what made the control look like it had kept
+   its dark-mode styling. Children get an explicit transparent background so
+   nothing inherits a fill. */
+html[data-theme="light"] .sb-command-header__primary-action,
+html[data-theme="light"] .sb-command-header__primary-action svg,
+html[data-theme="light"] .sb-command-header__primary-action span {
+  background-color: transparent !important;
+}
+
+/* The grid icon and the "POS" label are one control, so they share one ink.
+   Painting the svg with the accent left the icon blue against a slate label,
+   because the anchor's own colour comes from the broader
+   .sb-command-header a rule. inherit keeps the two in step whatever that
+   resolves to, including on hover. */
+html[data-theme="light"] .sb-command-header__primary-action svg,
+html[data-theme="light"] .sb-command-header__primary-action span {
+  color: inherit !important;
+}
+
+html[data-theme="light"] .sb-command-header__primary-action svg {
+  stroke: currentColor !important;
+}
+
+html[data-theme="light"] .sb-command-header__primary-action:hover,
+html[data-theme="light"] .sb-command-header__primary-action:hover svg,
+html[data-theme="light"] .sb-command-header__primary-action:hover span {
+  color: var(--sb-accent-strong) !important;
+}
+
+/* Accent text on white ---------------------------------------------------- */
+
+/* #7dd3fc (sky-300) is 1.67:1 on white; used for links and quiet actions. */
+html[data-theme="light"] .content .tw-text-sky-300,
+html[data-theme="light"] #scrollable-container .tw-text-sky-300,
+html[data-theme="light"] #scrollable-container [class*="tw-text-sky-2"],
+html[data-theme="light"] #scrollable-container [class*="tw-text-sky-3"],
+html[data-theme="light"] #scrollable-container [class*="tw-text-cyan-3"],
+html[data-theme="light"] #scrollable-container a span.tw-font-semibold {
+  color: var(--sb-accent-strong) !important;
+}
+
+/* DataTables chrome ------------------------------------------------------- */
+
+html[data-theme="light"] .dataTables_wrapper .dataTables_paginate .paginate_button,
+html[data-theme="light"] .dataTables_wrapper .dataTables_paginate a,
+html[data-theme="light"] .dataTables_wrapper .dataTables_info,
+html[data-theme="light"] .dataTables_wrapper .dataTables_length,
+html[data-theme="light"] .dataTables_wrapper .dataTables_length label,
+html[data-theme="light"] .dataTables_wrapper .dataTables_filter,
+html[data-theme="light"] .dataTables_wrapper .dataTables_filter label {
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .dataTables_wrapper .dataTables_paginate .paginate_button {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+html[data-theme="light"] .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+html[data-theme="light"] .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: var(--sb-accent) !important;
+  border-color: var(--sb-accent) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .dataTables_wrapper .dataTables_paginate .paginate_button.disabled,
+html[data-theme="light"] .dataTables_wrapper .dataTables_paginate .paginate_button.disabled:hover {
+  background: var(--sb-surface) !important;
+  color: var(--sb-faint) !important;
+  border-color: var(--sb-border) !important;
+}
+
+/* Export bar buttons are outline-style on a dark fill in the dark theme. */
+html[data-theme="light"] .dt-buttons a,
+html[data-theme="light"] .dt-buttons button {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-accent) !important;
+  color: var(--sb-accent-strong) !important;
+}
+
+html[data-theme="light"] .dt-buttons a:hover,
+html[data-theme="light"] .dt-buttons button:hover {
+  background: var(--sb-surface-hover) !important;
+}
+
+/* Modals, dropdowns, tooltips, popovers ----------------------------------- */
+
+html[data-theme="light"] .dropdown-menu {
+  background: var(--sb-surface) !important;
+  border-color: var(--sb-border) !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12) !important;
+}
+
+html[data-theme="light"] .dropdown-menu > li > a {
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .dropdown-menu > li > a:hover,
+html[data-theme="light"] .dropdown-menu > li > a:focus {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .popover,
+html[data-theme="light"] .popover-title,
+html[data-theme="light"] .popover-content {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+html[data-theme="light"] .tooltip-inner {
+  background: #0f172a !important;
+  color: #ffffff !important;
+}
+
+/* Tabs -------------------------------------------------------------------- */
+
+html[data-theme="light"] .nav-tabs-custom,
+html[data-theme="light"] .nav-tabs-custom > .nav-tabs,
+html[data-theme="light"] .nav-tabs-custom > .tab-content,
+html[data-theme="light"] .nav-tabs-custom > .tab-content > .tab-pane {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .nav-tabs-custom > .nav-tabs > li > a {
+  color: var(--sb-muted) !important;
+}
+
+/* :not(.wc-tab-brand) keeps this off the Woocommerce brand label, which is a
+   static heading rather than a tab. The rule that holds that label still sits
+   in saverbro-dark-pos.css at (0,4,2); this one is (0,4,3) and would win, so
+   the exclusion has to be here rather than in another override. */
+html[data-theme="light"] .nav-tabs-custom > .nav-tabs > li.active:not(.wc-tab-brand) > a,
+html[data-theme="light"] .nav-tabs-custom > .nav-tabs > li:not(.wc-tab-brand) > a:hover {
+  color: var(--sb-text) !important;
+}
+
+/* The active tab used to take --sb-surface-hover too, inherited from being
+   grouped with the hover selector above. That painted a grey block against the
+   white panel below it, and the edge of that block - with the 5px gap the
+   theme puts between tabs - read as a vertical separator between the two tab
+   labels. The active tab is already marked by its blue top border, so matching
+   the panel's own surface is enough. Hover keeps the tint, since there it is a
+   genuine hover affordance, and it still wins on an active tab by source order. */
+html[data-theme="light"] .nav-tabs-custom > .nav-tabs > li.active:not(.wc-tab-brand) > a {
+  background: var(--sb-surface) !important;
+}
+
+html[data-theme="light"] .nav-tabs-custom > .nav-tabs > li:not(.wc-tab-brand) > a:hover {
+  background: var(--sb-surface-hover) !important;
+}
+
+/* SweetAlert ---------------------------------------------------------------
+   Re-points the dark defaults saverbro-dark-pos.css adds for .swal-* back to
+   this theme's own light surface, the same way every other vendor widget in
+   this file does. */
+
+html[data-theme="light"] .swal-overlay {
+  background-color: rgba(15, 23, 42, .4) !important;
+}
+
+html[data-theme="light"] .swal-modal {
+  background-color: var(--sb-surface) !important;
+}
+
+html[data-theme="light"] .swal-title {
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .swal-text {
+  color: var(--sb-muted) !important;
+}
+
+html[data-theme="light"] .swal-button--cancel {
+  background-color: var(--sb-surface-raised) !important;
+  color: var(--sb-muted) !important;
+}
+
+/* Datepicker -------------------------------------------------------------- */
+
+html[data-theme="light"] .daterangepicker,
+html[data-theme="light"] .datepicker,
+html[data-theme="light"] .bootstrap-datetimepicker-widget {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+  /* The dark sheet drops these panels on a 0.3-alpha black shadow, which
+     reads as a grey smudge over a white page. Same depth, light ink. */
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .13) !important;
+}
+
+/* Preset list down the side of the range picker. Nothing in either theme
+   sheet touched it, so it kept the vendor's #08c fill - off-palette, and
+   white on it is 3.89:1, under AA. --sb-accent-strong is 7.57:1. */
+html[data-theme="light"] .daterangepicker .ranges li.active {
+  background-color: var(--sb-accent-strong) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .daterangepicker .ranges li:hover {
+  background-color: var(--sb-surface-hover) !important;
+}
+
+html[data-theme="light"] .daterangepicker td,
+html[data-theme="light"] .daterangepicker th,
+html[data-theme="light"] .datepicker td,
+html[data-theme="light"] .datepicker th {
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .daterangepicker td.off,
+html[data-theme="light"] .datepicker td.old,
+html[data-theme="light"] .datepicker td.new {
+  color: var(--sb-faint) !important;
+}
+
+/* FullCalendar ------------------------------------------------------------ */
+
+html[data-theme="light"] .fc-unthemed th.fc-day-header,
+html[data-theme="light"] .fc-unthemed th.fc-widget-header,
+html[data-theme="light"] .fc-unthemed .fc-content-skeleton,
+html[data-theme="light"] .fc-unthemed td.fc-widget-content {
+  background: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+/* Pass 3 ------------------------------------------------------------------ */
+
+/* Sidebar search pill: wrapper is a dark fill, input inherits dark ink. */
+html[data-theme="light"] .side-bar .tw-flex.tw-items-center.tw-gap-2\.5,
+html[data-theme="light"] #sidebar-search,
+html[data-theme="light"] .side-bar input {
+  background-color: var(--sb-surface-raised) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .side-bar input::placeholder {
+  color: var(--sb-faint) !important;
+}
+
+/* DataTables pagination: the dark fill sits on the inner <a>, not on
+   .paginate_button, so the earlier rule missed it. */
+html[data-theme="light"] .dataTables_paginate .paginate_button a,
+html[data-theme="light"] .dataTables_paginate > a,
+html[data-theme="light"] .dataTables_paginate span a {
+  background-color: var(--sb-surface) !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border-strong) !important;
+}
+
+html[data-theme="light"] .dataTables_paginate .paginate_button.disabled a {
+  color: var(--sb-faint) !important;
+}
+
+html[data-theme="light"] .dataTables_paginate .paginate_button.current a {
+  background-color: var(--sb-accent) !important;
+  color: #ffffff !important;
+  border-color: var(--sb-accent) !important;
+}
+
+/* Active menu item: an opaque wash so the ink contrast is real, not
+   composited against a translucent sky tint. */
+html[data-theme="light"] #side-bar a.theme-sidebar-child-active,
+html[data-theme="light"] #side-bar .theme-sidebar-active {
+  background: #e0f2fe !important;
+  color: #075985 !important;
+}
+
+html[data-theme="light"] #side-bar .theme-sidebar-active *,
+html[data-theme="light"] #side-bar a.theme-sidebar-child-active * {
+  color: #075985 !important;
+}
+
+/* Pass 4 - settings tab rail and Bootstrap button variants ---------------- */
+
+html[data-theme="light"] div.pos-tab-menu div.list-group > a,
+html[data-theme="light"] .list-group > a.list-group-item {
+  background: var(--sb-surface) !important;
+  background-image: none !important;
+  color: var(--sb-text) !important;
+  border-color: var(--sb-border) !important;
+}
+
+html[data-theme="light"] div.pos-tab-menu div.list-group > a:hover,
+html[data-theme="light"] .list-group > a.list-group-item:hover {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] div.pos-tab-menu div.list-group > a.active,
+html[data-theme="light"] .list-group > a.list-group-item.active {
+  background-image: none !important;
+  background-color: var(--sb-accent) !important;
+  color: #ffffff !important;
+  border-color: var(--sb-accent) !important;
+}
+
+html[data-theme="light"] div.pos-tab-menu div.list-group > a.active *,
+html[data-theme="light"] .list-group > a.list-group-item.active * {
+  color: #ffffff !important;
+}
+
+/* Solid Bootstrap buttons keep a dark fill from the dark theme. */
+html[data-theme="light"] .btn-primary,
+html[data-theme="light"] .btn-flat.btn-primary {
+  background: var(--sb-accent) !important;
+  border-color: var(--sb-accent) !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .btn-primary *,
+html[data-theme="light"] .btn-primary .hidden-xs {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .btn-primary:hover,
+html[data-theme="light"] .btn-primary:focus {
+  background: var(--sb-accent-strong) !important;
+  border-color: var(--sb-accent-strong) !important;
+}
+
+html[data-theme="light"] .btn-success {
+  background: #047857 !important;
+  border-color: #047857 !important;
+  color: #ffffff !important;
+}
+
+/* daisyUI solid variants: the pass-1 rules only cover tw-text-white pairings,
+   so buttons without that class still show dark ink on a dark fill.
+
+   Which ink each variant needs follows from its own fill, and daisyUI states
+   those in oklch, where the first component is lightness:
+     error 0.7176, success 0.648, warning 0.8471, info 0.7206  -> dark ink
+     primary 0.4912                                            -> light ink
+   primary is the one genuinely dark fill, so it is listed separately below
+   rather than lumped in with the others. */
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-error:not(.tw-dw-btn-outline),
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-warning:not(.tw-dw-btn-outline),
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-info:not(.tw-dw-btn-outline) {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-primary:not(.tw-dw-btn-outline),
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-primary:not(.tw-dw-btn-outline) * {
+  color: #ffffff !important;
+}
+
+/* Green buttons ("Save and print", "Download template file", ...) carry
+   tw-text-white in the markup, which the rule above was overriding. White is
+   what they should have, but daisyUI's success fill is oklch(0.648 0.15 160)
+   and white on that is only 2.6:1, so the fill moves to the same #047857 that
+   .btn-success already uses in light mode - 5.0:1, and it makes the daisyUI
+   and Bootstrap green buttons match. */
+/* The first pair mirrors the six-class selector saverbro-dark-pos.css:2243
+   uses to force #0b1422 on these buttons; matching its shape and adding the
+   theme attribute is what outranks it. The short pair below catches success
+   buttons whose markup omits tw-text-white. */
+html[data-theme="light"] .tw-dw-btn.tw-text-white.tw-dw-btn-success:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link),
+html[data-theme="light"] .tw-dw-btn.tw-text-white.tw-dw-btn-success:not(.tw-dw-btn-outline):not(.tw-dw-btn-ghost):not(.tw-dw-btn-link) *,
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-success:not(.tw-dw-btn-outline),
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-success:not(.tw-dw-btn-outline) * {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-success:not(.tw-dw-btn-outline) {
+  background-color: #047857 !important;
+  border-color: #047857 !important;
+}
+
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-success:not(.tw-dw-btn-outline):hover,
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-success:not(.tw-dw-btn-outline):focus {
+  background-color: #065f46 !important;
+  border-color: #065f46 !important;
+}
+
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-outline {
+  background: var(--sb-surface) !important;
+  color: var(--sb-accent-strong) !important;
+}
+
+/* Outline buttons keep their variant colour, the way they do in dark mode,
+   where Edit reads indigo, View sky and Delete red. The rule above was
+   flattening all of them to one accent, so the three looked identical.
+
+   daisyUI's own values are tuned for a dark page - error is
+   oklch(0.7176 0.221 22.18), about 3:1 on white - so these keep the hue and
+   drop the lightness instead of copying the numbers. Ratios on #ffffff are in
+   the comments. border-color is currentColor on an outline button, and the
+   icons inherit, so setting colour alone moves all three together. */
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-outline.tw-dw-btn-primary {
+  color: #4f46e5 !important; /* 6.3:1 */
+}
+
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-outline.tw-dw-btn-info {
+  color: #0369a1 !important; /* 5.5:1 */
+}
+
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-outline.tw-dw-btn-error {
+  color: #be123c !important; /* 6.4:1 */
+}
+
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-outline.tw-dw-btn-success {
+  color: #047857 !important; /* 5.0:1 */
+}
+
+html[data-theme="light"] .tw-dw-btn.tw-dw-btn-outline.tw-dw-btn-warning {
+  color: #b45309 !important; /* 4.9:1 */
+}
+
+/* Pass 5 - semantic text utilities --------------------------------------- */
+
+/* The dark theme tunes these for a dark page: .text-success is #2dce89,
+   which is 2.04:1 on white. */
+html[data-theme="light"] .text-success,
+html[data-theme="light"] .text-success * {
+  color: #047857 !important;
+}
+
+html[data-theme="light"] .text-danger,
+html[data-theme="light"] .text-danger * {
+  color: #be123c !important;
+}
+
+html[data-theme="light"] .text-warning,
+html[data-theme="light"] .text-warning * {
+  color: #b45309 !important;
+}
+
+html[data-theme="light"] .text-info,
+html[data-theme="light"] .text-info * {
+  color: #0369a1 !important;
+}
+
+html[data-theme="light"] .text-primary,
+html[data-theme="light"] .text-primary * {
+  color: var(--sb-accent-strong) !important;
+}
+
+html[data-theme="light"] .text-muted,
+html[data-theme="light"] .help-block,
+html[data-theme="light"] small {
+  color: #475569 !important;
+}
+
+/* Bootstrap contextual table rows are dark tints in the dark theme. */
+html[data-theme="light"] .table > tbody > tr.success > td,
+html[data-theme="light"] tr.success > td {
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+html[data-theme="light"] .table > tbody > tr.danger > td,
+html[data-theme="light"] tr.danger > td {
+  background-color: #ffe4e6 !important;
+  color: #9f1239 !important;
+}
+
+html[data-theme="light"] .table > tbody > tr.warning > td,
+html[data-theme="light"] tr.warning > td {
+  background-color: #fef3c7 !important;
+  color: #854d0e !important;
+}
+
+html[data-theme="light"] .table > tbody > tr.info > td,
+html[data-theme="light"] tr.info > td {
+  background-color: #e0f2fe !important;
+  color: #075985 !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Pass 6 - the POS workbench.
+
+   The POS screen pulls in a third stylesheet the other pages do not have:
+   an inline @once <style> from sale_pos/partials/pos_workspace_styles.blade.php.
+   It renders after these <link> tags, so equal-specificity rules there would
+   win on source order; every selector below is therefore prefixed with
+   html[data-theme="light"] to outrank it, and keeps !important wherever the
+   source used it.
+
+   Its --sb-pos-* tokens are declared on the two form ids, so re-pointing them
+   there covers everything written in terms of the tokens; the rest of this
+   block deals with the literals that bypass them.
+   --------------------------------------------------------------------------- */
+
+html[data-theme="light"] #add_pos_sell_form,
+html[data-theme="light"] #edit_pos_sell_form {
+  --sb-pos-surface: #ffffff;
+  --sb-pos-surface-raised: #f8fafc;
+  --sb-pos-border: #e2e8f0;
+  --sb-pos-muted: #475569;
+  --sb-pos-text: #0f172a;
+  --sb-pos-focus: #0284c7;
+  --sb-pos-ready: #047857;
+  --sb-pos-pending: #b45309;
+  --sb-pos-danger: #be123c;
+}
+
+/* Product search --------------------------------------------------------- */
+
+html[data-theme="light"] #add_pos_sell_form #search_product,
+html[data-theme="light"] #edit_pos_sell_form #search_product {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+html[data-theme="light"] #add_pos_sell_form #search_product::placeholder,
+html[data-theme="light"] #edit_pos_sell_form #search_product::placeholder {
+  color: #64748b;
+}
+
+/* Device workbench ------------------------------------------------------- */
+
+html[data-theme="light"] .pos-device-workbench {
+  background: linear-gradient(100deg, #f1f6fb 0%, #eef4fa 56%, #e8f1f8 100%);
+  border-color: #bcd6e8;
+  box-shadow: 0 9px 24px rgba(15, 23, 42, .07);
+}
+
+html[data-theme="light"] .pos-device-workbench__icon {
+  color: #b45309;
+  background: rgba(180, 83, 9, .10);
+}
+
+html[data-theme="light"] .pos-device-workbench__eyebrow,
+html[data-theme="light"] .pos-device-workbench__heading p,
+html[data-theme="light"] .pos-device-workbench__progress span,
+html[data-theme="light"] .pos-device-workbench__feedback,
+html[data-theme="light"] .recommerce-device-scan-summary {
+  color: #475569;
+}
+
+html[data-theme="light"] .pos-device-workbench h2,
+html[data-theme="light"] .pos-device-workbench__progress strong {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .pos-device-workbench__progress {
+  background: rgba(180, 83, 9, .07);
+}
+
+html[data-theme="light"] .pos-device-workbench__progress.is-complete {
+  background: rgba(4, 120, 87, .08);
+}
+
+html[data-theme="light"] .pos-device-workbench__scan label {
+  color: #334155;
+}
+
+html[data-theme="light"] .pos-device-workbench__scan .input-group-addon,
+html[data-theme="light"] .pos-device-workbench__scan .form-control {
+  color: #0f172a;
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+html[data-theme="light"] .pos-device-workbench__feedback.is-error {
+  color: #be123c;
+}
+
+html[data-theme="light"] .pos-device-workbench__feedback.is-success {
+  color: #047857;
+}
+
+html[data-theme="light"] .pos-device-workbench__device {
+  color: #065f46;
+  background: rgba(4, 120, 87, .10);
+  border-color: rgba(4, 120, 87, .30);
+}
+
+html[data-theme="light"] .pos-device-workbench__close {
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+html[data-theme="light"] .pos-device-workbench__close:hover {
+  color: #0f172a;
+  border-color: #0369a1;
+}
+
+/* Cart table ------------------------------------------------------------- */
+
+html[data-theme="light"] #add_pos_sell_form #pos_table thead th,
+html[data-theme="light"] #edit_pos_sell_form #pos_table thead th {
+  color: #475569;
+}
+
+html[data-theme="light"] #add_pos_sell_form #pos_table .pos_unit_price_inc_tax,
+html[data-theme="light"] #edit_pos_sell_form #pos_table .pos_unit_price_inc_tax {
+  color: #0f172a;
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+html[data-theme="light"] #add_pos_sell_form #pos_table .pos_line_total_text,
+html[data-theme="light"] #edit_pos_sell_form #pos_table .pos_line_total_text {
+  color: #0f172a !important;
+}
+
+/* Device scan chips ------------------------------------------------------ */
+
+html[data-theme="light"] #add_pos_sell_form .recommerce-device-open,
+html[data-theme="light"] #edit_pos_sell_form .recommerce-device-open {
+  color: #92400e;
+  background: rgba(180, 83, 9, .09);
+  border-color: rgba(180, 83, 9, .40);
+}
+
+html[data-theme="light"] #add_pos_sell_form .recommerce-device-open:hover,
+html[data-theme="light"] #edit_pos_sell_form .recommerce-device-open:hover {
+  background: rgba(180, 83, 9, .16);
+}
+
+html[data-theme="light"] #add_pos_sell_form .recommerce-device-scan.is-complete .recommerce-device-open,
+html[data-theme="light"] #edit_pos_sell_form .recommerce-device-scan.is-complete .recommerce-device-open {
+  color: #065f46;
+  background: rgba(4, 120, 87, .10);
+  border-color: rgba(4, 120, 87, .35);
+}
+
+/* Checkout status pill --------------------------------------------------- */
+
+html[data-theme="light"] .pos-checkout-status {
+  color: #475569;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+html[data-theme="light"] .pos-checkout-status strong {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .pos-checkout-status.is-ready {
+  color: #047857;
+  border-color: rgba(4, 120, 87, .45);
+  background: rgba(4, 120, 87, .07);
+}
+
+html[data-theme="light"] .pos-checkout-status.is-pending {
+  color: #b45309;
+  border-color: rgba(180, 83, 9, .48);
+  background: rgba(180, 83, 9, .07);
+}
+
+html[data-theme="light"] .pos-checkout-status.is-empty {
+  color: #475569;
+}
+
+/* Product tiles ---------------------------------------------------------- */
+
+html[data-theme="light"] #pos_sidebar_wrap .text_div small:first-child {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] #pos_sidebar_wrap .text_div small {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] #pos_sidebar_wrap .product_price {
+  color: #047857 !important;
+}
+
+html[data-theme="light"] #pos_sidebar_wrap .product_box:hover {
+  border-color: #0369a1 !important;
+  background: #eff6ff !important;
+}
+
+/* Chrome carried by the dark overlay ------------------------------------- */
+
+html[data-theme="light"] body.lockscreen .pos-header .tw-bg-white,
+html[data-theme="light"] body.lockscreen #pos_header_more_options .tw-bg-white,
+html[data-theme="light"] body.lockscreen .pos-sidebar-root .tw-bg-white {
+  background: #ffffff !important;
+  border-color: var(--sb-border) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] body.lockscreen .pos-header > div,
+html[data-theme="light"] body.lockscreen #add_pos_sell_form .tw-bg-white,
+html[data-theme="light"] body.lockscreen #edit_pos_sell_form .tw-bg-white,
+html[data-theme="light"] body.lockscreen .pos-sidebar-root {
+  box-shadow: 0 10px 26px rgba(15, 23, 42, .07) !important;
+}
+
+html[data-theme="light"] body.lockscreen #pos_table thead th,
+html[data-theme="light"] body.lockscreen #pos_table thead .tw-bg-\[\#f8fafc\] {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+}
+
+html[data-theme="light"] body.lockscreen .pos_form_totals {
+  background: #f8fafc !important;
+}
+
+html[data-theme="light"] body.lockscreen .pos_form_totals .pos_totals_left,
+html[data-theme="light"] body.lockscreen .pos_form_totals .pos_totals_cell {
+  background: #ffffff !important;
+}
+
+/* Kept as a filled accent block - the figures inside are white, so it needs
+   to stay dark enough to carry them. */
+html[data-theme="light"] body.lockscreen .pos_totals_right {
+  background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+}
+
+html[data-theme="light"] body.lockscreen .pos-form-actions {
+  background: rgba(255, 255, 255, .96) !important;
+  box-shadow: 0 -12px 32px rgba(15, 23, 42, .09) !important;
+}
+
+html[data-theme="light"] body.lockscreen .pos-card:hover {
+  box-shadow: 0 12px 26px rgba(15, 23, 42, .09) !important;
+}
+
+html[data-theme="light"] body.lockscreen .pos-card.is-active.cat,
+html[data-theme="light"] body.lockscreen .pos-card.is-active.brand {
+  background: linear-gradient(180deg, #e0f2fe, #f0f9ff 72%) !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] body.lockscreen .pos-card.is-active.cat *,
+html[data-theme="light"] body.lockscreen .pos-card.is-active.brand * {
+  color: inherit !important;
+}
+
+html[data-theme="light"] body.lockscreen .product_box {
+  background: #ffffff !important;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, .06) !important;
+}
+
+html[data-theme="light"] body.lockscreen #featured_products_box:not(:empty) {
+  background: rgba(180, 83, 9, .08) !important;
+  border-color: rgba(180, 83, 9, .32) !important;
+}
+
+html[data-theme="light"] body.lockscreen #featured_products_box:not(:empty)::before {
+  color: #b45309 !important;
+}
+
+/* The header clock sits on #646EE4, which carries white text at only 4.29:1.
+   A slightly deeper indigo clears AA without changing the look. */
+html[data-theme="light"] .tw-bg-\[\#646EE4\] {
+  background-color: #4b55c9 !important;
+}
+
+
+/* Action-bar buttons.
+
+   saverbro-dark-pos.css fills .pos-finalize and .pos-express-finalize with a
+   saturated gradient, but their labels are marked tw-text-gray-700 and the
+   dark sheet re-points that to var(--sb-muted) - light grey in dark mode,
+   dark slate in light mode, which disappears against the green. These
+   buttons are filled in both themes, so their text is white in both. */
+html[data-theme="light"] body.lockscreen .pos-form-actions .pos-finalize,
+html[data-theme="light"] body.lockscreen .pos-form-actions .pos-finalize *,
+html[data-theme="light"] body.lockscreen .pos-form-actions .pos-express-finalize,
+html[data-theme="light"] body.lockscreen .pos-form-actions .pos-express-finalize * {
+  color: #ffffff !important;
+}
+[INFO] Recording command outcome: cat
+
+[OK] Command outcome recorded
+
+/* ---------------------------------------------------------------------------
+   Pass 8 - Highcharts.
+
+   Highcharts paints its own surfaces as SVG rects, so the plot area is a
+   `fill` on .highcharts-background rather than a CSS background-color. The
+   light sheet had only re-pointed the container's CSS background, which sits
+   behind that rect and never showed, so the dashboard and report charts kept
+   the dark #0d1726 plate. Everything below therefore sets `fill`/`stroke`.
+
+   The dark rules are anchored on #scrollable-container (an id) or .content,
+   so each override repeats that ancestor and adds the theme attribute to
+   outrank it.
+   --------------------------------------------------------------------------- */
+
+html[data-theme="light"] .sb-dashboard-chart-frame {
+  background: var(--sb-surface) !important;
+  color: var(--sb-muted) !important;
+}
+
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-background,
+html[data-theme="light"] .content .highcharts-background,
+html[data-theme="light"] .content .highcharts-plot-background,
+html[data-theme="light"] .content .highcharts-pane {
+  fill: #ffffff !important;
+}
+
+/* var(--sb-border) is tuned for panel edges and all but vanishes as a grid
+   line on white, so the plot grid gets its own slightly stronger tone. */
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-grid-line,
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-axis-line,
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-tick,
+html[data-theme="light"] .content .highcharts-grid-line,
+html[data-theme="light"] .content .highcharts-axis-line,
+html[data-theme="light"] .content .highcharts-tick {
+  stroke: #d7dfe9 !important;
+}
+
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-axis-labels text,
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-axis-title,
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-legend-item text,
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-title,
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-subtitle,
+html[data-theme="light"] .sb-dashboard-chart-frame text,
+html[data-theme="light"] .content .highcharts-axis-labels text,
+html[data-theme="light"] .content .highcharts-axis-title,
+html[data-theme="light"] .content .highcharts-data-labels text,
+html[data-theme="light"] .content .highcharts-legend-item text,
+html[data-theme="light"] .content .highcharts-title,
+html[data-theme="light"] .content .highcharts-subtitle {
+  fill: #475569 !important;
+  color: #475569 !important;
+}
+
+/* Export menu button, top right of every chart. */
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-button-box,
+html[data-theme="light"] .content .highcharts-button-box {
+  fill: #f1f5f9 !important;
+  stroke: #cbd5e1 !important;
+}
+
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-button-symbol,
+html[data-theme="light"] .content .highcharts-button-symbol {
+  stroke: #475569 !important;
+}
+
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-tooltip-box,
+html[data-theme="light"] .content .highcharts-tooltip-box {
+  fill: #ffffff !important;
+  stroke: #cbd5e1 !important;
+}
+
+html[data-theme="light"] #scrollable-container .sb-dashboard-chart-frame .highcharts-tooltip text,
+html[data-theme="light"] .content .highcharts-tooltip text {
+  fill: #0f172a !important;
+}
+
+/* The export dropdown is plain HTML, not SVG. */
+html[data-theme="light"] .highcharts-menu {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, .12) !important;
+}
+
+html[data-theme="light"] .highcharts-menu-item {
+  color: #334155 !important;
+  background: transparent !important;
+}
+
+html[data-theme="light"] .highcharts-menu-item:hover {
+  color: #0f172a !important;
+  background: #eef2f6 !important;
+}
+
+/* Gradient "Add" buttons.
+
+   These are anchors carrying a Tailwind gradient fill rather than .btn, so
+   the a:not(.btn) link rule above caught them and painted the label in the
+   accent colour - dark blue on a blue fill. Some copies of this button in the
+   markup carry an inline color:#fff, which is why it only disappears on some
+   pages; this makes all 45 of them behave the same.
+
+   The stock pair is indigo-500 -> blue-500, and white on blue-500 is only
+   3.5:1, so light mode deepens it one step to indigo-600 -> blue-700. That
+   reads as the same button and clears AA at 6.3:1 and 6.7:1. */
+/* :not(.tw-bg-clip-text) matters. Not every gradient anchor is a button: the
+   login page's "Forgot Your Password?" uses the gradient as clipped TEXT
+   (tw-text-transparent + tw-bg-clip-text), so forcing white here painted the
+   glyphs solid white on a white card - 1.00:1, invisible. It went unnoticed
+   because white happens to work on the dark card. */
+html[data-theme="light"] a.tw-bg-gradient-to-r:not(.tw-bg-clip-text),
+html[data-theme="light"] button.tw-bg-gradient-to-r:not(.tw-bg-clip-text),
+html[data-theme="light"] a.tw-bg-gradient-to-r:not(.tw-bg-clip-text) *,
+html[data-theme="light"] button.tw-bg-gradient-to-r:not(.tw-bg-clip-text) * {
+  color: #ffffff !important;
+}
+
+/* Gradient-clipped text. The stock indigo-500 -> blue-500 pair is only about
+   3.5:1 on white, under AA at this size, so light mode paints it a solid
+   indigo-700: 8.2:1, same brand family. -webkit-text-fill-color has to go
+   with it or WebKit keeps honouring tw-text-transparent. */
+html[data-theme="light"] a.tw-bg-gradient-to-r.tw-bg-clip-text {
+  color: #4338ca !important;
+  -webkit-text-fill-color: #4338ca !important;
+}
+
+html[data-theme="light"] a.tw-bg-gradient-to-r.tw-from-indigo-500.tw-to-blue-500,
+html[data-theme="light"] button.tw-bg-gradient-to-r.tw-from-indigo-500.tw-to-blue-500 {
+  background-image: linear-gradient(to right, #4f46e5, #1d4ed8) !important;
+}
+
+html[data-theme="light"] a.tw-bg-gradient-to-r.tw-from-indigo-500.tw-to-blue-500:hover,
+html[data-theme="light"] button.tw-bg-gradient-to-r.tw-from-indigo-500.tw-to-blue-500:hover {
+  background-image: linear-gradient(to right, #4338ca, #1e40af) !important;
+}
+
+/* Status badges on the purchases list -------------------------------------
+
+   White text needs a fill dark enough to carry it. AdminLTE's pastels are
+   not: white on bg-light-green (152,217,115) is about 1.7:1 and on bg-yellow
+   (255,173,70) about 2.1:1. So each fill moves to its saturated equivalent
+   and the ink goes white - ratios against white are in the comments.
+
+   Applies to every status badge in light mode. Kept to .label rather than the
+   bare bg-* helpers, because AdminLTE reuses those class names for panel and
+   box backgrounds, which must keep their own colours.
+
+   These override saverbro-dark-pos.css:2252, which deliberately puts dark ink
+   on the pastel fills with !important; the html[data-theme] prefix carries
+   the extra specificity. */
+html[data-theme="light"] .label {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .label.bg-light-green,
+html[data-theme="light"] .label.bg-green {
+  background-color: #047857 !important; /* 5.0:1 */
+}
+
+html[data-theme="light"] .label.bg-yellow,
+html[data-theme="light"] .label.bg-orange {
+  background-color: #b45309 !important; /* 4.9:1 */
+}
+
+html[data-theme="light"] .label.bg-red {
+  background-color: #be123c !important; /* 6.4:1 */
+}
+
+html[data-theme="light"] .label.bg-aqua,
+html[data-theme="light"] .label.bg-blue {
+  background-color: #0369a1 !important; /* 5.5:1 */
+}
+
+html[data-theme="light"] .label.bg-purple {
+  background-color: #6d28d9 !important; /* 6.5:1 */
+}
+
+html[data-theme="light"] .label.bg-gray {
+  background-color: #475569 !important; /* 7.4:1 */
+  /* The white ink from the .label rule above loses here: the panel rule
+     "html[data-theme=light] .content .bg-gray" is (0,3,1) against that
+     rule's (0,2,1), so badges inside .content were being inked as if they
+     were grey panels - #0f172a on this fill is 2.36:1. Restating the
+     colour at this selector's weight, which is later in the file, wins. */
+  color: #ffffff !important;
+}
+
+/* Woocommerce API settings: the active pill is filled #075985, but the link
+   rule near the top of this file is (0,4,2) and outranks the pill rule in
+   saverbro-dark-pos.css at (0,3,2), so the label came out #075985 on #075985
+   - 1.00:1. Restating it here at (0,4,3) wins. White on #075985 is 7.56:1. */
+html[data-theme="light"] .wc-settings .wc-settings-nav > li.active > a,
+html[data-theme="light"] .wc-settings .wc-settings-nav > li.active > a:hover,
+html[data-theme="light"] .wc-settings .wc-settings-nav > li.active > a:focus {
+  color: #ffffff !important;
+}
+
+/* Registration wizard steps. Same treatment as the dark sheet, repeated here
+   with the theme prefix purely for weight: the link rule near the top of this
+   file is (0,4,2) and outranks ".wizard .steps li.current > a" at (0,3,2),
+   which is exactly how the labels ended up #075985 on a blue chip at 1.84:1. */
+html[data-theme="light"] .wizard .steps li > a {
+  background: var(--sb-surface-raised) !important;
+  color: var(--sb-muted) !important;
+}
+
+html[data-theme="light"] .wizard .steps li.done > a {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .wizard .steps li.current > a {
+  background: #075985 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .wizard .steps li > a .number {
+  color: inherit !important;
+}
+
+html[data-theme="light"] .wizard .actions .disabled > a {
+  color: var(--sb-faint) !important;
+}
+
+/* Wizard steps on hover. The link-hover rule near the top of this file is
+   (0,5,2) and beat the step rules above at (0,4,3), so hovering a step
+   repainted its label #075985 - on the current step's blue chip that is
+   1.84:1 and the text vanished. Adding :hover here takes these to (0,5,3).
+   Hover changes the surface, never the label colour. */
+html[data-theme="light"] .wizard .steps li > a:hover,
+html[data-theme="light"] .wizard .steps li > a:focus {
+  background: var(--sb-surface-hover) !important;
+  color: var(--sb-text) !important;
+}
+
+html[data-theme="light"] .wizard .steps li.current > a:hover,
+html[data-theme="light"] .wizard .steps li.current > a:focus {
+  background: #064a6e !important;
+  color: #ffffff !important;
+}
+
+/* Loader box ---------------------------------------------------------------
+   DataTables gives the processing box `class="dataTables_processing panel
+   panel-default"`, so this sheet's own `html[data-theme="light"] .panel-default`
+   rule paints it --sb-surface-raised with !important. That selector is (0,2,1)
+   and beats the (0,2,0) transparent rule in saverbro-dark-pos.css even with
+   !important on both, which left a white card behind the ring in light mode
+   only. Matching the theme prefix here takes this to (0,3,1) so the ring floats
+   over the table in both themes. */
+html[data-theme="light"] .dataTables_wrapper .dataTables_processing {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}

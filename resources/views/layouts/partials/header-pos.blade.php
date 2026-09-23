@@ -34,7 +34,7 @@
                     <span class="tw-hidden lg:tw-inline tw-font-bold tw-text-slate-700">SAVERPOS</span>
                 </a>
                 <p><strong>@lang('sale.location'): &nbsp;</strong></p>
-                <div style="width: 28%">
+                <div style="width: 38%">
                     @if (empty($transaction->location_id))
                         @if (count($business_locations) > 1)
                             {!! Form::select(

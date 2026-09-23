@@ -37,6 +37,13 @@
             <td class="text-left add_without_price_hide"><small>@lang('report.purchase_due') - <span class="footer_total_due"></span><br>
             @lang('lang_v1.purchase_return') - <span class="footer_total_purchase_return_due"></span>
             </small></td>
+            {{-- One cell per remaining column (custom_field_1..4 + added_by) so the
+                 footer spans the same 14 columns as the header. Without these the
+                 footer row is short and every cell drifts left of its column. --}}
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
             <td></td>
         </tr>
     </tfoot>

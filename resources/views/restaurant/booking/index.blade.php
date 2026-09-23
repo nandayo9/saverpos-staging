@@ -243,7 +243,7 @@
                             "ordering": false,
                             'searching': false,
                             "pageLength": 10,
-                            dom:'frtip',
+                            dom:'lfrtip',
                             "ajax": {
                                 "url": "/bookings/get-todays-bookings",
                                 "data": function ( d ) {

@@ -95,6 +95,8 @@ $(document).ready( function(){
         sell_table.ajax.reload();
     });
     sell_table = $('#sell_table').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
         processing: true,
         serverSide: true,
         fixedHeader:false,

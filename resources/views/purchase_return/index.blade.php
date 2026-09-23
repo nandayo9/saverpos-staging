@@ -49,11 +49,11 @@
                     <div class="box-tools">
                         {{-- <a class="btn btn-block btn-primary" href="{{action([\App\Http\Controllers\CombinedPurchaseReturnController::class, 'create'])}}">
                     <i class="fa fa-plus"></i> @lang('messages.add')</a> --}}
-                        <a class="tw-dw-btn tw-bg-gradient-to-r tw-from-indigo-600 tw-to-blue-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full pull-right"
+                        <a class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700 pull-right"
                             href="{{action([\App\Http\Controllers\CombinedPurchaseReturnController::class, 'create'])}}">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                class="icon icon-tabler icons-tabler-outline icon-tabler-plus">
+                                class="icon icon-tabler icons-tabler-outline icon-tabler-plus tw-mr-1">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                 <path d="M12 5l0 14" />
                                 <path d="M5 12l14 0" />
@@ -97,6 +97,8 @@
             //Purchase table
             var hide_purchase_price_columns = $('#hide_purchase_price_columns').length > 0;
             purchase_return_table = $('#purchase_return_datatable').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
                 processing: true,
                 serverSide: true,
                 fixedHeader:false,
@@ -135,15 +137,18 @@
                 }],
                 columns: [{
                         data: 'transaction_date',
-                        name: 'transaction_date'
+                        name: 'transaction_date',
+                        className: 'text-center'
                     },
                     {
                         data: 'ref_no',
-                        name: 'ref_no'
+                        name: 'ref_no',
+                        className: 'text-center'
                     },
                     {
                         data: 'parent_purchase',
-                        name: 'T.ref_no'
+                        name: 'T.ref_no',
+                        className: 'text-center'
                     },
                     {
                         data: 'location_name',
@@ -156,21 +161,25 @@
                     {
                         data: 'payment_status',
                         name: 'payment_status',
-                        visible: !hide_purchase_price_columns
+                        visible: !hide_purchase_price_columns,
+                        className: 'text-center'
                     },
                     {
                         data: 'final_total',
                         name: 'final_total',
-                        visible: !hide_purchase_price_columns
+                        visible: !hide_purchase_price_columns,
+                        className: 'text-center'
                     },
                     {
                         data: 'payment_due',
                         name: 'payment_due',
-                        visible: !hide_purchase_price_columns
+                        visible: !hide_purchase_price_columns,
+                        className: 'text-center'
                     },
                     {
                         data: 'action',
-                        name: 'action'
+                        name: 'action',
+                        className: 'text-center'
                     }
                 ],
                 "fnDrawCallback": function(oSettings) {
@@ -191,7 +200,9 @@
                     //When the money columns are hidden (stock person), the 6th rendered cell
                     //is the action cell; marking it clickable_td would hijack the action button.
                     if (!hide_purchase_price_columns) {
-                        $(row).find('td:eq(5)').attr('class', 'clickable_td');
+                        //addClass, not attr('class'): attr replaces the attribute
+                        //and drops the column's own classes (text-center).
+                        $(row).find('td:eq(5)').addClass('clickable_td');
                     }
                 }
             });

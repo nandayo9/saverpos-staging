@@ -50,7 +50,6 @@
             fixedHeader:false,
             buttons:[],
             ajax: '/barcodes',
-            bPaginate: false,
             columnDefs: [ {
                 "targets": 2,
                 "orderable": false,

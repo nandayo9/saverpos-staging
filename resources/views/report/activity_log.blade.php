@@ -102,10 +102,10 @@
                 }
             },
             columns: [
-                { data: 'created_at', name: 'created_at'  },
-                { data: 'subject_type', "orderable": false, "searchable": false},
-                { data: 'description', name: 'description'},
-                { data: 'created_by', name: 'created_by'},
+                { data: 'created_at', name: 'created_at', className: 'text-center'  },
+                { data: 'subject_type', "orderable": false, "searchable": false, className: 'text-center'},
+                { data: 'description', name: 'description', className: 'text-center'},
+                { data: 'created_by', name: 'created_by', className: 'text-center'},
                 { data: 'note', name: 'note'}
             ]
         });  

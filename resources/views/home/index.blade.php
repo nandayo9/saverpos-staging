@@ -399,19 +399,21 @@
                     </div>
                 </article>
 
-                <article class="sb-dashboard-kpi sb-dashboard-kpi--visits">
-                    <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-users"></i></span>
-                    <div class="sb-dashboard-kpi__content">
-                        <p class="sb-dashboard-kpi__label">Total Walk-In</p>
-                        @if (!empty($walkInSummary))
-                            <p class="sb-dashboard-kpi__value walk_in_total">{{ $walkInSummary['walk_ins'] }}</p>
+                {{-- Matches the test install: the tile links into the Walk-In
+                     dashboard, and it is hidden from users holding neither
+                     walkin.view nor walkin.view_all rather than showing them a
+                     figure that is permanently zero, because HomeController
+                     never populates $walkInSummary for those users. --}}
+                @if (auth()->user()->can('walkin.view') || auth()->user()->can('walkin.view_all'))
+                    <a href="{{ route('walk-ins.index') }}" class="sb-dashboard-kpi sb-dashboard-kpi--visits">
+                        <span class="sb-dashboard-kpi__icon" aria-hidden="true"><i class="fas fa-users"></i></span>
+                        <div class="sb-dashboard-kpi__content">
+                            <p class="sb-dashboard-kpi__label">Total Walk-In</p>
+                            <p class="sb-dashboard-kpi__value walk_in_total">{{ $walkInSummary['walk_ins'] ?? 0 }}</p>
                             <p class="sb-dashboard-kpi__hint">Visits in selected range</p>
-                        @else
-                            <p class="sb-dashboard-kpi__value walk_in_total">0</p>
-                            <p class="sb-dashboard-kpi__hint">Visits in selected range</p>
-                        @endif
-                    </div>
-                </article>
+                        </div>
+                    </a>
+                @endif
             </section>
 
             <section class="sb-dashboard-kpi-grid sb-dashboard-kpi-grid--secondary" aria-label="Additional dashboard summary">
@@ -459,7 +461,7 @@
                 </a>
             @endif
 
-            <div class="tw-grid tw-grid-cols-1 tw-gap-4 sm:tw-gap-5 lg:tw-grid-cols-2">
+            <div class="tw-grid tw-mt-5 tw-grid-cols-1 tw-gap-4 sm:tw-gap-5 lg:tw-grid-cols-2">
                 @if (auth()->user()->can('sell.view') || auth()->user()->can('direct_sell.view'))
                     @if (!empty($all_locations))
                         <div
@@ -756,7 +758,7 @@
                 @endcan
                 @if (auth()->user()->can('so.view_all') || auth()->user()->can('so.view_own'))
                     <div
-                        class="tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
+                        class="sb-dashboard-card tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                         <div class="tw-p-4 sm:tw-p-5">
                             <div class="tw-flex tw-items-center tw-gap-2.5">
                                 <div
@@ -818,7 +820,7 @@
                     !empty($common_settings['enable_purchase_requisition']) &&
                         (auth()->user()->can('purchase_requisition.view_all') || auth()->user()->can('purchase_requisition.view_own')))
                     <div
-                        class="tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
+                        class="sb-dashboard-card tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                         <div class="tw-p-4 sm:tw-p-5">
                             <div class="tw-flex tw-items-center tw-gap-2.5">
                                 <div
@@ -885,7 +887,7 @@
                         (auth()->user()->can('purchase_order.view_all') || auth()->user()->can('purchase_order.view_own')))
 
                     <div
-                        class="tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
+                        class="sb-dashboard-card tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                         <div class="tw-p-4 sm:tw-p-5">
                             <div class="tw-flex tw-items-center tw-gap-2.5">
                                 <div
@@ -945,7 +947,7 @@
                 @endif
                 @if (auth()->user()->can('dashboard.data'))
                     <div
-                        class="tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
+                        class="sb-dashboard-card tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                         <div class="tw-p-4 sm:tw-p-5">
                             <div class="tw-flex tw-items-center tw-gap-2.5">
                                 <div
@@ -1005,7 +1007,7 @@
                 @endif
                 @if (auth()->user()->can('account.access') && config('constants.show_payments_recovered_today') == true)
                     <div
-                        class="tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
+                        class="sb-dashboard-card tw-transition-all lg:tw-col-span-2 tw-duration-200 tw-bg-white tw-shadow-sm tw-rounded-xl tw-ring-1 hover:tw-shadow-md hover:tw--translate-y-0.5 tw-ring-gray-200">
                         <div class="tw-p-4 sm:tw-p-5">
                             <div class="tw-flex tw-items-center tw-gap-2.5">
                                 <div
@@ -1172,6 +1174,8 @@
 
                 // Cash Flow Table
                 cash_flow_table = $('#cash_flow_table').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
                     processing: true,
                     serverSide: true,
                     fixedHeader:false,
@@ -1404,11 +1408,11 @@
                 },
                 columns: [
                     { data: 'branch', name: 'branch' },
-                    { data: 'sales', name: 'sales' },
-                    { data: 'walk_ins', name: 'walk_ins' },
-                    { data: 'sold', name: 'sold' },
-                    { data: 'conversion', name: 'conversion' },
-                    { data: 'gross_profit', name: 'gross_profit' },
+                    { data: 'sales', name: 'sales', className: 'text-center' },
+                    { data: 'walk_ins', name: 'walk_ins', className: 'text-center' },
+                    { data: 'sold', name: 'sold', className: 'text-center' },
+                    { data: 'conversion', name: 'conversion', className: 'text-center' },
+                    { data: 'gross_profit', name: 'gross_profit', className: 'text-center' },
                 ],
                 "fnDrawCallback": function(oSettings) {
                     __currency_convert_recursively($('#branch_performance_table'));

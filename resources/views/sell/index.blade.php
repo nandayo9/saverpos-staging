@@ -44,11 +44,11 @@
             @can('direct_sell.access')
                 @slot('tool')
                     <div class="box-tools">
-                        <a class="tw-dw-btn tw-bg-gradient-to-r tw-from-indigo-600 tw-to-blue-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full pull-right"
+                        <a class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700 pull-right"
                             href="{{ action([\App\Http\Controllers\SellController::class, 'create']) }}">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                class="icon icon-tabler icons-tabler-outline icon-tabler-plus">
+                                class="icon icon-tabler icons-tabler-outline icon-tabler-plus tw-mr-1">
                                 <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                                 <path d="M12 5l0 14" />
                                 <path d="M5 12l14 0" />
@@ -107,7 +107,12 @@
                             <td class="footer_total_sell_return_due"></td>
                             <td colspan="2"></td>
                             <td class="service_type_count"></td>
-                            <td colspan="7"></td>
+                            {{-- The row has to span all 26 columns or the footer
+                                 table comes out narrower than the header and the
+                                 totals sit under the wrong headings. The spans
+                                 above total 15, so this one carries 11 (it was 7,
+                                 leaving the row 4 columns short). --}}
+                            <td colspan="11"></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -218,11 +223,13 @@
                     },
                     {
                         data: 'transaction_date',
-                        name: 'transaction_date'
+                        name: 'transaction_date',
+                        className: 'text-center'
                     },
                     {
                         data: 'invoice_no',
-                        name: 'invoice_no'
+                        name: 'invoice_no',
+                        className: 'text-center'
                     },
                     {
                         data: 'conatct_name',
@@ -230,7 +237,8 @@
                     },
                     {
                         data: 'mobile',
-                        name: 'contacts.mobile'
+                        name: 'contacts.mobile',
+                        className: 'text-center'
                     },
                     {
                         data: 'business_location',
@@ -238,39 +246,47 @@
                     },
                     {
                         data: 'payment_status',
-                        name: 'payment_status'
+                        name: 'payment_status',
+                        className: 'text-center'
                     },
                     {
                         data: 'payment_methods',
                         orderable: false,
-                        "searchable": false
+                        "searchable": false,
+                        className: 'text-center'
                     },
                     {
                         data: 'final_total',
-                        name: 'final_total'
+                        name: 'final_total',
+                        className: 'text-center'
                     },
                     {
                         data: 'total_paid',
                         name: 'total_paid',
-                        "searchable": false
+                        "searchable": false,
+                        className: 'text-center'
                     },
                     {
                         data: 'total_remaining',
-                        name: 'total_remaining'
+                        name: 'total_remaining',
+                        className: 'text-center'
                     },
                     {
                         data: 'return_due',
                         orderable: false,
-                        "searchable": false
+                        "searchable": false,
+                        className: 'text-center'
                     },
                     {
                         data: 'shipping_status',
-                        name: 'shipping_status'
+                        name: 'shipping_status',
+                        className: 'text-center'
                     },
                     {
                         data: 'total_items',
                         name: 'total_items',
-                        "searchable": false
+                        "searchable": false,
+                        className: 'text-center'
                     },
                     {
                         data: 'types_of_service_name',
@@ -316,7 +332,8 @@
                     },
                     {
                         data: 'added_by',
-                        name: 'u.first_name'
+                        name: 'u.first_name',
+                        className: 'text-center'
                     },
                     {
                         data: 'additional_notes',
@@ -376,7 +393,9 @@
                     $('.payment_method_count').html(__count_status(data, 'payment_methods'));
                 },
                 createdRow: function(row, data, dataIndex) {
-                    $(row).find('td:eq(6)').attr('class', 'clickable_td');
+                    //addClass, not attr('class'): attr replaces the attribute and
+                    //drops the column's own classes (text-center, sorting_1).
+                    $(row).find('td:eq(6)').addClass('clickable_td');
                 }
             });
 

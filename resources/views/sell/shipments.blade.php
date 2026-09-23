@@ -188,14 +188,14 @@ $(document).ready( function(){
             }
         },
         columns: [
-            { data: 'action', name: 'action', searchable: false, orderable: false},
-            { data: 'transaction_date', name: 'transaction_date'  },
-            { data: 'invoice_no', name: 'invoice_no'},
+            { data: 'action', name: 'action', searchable: false, orderable: false, className: 'text-center'},
+            { data: 'transaction_date', name: 'transaction_date', className: 'text-center'  },
+            { data: 'invoice_no', name: 'invoice_no', className: 'text-center'},
             { data: 'conatct_name', name: 'conatct_name'},
-            { data: 'mobile', name: 'contacts.mobile'},
+            { data: 'mobile', name: 'contacts.mobile', className: 'text-center'},
             { data: 'business_location', name: 'bl.name'},
             { data: 'delivery_person', name: 'delivery_person'},
-            { data: 'shipping_status', name: 'shipping_status'},
+            { data: 'shipping_status', name: 'shipping_status', className: 'text-center'},
             @if(!empty($custom_labels['shipping']['custom_field_1']))
                 { data: 'shipping_custom_field_1', name: 'shipping_custom_field_1'},
             @endif
@@ -211,14 +211,16 @@ $(document).ready( function(){
             @if(!empty($custom_labels['shipping']['custom_field_5']))
                 { data: 'shipping_custom_field_5', name: 'shipping_custom_field_5'},
             @endif
-            { data: 'payment_status', name: 'payment_status'},
+            { data: 'payment_status', name: 'payment_status', className: 'text-center'},
             { data: 'waiter', name: 'ss.first_name', @if(empty($is_service_staff_enabled)) visible: false @endif }
         ],
         "fnDrawCallback": function (oSettings) {
             __currency_convert_recursively($('#sell_table'));
         },
         createdRow: function( row, data, dataIndex ) {
-            $( row ).find('td:eq(4)').attr('class', 'clickable_td');
+            //addClass, not attr('class'): attr replaces the attribute and drops
+            //the column's own classes (text-center).
+            $( row ).find('td:eq(4)').addClass('clickable_td');
         }
     });
 

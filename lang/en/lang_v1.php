@@ -45,7 +45,7 @@ return [
     'after_amount' => 'After amount',
     'barcode_label_error' => 'Unsupported SKU id for the selected barcode type',
     'list_products' => 'List Products',
-    'list_expenses' => 'List Expenses',
+    'list_expenses' => 'Expenses Listing',
     'add_expiry' => 'Add item expiry',
     'add_manufacturing_auto_expiry' => 'Add manufacturing date & expiry period',
     'tooltip_enable_expiry' => 'Enable product expiry. <br/> <br/><b>Add item expiry</b>: To directly add item expiry only. <br/> <b>Add manufacturing date & expiry period</b>: To add manufacturing date & expiry period and calculate expiry date based on that.',
@@ -297,7 +297,7 @@ return [
     'time_format' => 'Time Format',
     '12_hour' => '12 Hour',
     '24_hour' => '24 Hour',
-    'list_quotations' => 'List quotations',
+    'list_quotations' => 'List Quotation',
     'list_drafts' => 'List Drafts',
     'you_cannot_delete_this_contact' => 'Cannot delete the contact - Transactions already exist for the contact.',
     'enable_row' => 'Enable Row',
@@ -516,7 +516,7 @@ return [
     'sell_return_details' => 'Sell Return Details',
     'sell_details' => 'Sale Details',
     'return_discount' => 'Return Discount',
-    'total_unit_transfered' => 'Total Unit Transfered',
+    'total_unit_transfered' => 'Total Unit Transferred',
     'total_unit_adjusted' => 'Total Unit Adjusted',
     'return_exist' => 'Return exist for the Transaction, edit the return instead.',
     'synced_from_woocommerce' => 'Synced from Woocommerce',
@@ -1157,6 +1157,17 @@ return [
     'recurring' => 'Recurring',
     'view_product_stock_value' => 'View product stock value',
     'added' => 'Added',
+    // Activity log action labels for App\Services\WalkInService::log() - these
+    // are raw action strings (not "lang_v1."-prefixed) that ReportController's
+    // activityLog() prefixes and translates; without an entry here __() just
+    // echoes the key back, which is what showed up in the Activity Log report.
+    'walk_in_captured' => 'Walk-in Captured',
+    'walk_in_closed_no_sale' => 'Walk-in Closed (No Sale)',
+    'walk_in_converted' => 'Walk-in Converted to Sale',
+    'walk_in_conversion_released' => 'Walk-in Conversion Released',
+    // Parent label for the merged Stocks sidebar dropdown (Stock Transfers +
+    // Stock Adjustment) - see AdminSidebarMenu.php.
+    'stocks' => 'Stocks',
     'disable_credit_sale_button' => 'Disable credit sale button',
     'pay' => 'Pay',
     'use_advance_balance' => 'Use advance balance',

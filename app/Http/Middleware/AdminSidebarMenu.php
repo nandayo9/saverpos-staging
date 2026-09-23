@@ -96,7 +96,11 @@ class AdminSidebarMenu
                     <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                     <path d="M21 21v-2a4 4 0 0 0 -3 -3.85"></path>
                   </svg>', ]
-                )->order(10);
+                // Moved from 10 to 56 (was ahead of Products/Purchase/Sales)
+                // to sit after Reports(55) and before Contacts(57), per the
+                // requested top-level order: ... Reports, User Management,
+                // Contacts, WooCommerce ...
+                )->order(56);
             }
 
             //Contacts dropdown
@@ -149,7 +153,10 @@ class AdminSidebarMenu
                     <path d="M4 12h3"></path>
                     <path d="M4 16h3"></path>
                   </svg>', 'id' => 'tour_step4']
-                )->order(15);
+                // Moved from 15 to 57 (was ahead of Products/Purchase/Sales)
+                // to sit right after User Management(56) and before
+                // WooCommerce(58), per the requested top-level order.
+                )->order(57);
             }
 
             //Products dropdown
@@ -161,18 +168,16 @@ class AdminSidebarMenu
                     __('sale.products'),
                     function ($sub) {
                         if (auth()->user()->can('product.view')) {
+                            // Reverted to a flat link per user feedback: the
+                            // product listing page has its own "Add Product"
+                            // button, so nesting List/Add here was redundant.
+                            // Add Product is intentionally dropped from the
+                            // nav rather than restored elsewhere - the route
+                            // (ProductController::create) is untouched.
                             $sub->url(
                                 action([\App\Http\Controllers\ProductController::class, 'index']),
-                                __('lang_v1.list_products'),
+                                'Product Listing',
                                 ['icon' => '', 'active' => request()->segment(1) == 'products' && request()->segment(2) == '']
-                            );
-                        }
-
-                        if (auth()->user()->can('product.create')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\ProductController::class, 'create']),
-                                __('product.add_product'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'products' && request()->segment(2) == 'create']
                             );
                         }
                         if (auth()->user()->can('product.create')) {
@@ -191,11 +196,6 @@ class AdminSidebarMenu
                         }
                         if (auth()->user()->can('product.create')) {
                             $sub->url(
-                                action([\App\Http\Controllers\VariationTemplateController::class, 'index']),
-                                __('product.variations'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'variation-templates']
-                            );
-                            $sub->url(
                                 action([\App\Http\Controllers\ImportProductsController::class, 'index']),
                                 __('product.import_products'),
                                 ['icon' => '', 'active' => request()->segment(1) == 'import-products']
@@ -213,6 +213,11 @@ class AdminSidebarMenu
                                 action([\App\Http\Controllers\SellingPriceGroupController::class, 'index']),
                                 __('lang_v1.selling_price_group'),
                                 ['icon' => '', 'active' => request()->segment(1) == 'selling-price-group']
+                            );
+                            $sub->url(
+                                action([\App\Http\Controllers\VariationTemplateController::class, 'index']),
+                                __('product.variations'),
+                                ['icon' => '', 'active' => request()->segment(1) == 'variation-templates']
                             );
                         }
                         if (auth()->user()->can('unit.view') || auth()->user()->can('unit.create')) {
@@ -319,63 +324,46 @@ class AdminSidebarMenu
                             );
                         }
 
+                        // Sales Listing, POS, Draft and Quotation were briefly nested
+                        // dropdowns (List/Add each) but reverted to flat links per user
+                        // feedback: their target pages already have their own Add
+                        // button, so the nested submenu was redundant. The Add Sale /
+                        // Add POS / Add Draft / Add Quotation routes are intentionally
+                        // dropped from the nav rather than restored elsewhere; the
+                        // underlying controllers are untouched.
                         if ($is_admin || auth()->user()->hasAnyPermission(['sell.view', 'sell.create', 'direct_sell.access', 'direct_sell.view', 'view_own_sell_only', 'view_commission_agent_sell', 'access_shipping', 'access_own_shipping', 'access_commission_agent_shipping'])) {
                             $sub->url(
                                 action([\App\Http\Controllers\SellController::class, 'index']),
-                                __('lang_v1.all_sales'),
+                                'Sales Listing',
                                 ['icon' => '', 'active' => request()->segment(1) == 'sells' && request()->segment(2) == null]
                             );
                         }
-                        if (in_array('add_sale', $enabled_modules) && auth()->user()->can('direct_sell.access')) {
+                        if ($is_admin || auth()->user()->hasAnyPermission(['sell.view', 'direct_sell.view', 'view_own_sell_only', 'view_commission_agent_sell'])) {
                             $sub->url(
-                                action([\App\Http\Controllers\SellController::class, 'create']),
-                                __('sale.add_sale'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'sells' && request()->segment(2) == 'create' && empty(request()->get('status'))]
+                                action([\App\Http\Controllers\ReportController::class, 'branchAttributedSalesView']),
+                                'Branch Attribute Sales',
+                                ['icon' => '', 'active' => request()->segment(1) == 'reports' && request()->segment(2) == 'branch-attributed-sales']
                             );
                         }
-                        if (auth()->user()->can('sell.create')) {
-                            if (in_array('pos_sale', $enabled_modules)) {
-                                if (auth()->user()->can('sell.view')) {
-                                    $sub->url(
-                                        action([\App\Http\Controllers\SellPosController::class, 'index']),
-                                        __('sale.list_pos'),
-                                        ['icon' => '', 'active' => request()->segment(1) == 'pos' && request()->segment(2) == null]
-                                    );
-                                }
-
-                                $sub->url(
-                                    action([\App\Http\Controllers\SellPosController::class, 'create']),
-                                    __('sale.pos_sale'),
-                                    ['icon' => '', 'active' => request()->segment(1) == 'pos' && request()->segment(2) == 'create']
-                                );
-                            }
-                        }
-
-                        if (in_array('add_sale', $enabled_modules) && auth()->user()->can('direct_sell.access')) {
+                        if (auth()->user()->can('sell.create') && auth()->user()->can('sell.view') && in_array('pos_sale', $enabled_modules)) {
                             $sub->url(
-                                action([\App\Http\Controllers\SellController::class, 'create'], ['status' => 'draft']),
-                                __('lang_v1.add_draft'),
-                                ['icon' => '', 'active' => request()->get('status') == 'draft']
+                                action([\App\Http\Controllers\SellPosController::class, 'index']),
+                                'POS',
+                                ['icon' => '', 'active' => request()->segment(1) == 'pos' && request()->segment(2) == null]
                             );
                         }
+
                         if (in_array('add_sale', $enabled_modules) && ($is_admin || auth()->user()->hasAnyPermission(['draft.view_all', 'draft.view_own']))) {
                             $sub->url(
                                 action([\App\Http\Controllers\SellController::class, 'getDrafts']),
-                                __('lang_v1.list_drafts'),
+                                'Draft',
                                 ['icon' => '', 'active' => request()->segment(1) == 'sells' && request()->segment(2) == 'drafts']
-                            );
-                        }
-                        if (in_array('add_sale', $enabled_modules) && auth()->user()->can('direct_sell.access')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\SellController::class, 'create'], ['status' => 'quotation']),
-                                __('lang_v1.add_quotation'),
-                                ['icon' => '', 'active' => request()->get('status') == 'quotation']
                             );
                         }
                         if (in_array('add_sale', $enabled_modules) && ($is_admin || auth()->user()->hasAnyPermission(['quotation.view_all', 'quotation.view_own']))) {
                             $sub->url(
                                 action([\App\Http\Controllers\SellController::class, 'getQuotations']),
-                                __('lang_v1.list_quotations'),
+                                'Quotation',
                                 ['icon' => '', 'active' => request()->segment(1) == 'sells' && request()->segment(2) == 'quotations']
                             );
                         }
@@ -429,23 +417,31 @@ class AdminSidebarMenu
                 )->order(30);
             }
 
-            //Stock transfer dropdown
-            if (in_array('stock_transfers', $enabled_modules) && (auth()->user()->can('stock_transfer.view') || auth()->user()->can('stock_transfer.create') || auth()->user()->can('stock_transfer.view_own'))) {
+            //Stocks dropdown (merges the former separate Stock Transfers and
+            //Stock Adjustment top-level menus into one "Stocks" parent, per
+            //the requested nav restructure. Routes, permissions and module
+            //gates below are untouched - only the "create" shortcuts were
+            //dropped, since the target structure lists one leaf per section
+            //("Stock Transfers", "Stock Adjustment") rather than a
+            //list/create pair; both list pages still have their own "Add"
+            //action.)
+            if ((in_array('stock_transfers', $enabled_modules) && (auth()->user()->can('stock_transfer.view') || auth()->user()->can('stock_transfer.create') || auth()->user()->can('stock_transfer.view_own')))
+                || (in_array('stock_adjustment', $enabled_modules) && (auth()->user()->can('stock_adjustment.view') || auth()->user()->can('stock_adjustment.create') || auth()->user()->can('view_own_stock_adjustment')))) {
                 $menu->dropdown(
-                    __('lang_v1.stock_transfers'),
-                    function ($sub) {
-                        if (auth()->user()->can('stock_transfer.view') || auth()->user()->can('stock_transfer.view_own')) {
+                    __('lang_v1.stocks'),
+                    function ($sub) use ($enabled_modules) {
+                        if (in_array('stock_transfers', $enabled_modules) && (auth()->user()->can('stock_transfer.view') || auth()->user()->can('stock_transfer.view_own'))) {
                             $sub->url(
                                 action([\App\Http\Controllers\StockTransferController::class, 'index']),
-                                __('lang_v1.list_stock_transfers'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'stock-transfers' && request()->segment(2) == null]
+                                __('lang_v1.stock_transfers'),
+                                ['icon' => '', 'active' => request()->segment(1) == 'stock-transfers']
                             );
                         }
-                        if (auth()->user()->can('stock_transfer.create')) {
+                        if (in_array('stock_adjustment', $enabled_modules) && (auth()->user()->can('stock_adjustment.view') || auth()->user()->can('view_own_stock_adjustment'))) {
                             $sub->url(
-                                action([\App\Http\Controllers\StockTransferController::class, 'create']),
-                                __('lang_v1.add_stock_transfer'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'stock-transfers' && request()->segment(2) == 'create']
+                                action([\App\Http\Controllers\StockAdjustmentController::class, 'index']),
+                                __('stock_adjustment.stock_adjustment'),
+                                ['icon' => '', 'active' => request()->segment(1) == 'stock-adjustments']
                             );
                         }
                     },
@@ -460,36 +456,6 @@ class AdminSidebarMenu
                 )->order(35);
             }
 
-            //stock adjustment dropdown
-            if (in_array('stock_adjustment', $enabled_modules) && (auth()->user()->can('stock_adjustment.view') || auth()->user()->can('stock_adjustment.create') || auth()->user()->can('view_own_stock_adjustment'))) {
-                $menu->dropdown(
-                    __('stock_adjustment.stock_adjustment'),
-                    function ($sub) {
-                        if (auth()->user()->can('stock_adjustment.view')  || auth()->user()->can('view_own_stock_adjustment')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\StockAdjustmentController::class, 'index']),
-                                __('stock_adjustment.list'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'stock-adjustments' && request()->segment(2) == null]
-                            );
-                        }
-                        if (auth()->user()->can('stock_adjustment.create')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\StockAdjustmentController::class, 'create']),
-                                __('stock_adjustment.add'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'stock-adjustments' && request()->segment(2) == 'create']
-                            );
-                        }
-                    },
-                    ['icon' => '<svg aria-hidden="true" class="tw-size-5 tw-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-                    <path d="M12 6m-8 0a8 3 0 1 0 16 0a8 3 0 1 0 -16 0"></path>
-                    <path d="M4 6v6a8 3 0 0 0 16 0v-6"></path>
-                    <path d="M4 12v6a8 3 0 0 0 16 0v-6"></path>
-                  </svg>']
-                )->order(40);
-            }
-
             //Expense dropdown
             if (in_array('expenses', $enabled_modules) && (auth()->user()->can('all_expense.access') || auth()->user()->can('view_own_expense'))) {
                 $menu->dropdown(
@@ -498,16 +464,12 @@ class AdminSidebarMenu
                         $sub->url(
                             action([\App\Http\Controllers\ExpenseController::class, 'index']),
                             __('lang_v1.list_expenses'),
-                            ['icon' => '', 'active' => request()->segment(1) == 'expenses' || request()->segment(1) == 'import-expense' && request()->segment(2) == null]
+                            // Matches Product Listing's convention above: active only
+                            // on the exact list page, not /expenses/create, now that
+                            // Add Expense is dropped from the menu (list page has its
+                            // own Add button).
+                            ['icon' => '', 'active' => (request()->segment(1) == 'expenses' && request()->segment(2) == '') || (request()->segment(1) == 'import-expense' && request()->segment(2) == null)]
                         );
-
-                        if (auth()->user()->can('expense.add')) {
-                            $sub->url(
-                                action([\App\Http\Controllers\ExpenseController::class, 'create']),
-                                __('expense.add_expense'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'expenses' && request()->segment(2) == 'create']
-                            );
-                        }
 
                         if (auth()->user()->can('expense.add') || auth()->user()->can('expense.edit')) {
                             $sub->url(
@@ -577,7 +539,7 @@ class AdminSidebarMenu
                     __('report.reports'),
                     function ($sub) use ($enabled_modules, $is_admin) {
                         if (auth()->user()->can('walkin.view') || auth()->user()->can('walkin.view_all')) {
-                            $sub->url(route('walk-ins.index'), 'Walk-In Intelligence', ['icon' => '', 'active' => request()->segment(1) == 'walk-ins']);
+                            $sub->url(route('walk-ins.index'), 'Walk-In', ['icon' => '', 'active' => request()->segment(1) == 'walk-ins']);
                         }
                         if (auth()->user()->can('profit_loss_report.view')) {
                             $sub->url(
@@ -796,6 +758,24 @@ class AdminSidebarMenu
                 <path d="M22 19l-3 -3l-3 3"></path>
               </svg>', 'active' => request()->segment(1) == 'backup'])->order(60);
             }
+
+            //Woocommerce menu
+            //Presentation-only screens; the paid Modules/Woocommerce package
+            //that serves these on the live site is not in this repository.
+            //stroke="currentColor" so the glyph takes the sidebar's own text
+            //colour and stays visible in both light and dark mode.
+            //stroke-width 1.5, not the tabler default of 2: every other icon
+            //in this sidebar is 1.5, and at 20px the extra weight made the
+            //wordpress glyph read as a filled disc next to them.
+            $menu->url(url('woocommerce'), 'Woocommerce', ['icon' => '<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="tw-size-5 tw-shrink-0 icon icon-tabler icons-tabler-outline icon-tabler-brand-wordpress">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+              <path d="M9.5 9h3"></path>
+              <path d="M4 9h2.5"></path>
+              <path d="M11 9l3 11l4 -9"></path>
+              <path d="M5.5 9l3.5 11l3 -7"></path>
+              <path d="M18 11c.177 -.528 1 -1.364 1 -2.5c0 -1.78 -.776 -2.5 -1.875 -2.5c-.898 0 -1.125 .812 -1.125 1.429c0 1.83 2 2.058 2 3.571z"></path>
+              <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"></path>
+            </svg>', 'active' => request()->segment(1) == 'woocommerce'])->order(58);
 
             //Modules menu
             if (auth()->user()->can('manage_modules')) {

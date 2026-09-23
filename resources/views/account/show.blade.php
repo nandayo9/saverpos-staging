@@ -139,6 +139,8 @@
         
         // Account Book
         account_book = $('#account_book').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
                             processing: true,
                             serverSide: true,
                             fixedHeader:false,

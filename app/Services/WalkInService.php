@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\BusinessLocation;
 use App\Transaction;
 use App\User;
 use App\Utils\Util;
 use App\WalkIn;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use LogicException;
 
 class WalkInService
@@ -18,6 +20,7 @@ class WalkInService
 
     public function capture(User $user, int $locationId): WalkIn
     {
+        $this->assertTableReady();
         $this->assertLocationAccess($user, $locationId, 'walkin.create');
 
         return DB::transaction(function () use ($user, $locationId) {
@@ -37,6 +40,8 @@ class WalkInService
 
     public function closeAsNoSale(User $user, int $walkInId, string $reason): WalkIn
     {
+        $this->assertTableReady();
+
         if (! array_key_exists($reason, (array) config('walkin.reasons', []))) {
             throw new LogicException('Select a valid no-sale reason.');
         }
@@ -64,6 +69,8 @@ class WalkInService
 
     public function convert(User $user, int $walkInId, Transaction $transaction): WalkIn
     {
+        $this->assertTableReady();
+
         return DB::transaction(function () use ($user, $walkInId, $transaction) {
             $walkIn = WalkIn::query()->lockForUpdate()->findOrFail($walkInId);
             $this->assertWalkInAccess($user, $walkIn, 'walkin.assign');
@@ -102,26 +109,41 @@ class WalkInService
     /** Keep the historical visit unresolved when its source sale is voided/deleted. */
     public function releaseConversionForTransaction(Transaction $transaction, ?User $actor = null): void
     {
-        $walkIn = WalkIn::query()->where('transaction_id', $transaction->id)->lockForUpdate()->first();
-        if (! $walkIn) {
-            return;
-        }
+        $this->assertTableReady();
 
-        $before = clone $walkIn;
-        $walkIn->fill([
-            'status' => WalkIn::STATUS_OPEN,
-            'transaction_id' => null,
-            'converted_at' => null,
-            'closed_at' => null,
-            'closed_by' => null,
-            'updated_by' => $actor ? $actor->id : null,
-            'no_sale_reason' => null,
-        ])->save();
-        $this->log($walkIn, 'walk_in_conversion_released', $before, ['transaction_id' => $transaction->id]);
+        DB::transaction(function () use ($transaction, $actor) {
+            $walkIn = WalkIn::query()
+                ->where('transaction_id', $transaction->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $walkIn) {
+                return;
+            }
+
+            $before = clone $walkIn;
+            $walkIn->fill([
+                'status' => WalkIn::STATUS_OPEN,
+                'transaction_id' => null,
+                'converted_at' => null,
+                'closed_at' => null,
+                'closed_by' => null,
+                'updated_by' => $actor ? $actor->id : null,
+                'no_sale_reason' => null,
+            ])->save();
+            $this->log(
+                $walkIn,
+                'walk_in_conversion_released',
+                $before,
+                ['transaction_id' => $transaction->id]
+            );
+        });
     }
 
-    public function summary(int $businessId, $locationId, string $start, string $end): array
+    public function summary(int $businessId, $locationId, $start, $end): array
     {
+        $this->assertTableReady();
+
         $query = WalkIn::query()->where('walk_ins.business_id', $businessId)
             ->whereBetween('walk_ins.arrived_at', [$start, $end]);
         if ($locationId !== null && $locationId !== '') {
@@ -156,8 +178,23 @@ class WalkInService
 
     private function assertLocationAccess(User $user, int $locationId, string $permission): void
     {
-        if (! User::can_access_this_location($locationId, $user->business_id) || ! $user->can($permission)) {
+        $locationBelongsToBusiness = BusinessLocation::query()
+            ->whereKey($locationId)
+            ->where('business_id', $user->business_id)
+            ->where('is_active', 1)
+            ->exists();
+
+        if (! $locationBelongsToBusiness
+            || ! User::can_access_this_location($locationId, $user->business_id)
+            || ! $user->can($permission)) {
             throw new AuthorizationException();
+        }
+    }
+
+    private function assertTableReady(): void
+    {
+        if (! Schema::hasTable('walk_ins')) {
+            throw new LogicException('Walk-In Intelligence is not installed yet.');
         }
     }
 

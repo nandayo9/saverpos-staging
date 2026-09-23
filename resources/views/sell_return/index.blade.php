@@ -72,6 +72,8 @@
         });
 
         sell_return_table = $('#sell_return_table').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
             processing: true,
             serverSide: true,
             fixedHeader:false,
@@ -102,15 +104,15 @@
                 "searchable": false
             } ],
             columns: [
-                { data: 'transaction_date', name: 'transaction_date'  },
-                { data: 'invoice_no', name: 'invoice_no'},
-                { data: 'parent_sale', name: 'T1.invoice_no'},
+                { data: 'transaction_date', name: 'transaction_date', className: 'text-center'  },
+                { data: 'invoice_no', name: 'invoice_no', className: 'text-center'},
+                { data: 'parent_sale', name: 'T1.invoice_no', className: 'text-center'},
                 { data: 'name', name: 'contacts.name'},
                 { data: 'business_location', name: 'bl.name'},
-                { data: 'payment_status', name: 'payment_status'},
-                { data: 'final_total', name: 'final_total'},
-                { data: 'payment_due', name: 'payment_due'},
-                { data: 'action', name: 'action'}
+                { data: 'payment_status', name: 'payment_status', className: 'text-center'},
+                { data: 'final_total', name: 'final_total', className: 'text-center'},
+                { data: 'payment_due', name: 'payment_due', className: 'text-center'},
+                { data: 'action', name: 'action', className: 'text-center'}
             ],
             "fnDrawCallback": function (oSettings) {
                 var total_sell = sum_table_col($('#sell_return_table'), 'final_total');
@@ -124,7 +126,9 @@
                 __currency_convert_recursively($('#sell_return_table'));
             },
             createdRow: function( row, data, dataIndex ) {
-                $( row ).find('td:eq(2)').attr('class', 'clickable_td');
+                //addClass, not attr('class'): attr replaces the attribute and
+                //drops the column's own classes (text-center).
+                $( row ).find('td:eq(2)').addClass('clickable_td');
             }
         });
         $(document).on('change', '#sell_list_filter_location_id, #sell_list_filter_customer_id, #created_by',  function() {

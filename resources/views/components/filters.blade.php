@@ -9,20 +9,7 @@
     .pf-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s cubic-bezier(.4,0,.2,1); }
     .pf-body--open { grid-template-rows: 1fr; }
     .pf-inner { overflow: hidden; }
-    /* left accent bar via pseudo-element */
     .pf-btn { position: relative; }
-    .pf-btn::before {
-        content: '';
-        position: absolute;
-        left: 0; top: 0; bottom: 0;
-        width: 3px;
-        background: var(--theme-700, #004EEB);
-        transform: scaleX(0);
-        transform-origin: left;
-        transition: transform .25s cubic-bezier(.4,0,.2,1);
-    }
-    .pf-open .pf-btn::before { transform: scaleX(1); }
-    .pf-open .pf-btn { border-bottom-color: #e5e7eb !important; }
 </style>
 @endonce
 
@@ -44,7 +31,7 @@ function pfToggle(id) {
 @endonce
 
 <div id="{{ $filterId }}"
-     class="tw-bg-white tw-rounded-xl tw-shadow-sm tw-ring-1 tw-ring-gray-200 tw-mb-4 tw-overflow-hidden tw-transition-shadow tw-duration-200 hover:tw-shadow-md {{ $isOpen ? 'pf-open' : '' }}">
+     class="pf-card tw-bg-white tw-rounded-xl tw-shadow-sm tw-ring-1 tw-ring-gray-200 tw-mb-4 tw-overflow-hidden tw-transition-shadow tw-duration-200 hover:tw-shadow-md {{ $isOpen ? 'pf-open' : '' }}">
 
     {{-- Header --}}
     <button type="button"

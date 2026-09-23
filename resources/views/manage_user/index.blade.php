@@ -20,14 +20,14 @@
         @can('user.create')
             @slot('tool')
                 <div class="box-tools">
-                    <a class="tw-dw-btn tw-bg-gradient-to-r tw-from-indigo-600 tw-to-blue-500 tw-font-bold tw-text-white tw-border-none tw-rounded-full" href="{{action([\App\Http\Controllers\ManageUserController::class, 'create'])}}">
-                        <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-plus"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>                        @lang( 'messages.add' )
+                    <a class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700" style="color: #fff !important;" href="{{action([\App\Http\Controllers\ManageUserController::class, 'create'])}}">
+                        <svg  xmlns="http://www.w3.org/2000/svg"  width="14"  height="14"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-plus tw-mr-1"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>@lang( 'messages.add' )
                     </a>
                  </div>
             @endslot
         @endcan
         @can('user.view')
-            <div class="table-responsive">
+            <div class="sb-table-host">
                 <table class="table table-bordered table-striped" id="users_table">
                     <thead>
                         <tr>
@@ -55,6 +55,7 @@
     //Roles table
     $(document).ready( function(){
         var users_table = $('#users_table').DataTable({
+        scrollX: true,
                     processing: true,
                     serverSide: true,
                     fixedHeader:false,
@@ -65,11 +66,11 @@
                         "searchable": false
                     } ],
                     "columns":[
-                        {"data":"username"},
+                        {"data":"username", "className":"text-center"},
                         {"data":"full_name"},
-                        {"data":"role"},
+                        {"data":"role", "className":"text-center"},
                         {"data":"email"},
-                        {"data":"action"}
+                        {"data":"action", "className":"text-center sb-col-fit"}
                     ]
                 });
         $(document).on('click', 'button.delete_user_button', function(){

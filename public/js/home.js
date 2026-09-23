@@ -39,10 +39,10 @@ $(document).ready(function() {
         pageLength: 5,
         columns: [
             { data: 'model', name: 'p.name' },
-            { data: 'available', name: 'available' },
-            { data: 'avg_age', name: 'avg_age' },
-            { data: 'avg_cost', name: 'avg_cost' },
-            { data: 'stock_value', name: 'stock_value' },
+            { data: 'available', name: 'available', className: 'text-center' },
+            { data: 'avg_age', name: 'avg_age', className: 'text-center' },
+            { data: 'avg_cost', name: 'avg_cost', className: 'text-center' },
+            { data: 'stock_value', name: 'stock_value', className: 'text-center' },
         ],
         ajax: {
             "url": '/home/most-available-models',
@@ -71,11 +71,11 @@ $(document).ready(function() {
         dom: 'Btirp',
         pageLength: 5,
         columns: [
-            { data: 'transaction_date', name: 'transactions.transaction_date' },
+            { data: 'transaction_date', name: 'transactions.transaction_date', className: 'text-center' },
             { data: 'customer', name: 'c.name' },
-            { data: 'invoice_no', name: 'transactions.invoice_no' },
-            { data: 'final_total', name: 'transactions.final_total' },
-            { data: 'payment_status', name: 'transactions.payment_status' },
+            { data: 'invoice_no', name: 'transactions.invoice_no', className: 'text-center' },
+            { data: 'final_total', name: 'transactions.final_total', className: 'text-center' },
+            { data: 'payment_status', name: 'transactions.payment_status', className: 'text-center' },
         ],
         ajax: {
             "url": '/home/recent-sell-transactions',
@@ -106,8 +106,8 @@ $(document).ready(function() {
         pageLength: 5,
         columns: [
             { data: 'product', name: 'p.name' },
-            { data: 'quantity_sold', name: 'quantity_sold' },
-            { data: 'sales_total', name: 'sales_total' },
+            { data: 'quantity_sold', name: 'quantity_sold', className: 'text-center' },
+            { data: 'sales_total', name: 'sales_total', className: 'text-center' },
         ],
         ajax: {
             "url": '/home/top-selling-products',

@@ -431,6 +431,91 @@ class ReportController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
+    /**
+     * Columns of the stock report whose values come from correlated subqueries.
+     * Sorting by any of them forces those subqueries back into the base query.
+     */
+    private const DEFERRED_STOCK_COLUMNS = [
+        'total_sold', 'total_transfered', 'total_adjusted', 'stock_price',
+    ];
+
+    /** Per-request cache of aggregates deferred out of the stock report query. */
+    private $deferred_stock_aggregates = [];
+
+    /**
+     * The `name` of the column the datatable is currently ordered by, or null.
+     */
+    private function requestedOrderColumn(Request $request)
+    {
+        $order = $request->input('order');
+        $columns = $request->input('columns');
+
+        if (empty($order[0]) || ! isset($order[0]['column']) || empty($columns)) {
+            return null;
+        }
+
+        $index = (int) $order[0]['column'];
+
+        return $columns[$index]['name'] ?? null;
+    }
+
+    /**
+     * Populate the deferred aggregate columns for one row of the stock report.
+     *
+     * One query per (variation, location) pair, memoised, so a 25 row page
+     * costs 25 cheap indexed lookups instead of ~8,800 subquery evaluations.
+     * The SQL mirrors ProductUtil::getProductStockDetails() exactly so the
+     * figures are identical whichever path produced them.
+     */
+    private function fillDeferredStockAggregates($row)
+    {
+        if (property_exists($row, 'total_sold') || empty($row->variation_id)) {
+            return $row;
+        }
+
+        $key = $row->variation_id.'|'.$row->location_id;
+
+        if (! array_key_exists($key, $this->deferred_stock_aggregates)) {
+            $pl_query_string = $this->productUtil->get_pl_quantity_sum_string('pl');
+
+            $sql = "SELECT
+                (SELECT SUM(TSL.quantity - TSL.quantity_returned) FROM transactions
+                    JOIN transaction_sell_lines AS TSL ON transactions.id=TSL.transaction_id
+                    WHERE transactions.status='final' AND transactions.type='sell'
+                      AND transactions.location_id=? AND TSL.variation_id=?) as total_sold,
+                (SELECT SUM(IF(transactions.type='sell_transfer', TSL.quantity, 0)) FROM transactions
+                    JOIN transaction_sell_lines AS TSL ON transactions.id=TSL.transaction_id
+                    WHERE transactions.status='final' AND transactions.type='sell_transfer'
+                      AND transactions.location_id=? AND TSL.variation_id=?) as total_transfered,
+                (SELECT SUM(IF(transactions.type='stock_adjustment', SAL.quantity, 0)) FROM transactions
+                    JOIN stock_adjustment_lines AS SAL ON transactions.id=SAL.transaction_id
+                    WHERE transactions.type='stock_adjustment' AND transactions.location_id=?
+                      AND SAL.variation_id=?) as total_adjusted,
+                (SELECT SUM(COALESCE(pl.quantity - ($pl_query_string), 0) * purchase_price_inc_tax) FROM transactions
+                    JOIN purchase_lines AS pl ON transactions.id=pl.transaction_id
+                    WHERE (transactions.status='received' OR transactions.type='purchase_return')
+                      AND transactions.location_id=? AND pl.variation_id=?) as stock_price";
+
+            $bindings = [
+                $row->location_id, $row->variation_id,
+                $row->location_id, $row->variation_id,
+                $row->location_id, $row->variation_id,
+                $row->location_id, $row->variation_id,
+            ];
+
+            $this->deferred_stock_aggregates[$key] = DB::selectOne($sql, $bindings);
+        }
+
+        $aggregates = $this->deferred_stock_aggregates[$key];
+
+        $row->total_sold = $aggregates->total_sold;
+        $row->total_transfered = $aggregates->total_transfered;
+        $row->total_adjusted = $aggregates->total_adjusted;
+        $row->stock_price = $aggregates->stock_price;
+
+        return $row;
+    }
+
     public function getStockReport(Request $request)
     {
         if (! auth()->user()->can('stock_report.view')) {
@@ -463,6 +548,14 @@ class ReportController extends Controller
 
             //Return the details in ajax call
             $for = request()->input('for') == 'view_product' ? 'view_product' : 'datatables';
+
+            // Skip the four correlated subqueries in the base query and fill
+            // them in per displayed row instead - unless the grid is being
+            // sorted by one of them, in which case they have to be in the SQL
+            // for the ORDER BY to mean anything. The modal path keeps them too,
+            // because it renders every row at once rather than a page.
+            $filters['defer_aggregates'] = $for === 'datatables'
+                && ! in_array($this->requestedOrderColumn($request), self::DEFERRED_STOCK_COLUMNS, true);
 
             $products = $this->productUtil->getProductStockDetails($business_id, $filters, $for);
             //To show stock details on view product modal
@@ -501,6 +594,7 @@ class ReportController extends Controller
                     return $variation;
                 })
                 ->editColumn('total_sold', function ($row) {
+                    $this->fillDeferredStockAggregates($row);
                     $total_sold = 0;
                     if ($row->total_sold) {
                         $total_sold = (float) $row->total_sold;
@@ -509,6 +603,7 @@ class ReportController extends Controller
                     return '<span data-is_quantity="true" class="total_sold" data-orig-value="'.$total_sold.'" data-unit="'.$row->unit.'" >'.$this->transactionUtil->num_f($total_sold, false, null, true).'</span> '.$row->unit;
                 })
                 ->editColumn('total_transfered', function ($row) {
+                    $this->fillDeferredStockAggregates($row);
                     $total_transfered = 0;
                     if ($row->total_transfered) {
                         $total_transfered = (float) $row->total_transfered;
@@ -518,6 +613,7 @@ class ReportController extends Controller
                 })
 
                 ->editColumn('total_adjusted', function ($row) {
+                    $this->fillDeferredStockAggregates($row);
                     $total_adjusted = 0;
                     if ($row->total_adjusted) {
                         $total_adjusted = (float) $row->total_adjusted;
@@ -538,6 +634,7 @@ class ReportController extends Controller
                     return $html;
                 })
                 ->editColumn('stock_price', function ($row) {
+                    $this->fillDeferredStockAggregates($row);
                     $html = '<span class="total_stock_price" data-orig-value="'
                         .$row->stock_price.'">'.
                         $this->transactionUtil->num_f($row->stock_price, true).'</span>';
@@ -552,6 +649,7 @@ class ReportController extends Controller
                     return  '<span class="stock_value_by_sale_price" data-orig-value="'.(float) $stock_price.'" > '.$this->transactionUtil->num_f($stock_price, true).'</span>';
                 })
                 ->addColumn('potential_profit', function ($row) {
+                    $this->fillDeferredStockAggregates($row);
                     $stock = $row->stock ? $row->stock : 0;
                     $unit_selling_price = (float) $row->group_price > 0 ? $row->group_price : $row->unit_price;
                     $stock_price_by_sp = $stock * $unit_selling_price;
@@ -1317,6 +1415,121 @@ class ReportController extends Controller
         return view('report.register_report')
                     ->with(compact('users', 'payment_types'));
     }
+
+public function getBranchAttributedSales()
+{
+    if (!auth()->user()->can('sell.view') && !auth()->user()->can('direct_sell.access')) {
+        abort(403, 'Unauthorized action.');
+    }
+
+    $business_id = request()->session()->get('user.business_id');
+
+    $start = null;
+    $end = null;
+
+    if (!empty(request()->start_date) && !empty(request()->end_date)) {
+        $start = request()->start_date . ' 00:00:00';
+        $end = request()->end_date . ' 23:59:59';
+    }
+
+   $paid_in_period_subquery = DB::table('transaction_payments as tp')
+    ->selectRaw('
+        COALESCE(
+            SUM(
+                IF(
+                    tp.is_return = 0,
+                    tp.amount,
+                    tp.amount * -1
+                )
+            ),
+            0
+        )
+    ')
+    ->whereColumn('tp.transaction_id', 'transactions.id');
+
+    if (!empty($start) && !empty($end)) {
+        $paid_in_period_subquery->whereBetween('tp.paid_on', [$start, $end]);
+    }
+
+    $sells = Transaction::leftJoin('contacts', 'transactions.contact_id', '=', 'contacts.id')
+        ->leftJoin('business_locations as pos_location', 'transactions.location_id', '=', 'pos_location.id')
+        ->leftJoin('business_locations as attribution_branch', 'transactions.attribution_branch_id', '=', 'attribution_branch.id')
+        ->leftJoin('users as commission_agent_user', 'transactions.commission_agent', '=', 'commission_agent_user.id')
+        ->where('transactions.business_id', $business_id)
+        ->where('transactions.type', 'sell')
+        ->where('transactions.status', 'final')
+        ->select(
+            'transactions.id',
+            'transactions.transaction_date',
+            'transactions.invoice_no',
+            'transactions.final_total',
+            'transactions.payment_status',
+            // getPaymentStatus() promotes due -> overdue from these two, so
+            // they have to be selected or every overdue row reads as "Due".
+            'transactions.pay_term_number',
+            'transactions.pay_term_type',
+            'contacts.name as customer_name',
+            'pos_location.name as pos_location',
+            'attribution_branch.name as attribution_branch',
+            DB::raw("CONCAT(COALESCE(commission_agent_user.first_name, ''), ' ', COALESCE(commission_agent_user.last_name, '')) as commission_agent_name")
+        )
+        ->selectSub($paid_in_period_subquery, 'paid_in_selected_period');
+
+    if (!empty($start) && !empty($end)) {
+        if (request()->date_filter_type == 'payment_date') {
+            $sells->whereExists(function ($query) use ($start, $end) {
+                $query->select(DB::raw(1))
+                    ->from('transaction_payments as tp_filter')
+                    ->whereRaw('tp_filter.transaction_id = transactions.id')
+                    ->whereBetween('tp_filter.paid_on', [$start, $end]);
+            });
+        } else {
+            $sells->whereBetween('transactions.transaction_date', [$start, $end]);
+        }
+    }
+
+    if (!empty(request()->attribution_branch_id)) {
+        $sells->whereRaw(
+            'COALESCE(transactions.attribution_branch_id, transactions.location_id) = ?',
+            [request()->attribution_branch_id]
+        );
+    }
+
+    if (!empty(request()->pos_location_id)) {
+        $sells->where('transactions.location_id', request()->pos_location_id);
+    }
+
+    return datatables()->of($sells)
+        ->editColumn('transaction_date', '{{@format_datetime($transaction_date)}}')
+        ->editColumn('final_total', '<span class="display_currency final-total" data-currency_symbol="true" data-orig-value="{{$final_total}}">{{$final_total}}</span>')
+        ->editColumn('paid_in_selected_period', '<span class="display_currency paid-in-selected-period" data-currency_symbol="true" data-orig-value="{{$paid_in_selected_period}}">{{$paid_in_selected_period}}</span>')
+        // Same badge the Sells list and the other reports use, via the shared
+        // partial and the @payment_status directive, rather than plain text.
+        ->editColumn('payment_status', function ($row) {
+            $payment_status = Transaction::getPaymentStatus($row);
+
+            return (string) view('sell.partials.payment_status', [
+                'payment_status' => $payment_status,
+                'id' => $row->id,
+            ]);
+        })
+        ->rawColumns(['final_total', 'paid_in_selected_period', 'payment_status'])
+        ->make(true);
+}
+
+public function branchAttributedSalesView()
+{
+    if (!auth()->user()->can('sell.view') && !auth()->user()->can('direct_sell.access')) {
+        abort(403, 'Unauthorized action.');
+    }
+
+    $business_id = request()->session()->get('user.business_id');
+
+    $business_locations = BusinessLocation::forDropdown($business_id, true);
+
+    return view('report.branch_attributed_sales')
+        ->with(compact('business_locations'));
+}
 
     /**
      * Shows sales representative report

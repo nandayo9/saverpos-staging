@@ -79,6 +79,8 @@
     $(document).ready(function() {
         //Purchase report table
         purchase_report_table = $('#purchase_report_table').DataTable({
+        scrollX: true,
+        scrollCollapse: true,
             processing: true,
             serverSide: true,
             fixedHeader:false,

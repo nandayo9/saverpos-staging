@@ -73,10 +73,30 @@ class CohortPolicy
         return (string) $configuredId === (string) $actualId;
     }
 
-    protected function matchesConfiguredLocation($actualId): bool
+    /**
+     * The cohort's configured location ids, falling back to the legacy
+     * singular value when the plural list is empty or unset. Callers that
+     * need the actual list (e.g. populating a location picker) should use
+     * this rather than reading config('recommerce.cohort.location_ids')
+     * directly, which does not carry the singular fallback.
+     */
+    public function configuredLocationIds(): array
     {
         $configured = config('recommerce.cohort.location_ids', []);
-        if (! is_array($configured) || $configured === []) {
+
+        if (is_array($configured) && $configured !== []) {
+            return array_values(array_unique($configured));
+        }
+
+        $legacy = config('recommerce.cohort.location_id');
+
+        return $legacy === null || $legacy === '' ? [] : [(int) $legacy];
+    }
+
+    protected function matchesConfiguredLocation($actualId): bool
+    {
+        $configured = $this->configuredLocationIds();
+        if ($configured === []) {
             return $this->matchesConfiguredId('location_id', $actualId);
         }
 
