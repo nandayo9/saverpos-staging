@@ -88,6 +88,21 @@
                         {!! Form::select('cg_filter', $customer_groups, null, ['class' => 'form-control', 'id' => 'cg_filter']) !!}
                     </div>
                 </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="customer_date_filter">
+                            Added On Date Range:
+                        </label>
+                        <input
+                            type="text"
+                            id="customer_date_filter"
+                            class="form-control"
+                            placeholder="Select a date range"
+                            autocomplete="off"
+                            readonly
+                        >
+                    </div>
+                </div>
             @endif
 
             @if (config('constants.enable_contact_assign') === true)
