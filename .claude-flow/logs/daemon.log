@@ -107,3 +107,91 @@
 [2026-09-28T09:00:35.520Z] [INFO] Worker audit completed in 4ms
 [2026-09-28T09:03:35.438Z] [INFO] Starting worker: map (1/2 concurrent)
 [2026-09-28T09:03:35.439Z] [INFO] Worker map completed in 4ms
+[2026-09-28T12:39:45.726Z] [INFO] AI workers disabled (default) - all workers run local-only. Enable with `daemon start --headless`, daemon.aiWorkers.enabled=true, or RUFLO_DAEMON_AI_WORKERS=1 (#2661)
+[2026-09-28T12:39:45.728Z] [INFO] Scheduled map (interval: 900s, first run in 0s)
+[2026-09-28T12:39:45.728Z] [INFO] Scheduled audit (interval: 600s, first run in 120s)
+[2026-09-28T12:39:45.729Z] [INFO] Scheduled optimize (interval: 900s, first run in 240s)
+[2026-09-28T12:39:45.729Z] [INFO] Scheduled consolidate (interval: 1800s, first run in 360s)
+[2026-09-28T12:39:45.729Z] [INFO] Scheduled testgaps (interval: 1200s, first run in 480s)
+[2026-09-28T12:39:45.729Z] [INFO] Scheduled backup (interval: 86400s, first run in 65929.595s)
+[2026-09-28T12:39:45.729Z] [INFO] Scheduled harness (interval: 21600s, first run in 1249.593s)
+[2026-09-28T12:39:45.729Z] [INFO] Lifecycle monitor active (workspace-removal, ttl=43200s, idle=1800s)
+[2026-09-28T12:39:45.732Z] [INFO] Daemon started (PID: 3616, CPUs: 16, workers: 7, maxCpuLoad: 12.8, minFreeMemoryPercent: 10%)
+[2026-09-28T12:39:45.735Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T12:39:45.736Z] [INFO] Worker map completed in 3ms
+[2026-09-28T12:41:45.735Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T12:41:45.736Z] [INFO] Worker audit completed in 2ms
+[2026-09-28T12:43:45.734Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T12:43:45.735Z] [INFO] Worker optimize completed in 2ms
+[2026-09-28T12:45:45.738Z] [INFO] Starting worker: consolidate (1/2 concurrent)
+[2026-09-28T12:45:45.739Z] [INFO] Consolidate worker: distillation skipped (better-sqlite3 unavailable)
+[2026-09-28T12:45:45.742Z] [INFO] Worker consolidate completed in 9ms
+[2026-09-28T12:47:45.743Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T12:47:45.744Z] [INFO] Worker testgaps completed in 7ms
+[2026-09-28T12:51:45.754Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T12:51:45.755Z] [INFO] Worker audit completed in 10ms
+[2026-09-28T12:54:45.745Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T12:54:45.746Z] [INFO] Worker map completed in 2ms
+[2026-09-28T12:58:45.744Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T12:58:45.744Z] [INFO] Worker optimize completed in 6ms
+[2026-09-28T13:00:35.338Z] [INFO] Starting worker: harness (1/2 concurrent)
+[2026-09-28T13:00:35.342Z] [INFO] Worker harness completed in 6ms
+[2026-09-28T13:01:45.766Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T13:01:45.767Z] [INFO] Worker audit completed in 4ms
+[2026-09-28T13:07:45.761Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T13:07:45.762Z] [INFO] Worker testgaps completed in 2ms
+[2026-09-28T13:09:45.754Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T13:09:45.755Z] [INFO] Worker map completed in 6ms
+[2026-09-28T13:11:45.784Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T13:11:45.785Z] [INFO] Worker audit completed in 3ms
+[2026-09-28T13:13:45.756Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T13:13:45.757Z] [INFO] Worker optimize completed in 4ms
+[2026-09-28T13:15:45.762Z] [INFO] Starting worker: consolidate (1/2 concurrent)
+[2026-09-28T13:15:45.771Z] [INFO] Consolidate worker: distillation skipped (better-sqlite3 unavailable)
+[2026-09-28T13:15:45.777Z] [INFO] Worker consolidate completed in 16ms
+[2026-09-28T13:21:45.805Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T13:21:45.806Z] [INFO] Worker audit completed in 9ms
+[2026-09-28T13:24:45.762Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T13:24:45.762Z] [INFO] Worker map completed in 3ms
+[2026-09-28T13:27:45.765Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T13:27:45.765Z] [INFO] Worker testgaps completed in 2ms
+[2026-09-28T13:28:45.773Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T13:28:45.775Z] [INFO] Worker optimize completed in 11ms
+[2026-09-28T13:31:45.818Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T13:31:45.819Z] [INFO] Worker audit completed in 4ms
+[2026-09-28T13:39:45.767Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T13:39:45.768Z] [INFO] Worker map completed in 3ms
+[2026-09-28T13:41:45.839Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T13:41:45.840Z] [INFO] Worker audit completed in 6ms
+[2026-09-28T13:43:45.795Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T13:43:45.795Z] [INFO] Worker optimize completed in 6ms
+[2026-09-28T13:45:45.803Z] [INFO] Starting worker: consolidate (1/2 concurrent)
+[2026-09-28T13:45:45.804Z] [INFO] Consolidate worker: distillation skipped (better-sqlite3 unavailable)
+[2026-09-28T13:45:45.805Z] [INFO] Worker consolidate completed in 14ms
+[2026-09-28T13:47:45.772Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T13:47:45.772Z] [INFO] Worker testgaps completed in 3ms
+[2026-09-28T13:51:45.862Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T13:51:45.863Z] [INFO] Worker audit completed in 2ms
+[2026-09-28T13:54:45.774Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T13:54:45.775Z] [INFO] Worker map completed in 2ms
+[2026-09-28T13:58:45.811Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T13:58:45.811Z] [INFO] Worker optimize completed in 1ms
+[2026-09-28T14:01:45.887Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T14:01:45.887Z] [INFO] Worker audit completed in 8ms
+[2026-09-28T14:07:45.791Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T14:07:45.791Z] [INFO] Worker testgaps completed in 4ms
+[2026-09-28T14:09:45.786Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T14:09:45.786Z] [INFO] Worker map completed in 3ms
+[2026-09-28T14:11:45.893Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T14:11:45.894Z] [INFO] Worker audit completed in 2ms
+[2026-09-28T14:13:45.843Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T14:13:45.843Z] [INFO] Worker optimize completed in 11ms
+[2026-09-28T14:15:45.822Z] [INFO] Starting worker: consolidate (1/2 concurrent)
+[2026-09-28T14:15:45.823Z] [INFO] Consolidate worker: distillation skipped (better-sqlite3 unavailable)
+[2026-09-28T14:15:45.823Z] [INFO] Worker consolidate completed in 4ms
+[2026-09-28T14:21:45.906Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T14:21:45.907Z] [INFO] Worker audit completed in 3ms
+[2026-09-28T14:24:45.794Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T14:24:45.795Z] [INFO] Worker map completed in 4ms
+[2026-09-28T14:27:45.802Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T14:27:45.803Z] [INFO] Worker testgaps completed in 3ms
