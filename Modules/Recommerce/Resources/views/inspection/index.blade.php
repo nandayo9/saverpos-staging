@@ -6,7 +6,7 @@
 @php
     $inspectionStatusLabels = ['PENDING' => 'Awaiting inspection', 'ASSIGNED' => 'Assigned', 'IN_INSPECTION' => 'In inspection', 'FAILED' => 'Action required', 'PASSED' => 'Cleared'];
 @endphp
-<section class="container-fluid" aria-labelledby="inspection-queue-title">
+<section class="container-fluid" aria-labelledby="inspection-queue-title" style="margin-top:24px">
     <div class="box box-primary">
         <div class="box-header with-border">
             <div class="pull-right"><a class="btn btn-default btn-sm" href="{{ route('recommerce.devices.index') }}">Device Registry</a></div>

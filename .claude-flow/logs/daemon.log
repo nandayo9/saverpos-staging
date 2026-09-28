@@ -1,0 +1,109 @@
+[2026-09-28T06:48:35.307Z] [INFO] AI workers disabled (default) - all workers run local-only. Enable with `daemon start --headless`, daemon.aiWorkers.enabled=true, or RUFLO_DAEMON_AI_WORKERS=1 (#2661)
+[2026-09-28T06:48:35.308Z] [INFO] Scheduled map (interval: 900s, first run in 0s)
+[2026-09-28T06:48:35.308Z] [INFO] Scheduled audit (interval: 600s, first run in 120s)
+[2026-09-28T06:48:35.308Z] [INFO] Scheduled optimize (interval: 900s, first run in 240s)
+[2026-09-28T06:48:35.308Z] [INFO] Scheduled consolidate (interval: 1800s, first run in 360s)
+[2026-09-28T06:48:35.309Z] [INFO] Scheduled testgaps (interval: 1200s, first run in 480s)
+[2026-09-28T06:48:35.309Z] [INFO] Scheduled backup (interval: 86400s, first run in 600s)
+[2026-09-28T06:48:35.309Z] [INFO] Scheduled harness (interval: 21600s, first run in 720s)
+[2026-09-28T06:48:35.309Z] [INFO] Lifecycle monitor active (workspace-removal, ttl=43200s, idle=1800s)
+[2026-09-28T06:48:35.311Z] [INFO] Daemon started (PID: 30528, CPUs: 16, workers: 7, maxCpuLoad: 12.8, minFreeMemoryPercent: 10%)
+[2026-09-28T06:48:35.313Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T06:48:35.314Z] [INFO] Worker map completed in 2ms
+[2026-09-28T06:50:35.324Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T06:50:35.326Z] [INFO] Worker audit completed in 5ms
+[2026-09-28T06:52:35.321Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T06:52:35.322Z] [INFO] Worker optimize completed in 4ms
+[2026-09-28T06:54:35.312Z] [INFO] Starting worker: consolidate (1/2 concurrent)
+[2026-09-28T06:54:35.323Z] [INFO] Consolidate worker: distillation skipped (target table episodes missing (agentdb schema not initialised))
+[2026-09-28T06:54:35.323Z] [INFO] Worker consolidate completed in 13ms
+[2026-09-28T06:56:35.325Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T06:56:35.326Z] [INFO] Worker testgaps completed in 4ms
+[2026-09-28T06:58:35.312Z] [INFO] Starting worker: backup (1/2 concurrent)
+[2026-09-28T06:58:35.324Z] [INFO] Worker backup completed in 14ms
+[2026-09-28T07:00:35.320Z] [INFO] Starting worker: harness (1/2 concurrent)
+[2026-09-28T07:00:35.322Z] [INFO] Worker harness completed in 5ms
+[2026-09-28T07:00:35.334Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T07:00:35.334Z] [INFO] Worker audit completed in 1ms
+[2026-09-28T07:03:35.332Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T07:03:35.333Z] [INFO] Worker map completed in 4ms
+[2026-09-28T07:07:35.329Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T07:07:35.329Z] [INFO] Worker optimize completed in 3ms
+[2026-09-28T07:10:35.350Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T07:10:35.350Z] [INFO] Worker audit completed in 3ms
+[2026-09-28T07:16:35.336Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T07:16:35.337Z] [INFO] Worker testgaps completed in 4ms
+[2026-09-28T07:18:35.340Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T07:18:35.341Z] [INFO] Worker map completed in 3ms
+[2026-09-28T07:20:35.375Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T07:20:35.376Z] [INFO] Worker audit completed in 13ms
+[2026-09-28T07:22:35.349Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T07:22:35.349Z] [INFO] Worker optimize completed in 6ms
+[2026-09-28T07:24:35.332Z] [INFO] Starting worker: consolidate (1/2 concurrent)
+[2026-09-28T07:24:35.335Z] [INFO] Consolidate worker: distillation skipped (target table episodes missing (agentdb schema not initialised))
+[2026-09-28T07:24:35.335Z] [INFO] Worker consolidate completed in 4ms
+[2026-09-28T07:30:35.393Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T07:30:35.395Z] [INFO] Worker audit completed in 4ms
+[2026-09-28T07:33:35.351Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T07:33:35.352Z] [INFO] Worker map completed in 4ms
+[2026-09-28T07:36:35.356Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T07:36:35.357Z] [INFO] Worker testgaps completed in 5ms
+[2026-09-28T07:37:35.368Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T07:37:35.369Z] [INFO] Worker optimize completed in 2ms
+[2026-09-28T07:40:35.405Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T07:40:35.406Z] [INFO] Worker audit completed in 3ms
+[2026-09-28T07:48:35.363Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T07:48:35.365Z] [INFO] Worker map completed in 5ms
+[2026-09-28T07:50:35.421Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T07:50:35.422Z] [INFO] Worker audit completed in 3ms
+[2026-09-28T07:52:35.381Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T07:52:35.381Z] [INFO] Worker optimize completed in 2ms
+[2026-09-28T07:54:35.345Z] [INFO] Starting worker: consolidate (1/2 concurrent)
+[2026-09-28T07:54:35.348Z] [INFO] Consolidate worker: distillation skipped (target table episodes missing (agentdb schema not initialised))
+[2026-09-28T07:54:35.349Z] [INFO] Worker consolidate completed in 9ms
+[2026-09-28T07:56:35.365Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T07:56:35.366Z] [INFO] Worker testgaps completed in 3ms
+[2026-09-28T08:00:35.433Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T08:00:35.434Z] [INFO] Worker audit completed in 3ms
+[2026-09-28T08:03:35.375Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T08:03:35.376Z] [INFO] Worker map completed in 3ms
+[2026-09-28T08:07:35.394Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T08:07:35.394Z] [INFO] Worker optimize completed in 3ms
+[2026-09-28T08:10:35.450Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T08:10:35.451Z] [INFO] Worker audit completed in 3ms
+[2026-09-28T08:16:35.373Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T08:16:35.374Z] [INFO] Worker testgaps completed in 3ms
+[2026-09-28T08:18:35.392Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T08:18:35.393Z] [INFO] Worker map completed in 3ms
+[2026-09-28T08:20:35.463Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T08:20:35.463Z] [INFO] Worker audit completed in 11ms
+[2026-09-28T08:22:35.401Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T08:22:35.402Z] [INFO] Worker optimize completed in 3ms
+[2026-09-28T08:24:35.359Z] [INFO] Starting worker: consolidate (1/2 concurrent)
+[2026-09-28T08:24:35.361Z] [INFO] Consolidate worker: distillation skipped (target table episodes missing (agentdb schema not initialised))
+[2026-09-28T08:24:35.361Z] [INFO] Worker consolidate completed in 5ms
+[2026-09-28T08:30:35.481Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T08:30:35.482Z] [INFO] Worker audit completed in 2ms
+[2026-09-28T08:33:35.401Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T08:33:35.401Z] [INFO] Worker map completed in 1ms
+[2026-09-28T08:36:35.391Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T08:36:35.391Z] [INFO] Worker testgaps completed in 2ms
+[2026-09-28T08:37:35.422Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T08:37:35.422Z] [INFO] Worker optimize completed in 2ms
+[2026-09-28T08:40:35.501Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T08:40:35.501Z] [INFO] Worker audit completed in 3ms
+[2026-09-28T08:48:35.420Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T08:48:35.420Z] [INFO] Worker map completed in 3ms
+[2026-09-28T08:50:35.508Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T08:50:35.509Z] [INFO] Worker audit completed in 3ms
+[2026-09-28T08:52:35.436Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T08:52:35.436Z] [INFO] Worker optimize completed in 4ms
+[2026-09-28T08:54:35.376Z] [INFO] Starting worker: consolidate (1/2 concurrent)
+[2026-09-28T08:54:35.378Z] [INFO] Consolidate worker: distillation skipped (target table episodes missing (agentdb schema not initialised))
+[2026-09-28T08:54:35.378Z] [INFO] Worker consolidate completed in 4ms
+[2026-09-28T08:56:35.413Z] [INFO] Starting worker: testgaps (1/2 concurrent)
+[2026-09-28T08:56:35.414Z] [INFO] Worker testgaps completed in 4ms
+[2026-09-28T09:00:35.520Z] [INFO] Starting worker: audit (1/2 concurrent)
+[2026-09-28T09:00:35.520Z] [INFO] Worker audit completed in 4ms
+[2026-09-28T09:03:35.438Z] [INFO] Starting worker: map (1/2 concurrent)
+[2026-09-28T09:03:35.439Z] [INFO] Worker map completed in 4ms

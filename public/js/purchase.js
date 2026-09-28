@@ -656,6 +656,15 @@ $(document).ready(function () {
         })(),
         fnDrawCallback: function (oSettings) {
             __currency_convert_recursively($('#purchase_table'));
+
+            // scrollX + scrollY sizes the header/footer clones for a vertical
+            // scrollbar that may not exist once the real row count renders
+            // (scrollCollapse shrinks the body to fit). That leaves every
+            // header/footer column ~16px wider than its body counterpart, so
+            // "Total:" and the other footer cells drift right of the columns
+            // they belong to. columns.adjust() re-measures against the actual
+            // rendered body and re-syncs the head/foot clones to match.
+            purchase_table.columns.adjust();
         },
         footerCallback: function (row, data, start, end, display) {
             var total_purchase = 0;

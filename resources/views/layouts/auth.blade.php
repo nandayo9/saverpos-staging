@@ -11,6 +11,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title') - {{ config('app.name', 'SAVERPOS') }}</title>
+    @include('layouts.partials.seo')
 
     @include('layouts.partials.css')
 

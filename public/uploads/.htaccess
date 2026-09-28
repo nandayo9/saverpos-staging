@@ -1,0 +1,14 @@
+# User uploads are data, never code.
+#
+# Upload handlers (App\Utils\Util::uploadFile, App\Media::uploadFile,
+# Util::storeRemoteFile) already store files under a safe extension derived
+# from the detected content type. This is a backstop for Apache: refuse to
+# serve anything with a script extension from this tree, in case such a file
+# ever gets here some other way. (nginx / IIS / `php artisan serve` ignore
+# this file; configure the equivalent there.)
+<FilesMatch "(?i)\.(php[0-9]?|phtml|phar|pht|phps|cgi|pl|py|sh|asp|aspx|jsp)$">
+    Require all denied
+</FilesMatch>
+
+# Do not list directory contents.
+Options -Indexes

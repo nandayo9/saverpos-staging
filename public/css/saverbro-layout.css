@@ -485,6 +485,43 @@ div.dataTables_wrapper div.dataTables_length label {
   overflow-x: visible;
 }
 
+/* Any table combining scrollX with scrollY (Purchases, Reports) shows a
+   duplicated, un-sorted header row above the first data row. DataTables
+   keeps a second, real <thead> inside .dataTables_scrollBody purely to sync
+   column widths with the visible header in .dataTables_scrollHead; vendor.css
+   only strips that clone's sort-icon pseudo-elements, not its box size, so it
+   renders full height and visible. Collapse it instead of hiding it outright -
+   DataTables still reads its cell widths on every redraw.
+
+   Padding is deliberately left alone here. This clone is the first <tr> in
+   the scroll body's table, and that table runs table-layout:fixed (set by
+   DataTables), which derives every column's width from that first row's
+   cells - padding included. Zeroing it (as an earlier version of this rule
+   did) shrinks the whole body table by 16px per column against the header
+   and footer clones, which still carry the real padding, and the columns
+   drift out of alignment. Killing only font-size/line-height removes the
+   visible duplicate text while leaving the width math intact; the row still
+   shows as a slim padding-only strip rather than truly 0px. */
+.dataTables_scrollBody > table > thead tr {
+  line-height: 0 !important;
+  font-size: 0 !important;
+}
+.dataTables_scrollBody > table > thead th,
+.dataTables_scrollBody > table > thead td {
+  line-height: 0 !important;
+  font-size: 0 !important;
+  border: none !important;
+  overflow: hidden;
+}
+/* Same reasoning applies to borders: in a .table-bordered table every header
+   and body cell carries a 1px right border, so a sizing cell without one makes
+   each body column 1px narrower than its header, and the offset accumulates
+   across the row. Keep the width, hide the line. */
+.dataTables_scrollBody > table.table-bordered > thead th,
+.dataTables_scrollBody > table.table-bordered > thead td {
+  border-right: 1px solid transparent !important;
+}
+
 [class*="sb-dashboard-"] .tw-inline-block.tw-min-w-full {
   display: block;
   min-width: 0;
@@ -945,4 +982,111 @@ body.sb-page-loading .dataTables_wrapper.sb-table-busy .dataTables_processing {
    footer, which sits outside this container. */
 body.sb-page-loading #scrollable-container > * {
   visibility: hidden;
+}
+
+/* Business Settings tab rail (.pos-tab-menu.sb-settings-nav) ---------------
+   A compact vertical nav in place of Bootstrap's stacked, bordered
+   list-group boxes: left-aligned regular-weight labels, even rows, a quiet
+   hover, and an accent tint + leading bar for the active tab. Colours come
+   from the theme tokens, with the two accent tints set per theme below.
+   html:root lifts specificity above the pos-tab-menu rules in
+   saverbro-dark-pos.css and saverbro-light.css. */
+html:root div.pos-tab-menu.sb-settings-nav {
+  --sbn-hover-bg: rgba(148, 163, 184, .10);
+  --sbn-active-bg: rgba(56, 189, 248, .14);
+  --sbn-active-fg: #7dd3fc;
+  /* Outline around the tab list. Darker than the border tokens on
+     purpose, so the list reads as its own panel. */
+  --sbn-outline: #475569;
+  padding: 8px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+html[data-theme="light"] div.pos-tab-menu.sb-settings-nav {
+  --sbn-hover-bg: var(--sb-surface-hover);
+  --sbn-active-bg: #e0f2fe;
+  --sbn-active-fg: #075985;
+  --sbn-outline: #94a3b8;
+}
+html:root div.pos-tab-menu.sb-settings-nav div.list-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 !important;
+  padding: 6px !important;
+  border: 1.5px solid var(--sbn-outline) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+html:root div.pos-tab-menu.sb-settings-nav div.list-group > a {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin: 0 !important;
+  padding: 9px 12px 9px 16px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  background-image: none !important;
+  color: var(--sb-muted) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+  text-align: left !important;
+  transition: background-color .15s ease, color .15s ease;
+}
+html:root div.pos-tab-menu.sb-settings-nav div.list-group > a:hover {
+  background: var(--sbn-hover-bg) !important;
+  color: var(--sb-text) !important;
+}
+html:root div.pos-tab-menu.sb-settings-nav div.list-group > a:focus-visible {
+  outline: 2px solid var(--sb-accent) !important;
+  outline-offset: -2px;
+}
+html:root div.pos-tab-menu.sb-settings-nav div.list-group > a.active,
+html:root div.pos-tab-menu.sb-settings-nav div.list-group > a.active:hover,
+html:root div.pos-tab-menu.sb-settings-nav div.list-group > a.active:focus {
+  background: var(--sbn-active-bg) !important;
+  color: var(--sbn-active-fg) !important;
+  font-weight: 600 !important;
+}
+/* Leading accent bar on the active tab. */
+html:root div.pos-tab-menu.sb-settings-nav div.list-group > a.active::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: currentColor;
+}
+/* The light theme forces white on everything inside an active list item;
+   keep the Tax tooltip icon in the tab's own colour instead. */
+html:root div.pos-tab-menu.sb-settings-nav div.list-group > a.active * {
+  color: inherit !important;
+}
+/* The stock theme paints a gradient behind any .fa inside the active tab
+   (div.pos-tab-menu ... a.active .fa), which showed as a square around the
+   Tax info icon. The icon sits on the tab's own tint here, so drop it. */
+html:root div.pos-tab-menu.sb-settings-nav div.list-group > a .fa {
+  background: none !important;
+  box-shadow: none !important;
+}
+
+/* Opt-in white ink for a solid red (error) button. The contrast rules in
+   saverbro-dark-pos.css / saverbro-light.css force dark ink on every red
+   button because white on daisyUI's light red is ~3:1. Buttons carrying
+   this class get white ink on a deeper red (#dc2626, ~4.8:1) instead.
+   The repeated class only raises specificity above those rules. */
+html .tw-dw-btn.tw-dw-btn-error.sb-btn-ink-white.sb-btn-ink-white.sb-btn-ink-white.sb-btn-ink-white {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+html .tw-dw-btn.tw-dw-btn-error.sb-btn-ink-white.sb-btn-ink-white.sb-btn-ink-white.sb-btn-ink-white:hover {
+  background-color: #b91c1c !important;
+  border-color: #b91c1c !important;
 }

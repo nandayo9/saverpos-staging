@@ -70,14 +70,30 @@ class AdminSidebarMenu
                             $sub->url(
                                 action([\App\Http\Controllers\ManageUserController::class, 'index']),
                                 __('user.users'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'users']
+                                ['icon' => '', 'active' => request()->segment(1) == 'users' && request()->segment(2) != 'create']
+                            );
+                        }
+                        // Add User / Add Role replace the Add buttons that used to sit
+                        // on the Users and Roles list pages.
+                        if (auth()->user()->can('user.create')) {
+                            $sub->url(
+                                action([\App\Http\Controllers\ManageUserController::class, 'create']),
+                                'Add User',
+                                ['icon' => '', 'active' => request()->segment(1) == 'users' && request()->segment(2) == 'create']
                             );
                         }
                         if (auth()->user()->can('roles.view')) {
                             $sub->url(
                                 action([\App\Http\Controllers\RoleController::class, 'index']),
                                 __('user.roles'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'roles']
+                                ['icon' => '', 'active' => request()->segment(1) == 'roles' && request()->segment(2) != 'create']
+                            );
+                        }
+                        if (auth()->user()->can('roles.create')) {
+                            $sub->url(
+                                action([\App\Http\Controllers\RoleController::class, 'create']),
+                                'Add Role',
+                                ['icon' => '', 'active' => request()->segment(1) == 'roles' && request()->segment(2) == 'create']
                             );
                         }
                         if (auth()->user()->can('user.create')) {
@@ -168,16 +184,19 @@ class AdminSidebarMenu
                     __('sale.products'),
                     function ($sub) {
                         if (auth()->user()->can('product.view')) {
-                            // Reverted to a flat link per user feedback: the
-                            // product listing page has its own "Add Product"
-                            // button, so nesting List/Add here was redundant.
-                            // Add Product is intentionally dropped from the
-                            // nav rather than restored elsewhere - the route
-                            // (ProductController::create) is untouched.
                             $sub->url(
                                 action([\App\Http\Controllers\ProductController::class, 'index']),
                                 'Product Listing',
                                 ['icon' => '', 'active' => request()->segment(1) == 'products' && request()->segment(2) == '']
+                            );
+                        }
+                        if (auth()->user()->can('product.create')) {
+                            // The product listing no longer has its own Add
+                            // button, so product creation lives in the nav.
+                            $sub->url(
+                                action([\App\Http\Controllers\ProductController::class, 'create']),
+                                'Add New Product',
+                                ['icon' => '', 'active' => request()->segment(1) == 'products' && request()->segment(2) == 'create']
                             );
                         }
                         if (auth()->user()->can('product.create')) {
@@ -298,7 +317,14 @@ class AdminSidebarMenu
                             $sub->url(
                                 action([\App\Http\Controllers\PurchaseReturnController::class, 'index']),
                                 __('lang_v1.list_purchase_return'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'purchase-return']
+                                ['icon' => '', 'active' => request()->segment(1) == 'purchase-return' && request()->segment(2) != 'create']
+                            );
+                            // The purchase return list no longer has its own Add
+                            // button, so creation lives in the nav.
+                            $sub->url(
+                                action([\App\Http\Controllers\CombinedPurchaseReturnController::class, 'create']),
+                                'Add Purchase Return',
+                                ['icon' => '', 'active' => request()->segment(1) == 'purchase-return' && request()->segment(2) == 'create']
                             );
                         }
                     },
@@ -324,18 +350,25 @@ class AdminSidebarMenu
                             );
                         }
 
-                        // Sales Listing, POS, Draft and Quotation were briefly nested
-                        // dropdowns (List/Add each) but reverted to flat links per user
-                        // feedback: their target pages already have their own Add
-                        // button, so the nested submenu was redundant. The Add Sale /
-                        // Add POS / Add Draft / Add Quotation routes are intentionally
-                        // dropped from the nav rather than restored elsewhere; the
-                        // underlying controllers are untouched.
+                        // The Sales, POS and Draft listing pages no longer carry their
+                        // own Add buttons, so each "Add" lives here below its listing.
+                        // sells/create serves Add Sales, Add Drafts and Add Quotation;
+                        // the status query decides which one is highlighted.
+                        $onSellCreate = request()->segment(1) == 'sells' && request()->segment(2) == 'create';
+                        $isDraftCreate = $onSellCreate && request()->query('status') == 'draft';
+                        $isQuotationCreate = $onSellCreate && request()->query('status') == 'quotation';
                         if ($is_admin || auth()->user()->hasAnyPermission(['sell.view', 'sell.create', 'direct_sell.access', 'direct_sell.view', 'view_own_sell_only', 'view_commission_agent_sell', 'access_shipping', 'access_own_shipping', 'access_commission_agent_shipping'])) {
                             $sub->url(
                                 action([\App\Http\Controllers\SellController::class, 'index']),
                                 'Sales Listing',
                                 ['icon' => '', 'active' => request()->segment(1) == 'sells' && request()->segment(2) == null]
+                            );
+                        }
+                        if (auth()->user()->can('direct_sell.access')) {
+                            $sub->url(
+                                action([\App\Http\Controllers\SellController::class, 'create']),
+                                'Add Sales',
+                                ['icon' => '', 'active' => $onSellCreate && ! $isDraftCreate && ! $isQuotationCreate]
                             );
                         }
                         if ($is_admin || auth()->user()->hasAnyPermission(['sell.view', 'direct_sell.view', 'view_own_sell_only', 'view_commission_agent_sell'])) {
@@ -348,24 +381,43 @@ class AdminSidebarMenu
                         if (auth()->user()->can('sell.create') && auth()->user()->can('sell.view') && in_array('pos_sale', $enabled_modules)) {
                             $sub->url(
                                 action([\App\Http\Controllers\SellPosController::class, 'index']),
-                                'POS',
+                                'POS Listing',
                                 ['icon' => '', 'active' => request()->segment(1) == 'pos' && request()->segment(2) == null]
+                            );
+                            $sub->url(
+                                action([\App\Http\Controllers\SellPosController::class, 'create']),
+                                'Add POS',
+                                ['icon' => '', 'active' => request()->segment(1) == 'pos' && request()->segment(2) == 'create']
                             );
                         }
 
                         if (in_array('add_sale', $enabled_modules) && ($is_admin || auth()->user()->hasAnyPermission(['draft.view_all', 'draft.view_own']))) {
                             $sub->url(
                                 action([\App\Http\Controllers\SellController::class, 'getDrafts']),
-                                'Draft',
+                                'Draft Listing',
                                 ['icon' => '', 'active' => request()->segment(1) == 'sells' && request()->segment(2) == 'drafts']
                             );
+                            if (auth()->user()->can('direct_sell.access')) {
+                                $sub->url(
+                                    action([\App\Http\Controllers\SellController::class, 'create'], ['status' => 'draft']),
+                                    'Add Drafts',
+                                    ['icon' => '', 'active' => $isDraftCreate]
+                                );
+                            }
                         }
                         if (in_array('add_sale', $enabled_modules) && ($is_admin || auth()->user()->hasAnyPermission(['quotation.view_all', 'quotation.view_own']))) {
                             $sub->url(
                                 action([\App\Http\Controllers\SellController::class, 'getQuotations']),
-                                'Quotation',
+                                'Quotation Listing',
                                 ['icon' => '', 'active' => request()->segment(1) == 'sells' && request()->segment(2) == 'quotations']
                             );
+                            if (auth()->user()->can('direct_sell.access')) {
+                                $sub->url(
+                                    action([\App\Http\Controllers\SellController::class, 'create'], ['status' => 'quotation']),
+                                    'Add Quotation',
+                                    ['icon' => '', 'active' => $isQuotationCreate]
+                                );
+                            }
                         }
 
                         if (auth()->user()->can('access_sell_return') || auth()->user()->can('access_own_sell_return')) {
@@ -434,14 +486,30 @@ class AdminSidebarMenu
                             $sub->url(
                                 action([\App\Http\Controllers\StockTransferController::class, 'index']),
                                 __('lang_v1.stock_transfers'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'stock-transfers']
+                                ['icon' => '', 'active' => request()->segment(1) == 'stock-transfers' && request()->segment(2) != 'create']
+                            );
+                        }
+                        if (in_array('stock_transfers', $enabled_modules) && auth()->user()->can('stock_transfer.create')) {
+                            // Replaces the Stock Transfers page's Add button.
+                            $sub->url(
+                                action([\App\Http\Controllers\StockTransferController::class, 'create']),
+                                'Add Stock Transfer',
+                                ['icon' => '', 'active' => request()->segment(1) == 'stock-transfers' && request()->segment(2) == 'create']
                             );
                         }
                         if (in_array('stock_adjustment', $enabled_modules) && (auth()->user()->can('stock_adjustment.view') || auth()->user()->can('view_own_stock_adjustment'))) {
                             $sub->url(
                                 action([\App\Http\Controllers\StockAdjustmentController::class, 'index']),
                                 __('stock_adjustment.stock_adjustment'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'stock-adjustments']
+                                ['icon' => '', 'active' => request()->segment(1) == 'stock-adjustments' && request()->segment(2) != 'create']
+                            );
+                        }
+                        if (in_array('stock_adjustment', $enabled_modules) && auth()->user()->can('stock_adjustment.create')) {
+                            // Replaces the Stock Adjustments page's Add button.
+                            $sub->url(
+                                action([\App\Http\Controllers\StockAdjustmentController::class, 'create']),
+                                'Add Stock Adjustment',
+                                ['icon' => '', 'active' => request()->segment(1) == 'stock-adjustments' && request()->segment(2) == 'create']
                             );
                         }
                     },
@@ -464,12 +532,18 @@ class AdminSidebarMenu
                         $sub->url(
                             action([\App\Http\Controllers\ExpenseController::class, 'index']),
                             __('lang_v1.list_expenses'),
-                            // Matches Product Listing's convention above: active only
-                            // on the exact list page, not /expenses/create, now that
-                            // Add Expense is dropped from the menu (list page has its
-                            // own Add button).
+                            // Active only on the list (and import) page, not
+                            // /expenses/create, which has its own entry below.
                             ['icon' => '', 'active' => (request()->segment(1) == 'expenses' && request()->segment(2) == '') || (request()->segment(1) == 'import-expense' && request()->segment(2) == null)]
                         );
+                        if (auth()->user()->can('expense.add')) {
+                            // Replaces the Expenses page's Add button.
+                            $sub->url(
+                                action([\App\Http\Controllers\ExpenseController::class, 'create']),
+                                'Add Expense',
+                                ['icon' => '', 'active' => request()->segment(1) == 'expenses' && request()->segment(2) == 'create']
+                            );
+                        }
 
                         if (auth()->user()->can('expense.add') || auth()->user()->can('expense.edit')) {
                             $sub->url(
@@ -846,14 +920,26 @@ class AdminSidebarMenu
                             $sub->url(
                                 action([\App\Http\Controllers\BarcodeController::class, 'index']),
                                 __('barcode.barcode_settings'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'barcodes']
+                                ['icon' => '', 'active' => request()->segment(1) == 'barcodes' && request()->segment(2) != 'create']
+                            );
+                            // Replaces the Barcode Settings page's "Add new setting" button.
+                            $sub->url(
+                                action([\App\Http\Controllers\BarcodeController::class, 'create']),
+                                'Add Barcode Sticker Setting',
+                                ['icon' => '', 'active' => request()->segment(1) == 'barcodes' && request()->segment(2) == 'create']
                             );
                         }
                         if (auth()->user()->can('access_printers')) {
                             $sub->url(
                                 action([\App\Http\Controllers\PrinterController::class, 'index']),
                                 __('printer.receipt_printers'),
-                                ['icon' => '', 'active' => request()->segment(1) == 'printers']
+                                ['icon' => '', 'active' => request()->segment(1) == 'printers' && request()->segment(2) != 'create']
+                            );
+                            // Replaces the Receipt Printers page's "Add Printer" button.
+                            $sub->url(
+                                action([\App\Http\Controllers\PrinterController::class, 'create']),
+                                'Add Printer',
+                                ['icon' => '', 'active' => request()->segment(1) == 'printers' && request()->segment(2) == 'create']
                             );
                         }
 
@@ -973,12 +1059,26 @@ class AdminSidebarMenu
                             );
                         }
                         if (auth()->user()->can('recommerce.stockcount.view')) {
-                            $sub->url(route('recommerce.stock-counts.index'), 'Stock Count', ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'stock-counts']);
+                            $sub->url(route('recommerce.stock-counts.index'), 'Stock Count', ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'stock-counts' && request()->segment(3) != 'create']);
+                        }
+                        if (auth()->user()->can('recommerce.stockcount.create')) {
+                            // Replaces the Stock Count page's header button.
+                            $sub->url(route('recommerce.stock-counts.create'), 'Create Stock Count', ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'stock-counts' && request()->segment(3) == 'create']);
+                        }
+                        if (auth()->user()->can('purchase.create')) {
+                            // Replaces the Device Overview header button. Never marked
+                            // active: Purchases > New stock purchase already owns that
+                            // page, and two active entries would open both dropdowns.
+                            $sub->url(
+                                action([\App\Http\Controllers\PurchaseController::class, 'create']),
+                                'New Stock Purchase',
+                                ['icon' => '', 'active' => false]
+                            );
                         }
                         if (auth()->user()->can('recommerce.repair.intake')) {
                             $sub->url(
                                 route('recommerce.repair.internal.create'),
-                                'New internal refurbishment',
+                                'New Internal Refurbishment',
                                 ['icon' => '', 'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'repair' && request()->segment(3) == 'internal']
                             );
                         }
@@ -990,12 +1090,24 @@ class AdminSidebarMenu
             if (config('recommerce.enabled', false)
                 && Route::has('recommerce.tradeins.index')
                 && auth()->user()->can('recommerce.tradein.view')) {
-                $menu->url(
-                    route('recommerce.tradeins.index'),
+                // The Trade-In pages dropped their in-page tab bar and Walk-In
+                // button, so every workspace page is reached from this dropdown.
+                $menu->dropdown(
                     'Trade-In Acquisition',
+                    function ($sub) {
+                        $inTradeIns = request()->segment(1) == 'recommerce' && request()->segment(2) == 'trade-ins';
+                        $page = (string) request()->segment(3);
+
+                        $sub->url(route('recommerce.tradeins.index'), 'Trade-In Overview', ['icon' => '', 'active' => $inTradeIns && ($page === '' || $page === 'intakes')]);
+                        // "new" is the acquisition workspace and a numeric segment is a
+                        // deal desk; both belonged to the old Acquisitions tab.
+                        $sub->url(route('recommerce.tradeins.acquisitions'), 'Trade-In Acquisition', ['icon' => '', 'active' => $inTradeIns && ($page === 'acquisitions' || $page === 'new' || ctype_digit($page))]);
+                        $sub->url(route('recommerce.tradeins.approvals'), 'Trade-In Approvals', ['icon' => '', 'active' => $inTradeIns && $page === 'approvals']);
+                        $sub->url(route('recommerce.tradeins.reports'), 'Trade-In Report', ['icon' => '', 'active' => $inTradeIns && $page === 'reports']);
+                        $sub->url(route('recommerce.tradeins.walk_in.create'), 'Walk-In', ['icon' => '', 'active' => $inTradeIns && $page === 'walk-in']);
+                    },
                     [
                         'icon' => '<svg aria-hidden="true" class="tw-size-5 tw-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M12 3v18"></path><path d="M17 7h-6.5a3.5 3.5 0 0 0 0 7h3a3.5 3.5 0 0 1 0 7H7"></path></svg>',
-                        'active' => request()->segment(1) == 'recommerce' && request()->segment(2) == 'trade-ins',
                     ]
                 )->order(29);
             }

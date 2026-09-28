@@ -20,6 +20,40 @@ use Illuminate\Http\Request;
 
 class ImportSalesController extends Controller
 {
+    /** Spreadsheet formats the sales import accepts. */
+    private const IMPORT_EXTENSIONS = ['xlsx', 'xls', 'csv'];
+
+    /**
+     * Where uploaded sales spreadsheets wait between preview and import.
+     * Under storage/, not public/, so an upload can never be requested or
+     * executed over HTTP.
+     */
+    private function importDirectory(): string
+    {
+        return storage_path('app/import-sales');
+    }
+
+    /**
+     * Resolve a file name from the preview form to its path, accepting only
+     * the random name preview() generates. Anything else (path segments,
+     * other extensions, missing files) is a 404, which closes path traversal
+     * into the spreadsheet reader.
+     */
+    private function importFilePath($file_name): string
+    {
+        $pattern = '/^[A-Za-z0-9]{40}\.('.implode('|', self::IMPORT_EXTENSIONS).')$/';
+        if (! is_string($file_name) || ! preg_match($pattern, $file_name)) {
+            abort(404);
+        }
+
+        $path = $this->importDirectory().DIRECTORY_SEPARATOR.$file_name;
+        if (! is_file($path)) {
+            abort(404);
+        }
+
+        return $path;
+    }
+
     /**
      * All Utils instance.
      */
@@ -101,8 +135,26 @@ class ImportSalesController extends Controller
         $business_id = request()->session()->get('user.business_id');
 
         if ($request->hasFile('sales')) {
-            $file_name = time().'_'.$request->sales->getClientOriginalName();
-            $request->sales->storeAs('temp', $file_name);
+            // Spreadsheets only. 'txt' is accepted by the MIME check because PHP
+            // detects plain CSV as text/plain; the extension allowlist below is
+            // what decides.
+            $invalidFileMessage = 'Please upload an .xlsx, .xls or .csv file.';
+            $request->validate([
+                'sales' => 'required|file|max:10240|mimes:xlsx,xls,csv,txt',
+            ], [
+                'sales.mimes' => $invalidFileMessage,
+                'sales.max' => 'The file must be 10 MB or smaller.',
+            ]);
+            $extension = strtolower($request->file('sales')->getClientOriginalExtension());
+            if (! in_array($extension, self::IMPORT_EXTENSIONS, true)) {
+                return back()->withErrors(['sales' => $invalidFileMessage]);
+            }
+
+            // Stored outside public/ under a server-generated name: the upload is
+            // never web-reachable or executable, and the client's file name is
+            // never used on disk.
+            $file_name = \Illuminate\Support\Str::random(40).'.'.$extension;
+            $request->file('sales')->move($this->importDirectory(), $file_name);
 
             $parsed_array = $this->__parseData($file_name);
 
@@ -134,7 +186,7 @@ class ImportSalesController extends Controller
 
     public function __parseData($file_name)
     {
-        $array = Excel::toArray([], public_path('uploads/temp/'.$file_name))[0];
+        $array = Excel::toArray([], $this->importFilePath($file_name))[0];
 
         //remove blank columns from headers
         $headers = array_filter($array[0]);
@@ -175,7 +227,9 @@ class ImportSalesController extends Controller
             $location_id = $request->input('location_id');
             $business_id = $request->session()->get('user.business_id');
 
-            $file_path = public_path('uploads/temp/'.$file_name);
+            // file_name round-trips through the preview form, so it is untrusted:
+            // importFilePath() only accepts the exact name preview() generated.
+            $file_path = $this->importFilePath($file_name);
             $parsed_array = $this->__parseData($file_name);
             //Remove header row
             unset($parsed_array[0]);

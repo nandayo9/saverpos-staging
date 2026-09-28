@@ -122,6 +122,15 @@ Route::middleware(['auth', 'SetSessionData', 'AdminSidebarMenu'])->prefix('recom
     Route::get('/trade-ins/new', 'TradeInController@create')
         ->middleware('throttle:30,1')
         ->name('recommerce.tradeins.create');
+    Route::get('/trade-ins/walk-in', 'TradeInController@walkIn')
+        ->middleware('throttle:30,1')
+        ->name('recommerce.tradeins.walk_in.create');
+    Route::get('/trade-ins/walk-in/market-price', 'TradeInController@walkInMarketPrice')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.tradeins.walk_in.market_price');
+    Route::post('/trade-ins/walk-in', 'TradeInController@storeWalkIn')
+        ->middleware('throttle:20,1')
+        ->name('recommerce.tradeins.walk_in.store');
     Route::get('/trade-ins/intakes/{intakeId}', 'TradeInController@websiteIntake')
         ->whereNumber('intakeId')->middleware('throttle:30,1')
         ->name('recommerce.tradeins.intakes.show');

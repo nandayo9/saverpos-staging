@@ -41,6 +41,7 @@
 
     .sb-prio { font-size:12px; font-weight:700; letter-spacing:.02em; }
     .sb-prio-urgent { display:inline-block; background:#7f1d1d; color:#fecaca; border-radius:999px; padding:3px 9px; }
+    html[data-theme="light"] .sb-prio-urgent { background:#fee2e2; color:#991b1b; }
     .sb-prio-high { color:var(--sb-danger,#b91c1c); }
     .sb-prio-normal { color:var(--sb-muted,#475569); font-weight:600; }
     .sb-prio-low { color:var(--sb-muted,#64748b); font-weight:600; }
@@ -68,10 +69,16 @@
         .sb-repair-list table.sb-jobs td[data-label="Repair code"] { padding-bottom:7px; margin-bottom:5px; border-bottom:1px solid var(--sb-border,#eef2f7); }
     }
 </style>
-<section class="container-fluid sb-repair-list" aria-labelledby="repair-workbench-title">
+<section class="container-fluid sb-repair-list" aria-labelledby="repair-workbench-title" style="margin-top:24px">
     <div class="box box-primary">
         <div class="box-header with-border">
-            <div class="pull-right actions"><a class="btn btn-default" href="{{ route('recommerce.dashboard') }}">Stock &amp; device operations</a> @if ($intakeEnabled && ! $customerWorkspace)<a class="btn btn-default" href="{{ route('recommerce.repair.internal.create') }}">Internal refurbishment</a>@endif @if ($intakeEnabled)<a class="btn btn-primary" href="{{ route('recommerce.repair.new') }}"><i class="fa fa-plus"></i> New customer repair</a>@endif</div>
+            <div class="pull-right actions"><a class="btn btn-default" href="{{ route('recommerce.dashboard') }}">Stock &amp; device operations</a> @if ($intakeEnabled && ! $customerWorkspace)<a class="btn btn-default" href="{{ route('recommerce.repair.internal.create') }}">Internal refurbishment</a>@endif @if ($intakeEnabled)<a class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700" href="{{ route('recommerce.repair.new') }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus tw-mr-1">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M12 5l0 14" />
+                    <path d="M5 12l14 0" />
+                </svg> New customer repair
+            </a>@endif</div>
             <h3 id="repair-workbench-title" class="box-title">{{ $customerWorkspace ? 'Customer Repairs' : 'Repair workbench' }}</h3>
             <p class="text-muted sb-subtitle" style="margin:6px 0 0">{{ $customerWorkspace ? 'Counter intake, customer-owned devices, and repair updates' : 'Customer repairs and business-owned refurbishment work' }} · Location {{ $locationId }}</p>
         </div>
@@ -84,7 +91,13 @@
                     <h4>{{ $customerWorkspace ? 'No customer repairs yet' : 'No repair jobs yet' }}</h4>
                     <p>{{ $customerWorkspace ? 'Customer repairs appear here as soon as a device is handed in at this counter.' : 'Repair jobs appear here once intake or internal refurbishment work starts in this location.' }}</p>
                     @if ($intakeEnabled)
-                        <a class="btn btn-primary" href="{{ route('recommerce.repair.new') }}"><i class="fa fa-plus"></i> New customer repair</a>
+                        <a class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700" href="{{ route('recommerce.repair.new') }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus tw-mr-1">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M12 5l0 14" />
+                    <path d="M5 12l14 0" />
+                </svg> New customer repair
+            </a>
                     @endif
                 </div>
             @else

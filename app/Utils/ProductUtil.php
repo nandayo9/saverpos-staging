@@ -1567,8 +1567,8 @@ class ProductUtil extends Util
                             }
                         })
                             ->orWhere(function ($sub_q) use ($product) {
-                                $sub_q->whereRaw('(brand_id="'.$product->brand_id.'" AND category_id IS NULL)')
-                                ->orWhereRaw('(category_id="'.$product->category_id.'" AND brand_id IS NULL)');
+                                $sub_q->whereRaw('(brand_id = ? AND category_id IS NULL)', [$product->brand_id])
+                                ->orWhereRaw('(category_id = ? AND brand_id IS NULL)', [$product->category_id]);
                             });
 
                         if (! empty($variation_id)) {

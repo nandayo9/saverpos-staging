@@ -3,7 +3,7 @@
 @section('title', 'New internal refurbishment')
 
 @section('content')
-<section class="container" id="internal-refurbishment-intake" data-csrf-token="{{ csrf_token() }}" data-intake-url="{{ route('recommerce.repair.intake') }}" aria-labelledby="internal-refurbishment-title">
+<section class="container" id="internal-refurbishment-intake" data-csrf-token="{{ csrf_token() }}" data-intake-url="{{ route('recommerce.repair.intake') }}" aria-labelledby="internal-refurbishment-title" style="margin-top:24px">
     <div class="box box-primary">
         <div class="box-header with-border">
             <div class="pull-right"><a class="btn btn-default btn-sm" href="{{ route('recommerce.repair.index') }}">Back to Repair</a></div>
@@ -17,7 +17,7 @@
                 <div class="row"><div class="col-sm-4 form-group"><label for="internal-priority">Priority</label><select id="internal-priority" class="form-control"><option value="NORMAL">Normal</option><option value="LOW">Low</option><option value="HIGH">High</option><option value="URGENT">Urgent</option></select></div><div class="col-sm-4 form-group"><label for="internal-due">Target completion</label><input id="internal-due" type="date" class="form-control"></div><div class="col-sm-4 form-group"><label for="internal-technician">Assigned technician</label><select id="internal-technician" class="form-control"><option value="">Assign later</option>@foreach ($technicians as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select></div></div>
                 <div class="form-group"><label for="internal-summary">Work summary</label><textarea id="internal-summary" class="form-control" rows="4" maxlength="3000" placeholder="For example: inspect, clean, replace battery, run diagnostics."></textarea></div>
                 <div id="internal-result" class="alert" style="display:none" role="status" aria-live="polite"></div>
-                <button id="internal-submit" class="btn btn-primary" type="submit">Create internal refurbishment</button>
+                <button id="internal-submit" class="tw-dw-btn tw-dw-btn-primary tw-text-white" type="submit">Create internal refurbishment</button>
             </form>
         </div>
     </div>

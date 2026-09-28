@@ -139,8 +139,18 @@ class Media extends Model
     public static function uploadFile($file)
     {
         $file_name = null;
+
+        // Media lands in public/uploads/media, so only allow images and the
+        // configured document types, and take the extension from the detected
+        // type rather than the client's file name (which could be "x.php").
+        $extension = \App\Utils\Util::extensionForMime($file->getMimeType(), 'any');
+        if ($extension === null) {
+            return null;
+        }
+
         if ($file->getSize() <= config('constants.document_size_limit')) {
-            $new_file_name = time().'_'.mt_rand().'_'.$file->getClientOriginalName();
+            $original_name = \Illuminate\Support\Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'file';
+            $new_file_name = time().'_'.mt_rand().'_'.$original_name.'.'.$extension;
             if ($file->storeAs('/media', $new_file_name)) {
                 $file_name = $new_file_name;
             }

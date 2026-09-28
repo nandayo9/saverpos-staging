@@ -2101,6 +2101,12 @@ $(document).ready(function () {
                 orderable: false,
                 searchable: false,
             },
+            {
+                // Checkbox, Starts at, Ends at, Discount amount, Priority,
+                // Brand and Category: centred both ways (see discount/index).
+                targets: [0, 2, 3, 4, 5, 6, 7],
+                className: 'text-center sb-discount-center',
+            },
         ],
         aaSorting: [1, 'asc'],
         columns: [

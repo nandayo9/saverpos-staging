@@ -313,6 +313,15 @@ html[data-theme='light'] .content textarea:not(.form-control) {
   border-color: var(--sb-border-strong) !important;
 }
 
+/* Light counterpart of saverbro-dark-pos.css's addon-select rule: a bare
+   <select> inside an .input-group-addon (e.g. Custom Labels' "Field Type")
+   belongs to the addon, so it takes the addon's grey instead of the white
+   the rule above gives every select - which read as a white patch. */
+html[data-theme='light'] .content .input-group-addon > select:not(.form-control):not(.select2-hidden-accessible) {
+  background-color: transparent !important;
+  border-color: transparent !important;
+}
+
 html[data-theme='light'] .content select option,
 html[data-theme='light'] .content select optgroup {
   background-color: var(--sb-surface);
@@ -329,8 +338,11 @@ html[data-theme='light'] .input-group-addon {
    stepper's -/+ buttons) with a hardcoded dark fill, and this file never
    took it back - so in light mode the buttons rendered as solid dark
    squares with dark-on-dark icons. Same treatment as .input-group-addon
-   above, since both sit in the same input-group. */
-html[data-theme='light'] .input-group-btn .btn {
+   above, since both sit in the same input-group.
+   .btn-primary is left out: it keeps its accent fill, because its text and
+   icons are forced white further down (the file input's "Browse" button went
+   white-on-white otherwise). */
+html[data-theme='light'] .input-group-btn .btn:not(.btn-primary) {
   background-color: var(--sb-surface-raised) !important;
   color: var(--sb-muted) !important;
   border-color: var(--sb-border-strong) !important;
@@ -468,6 +480,21 @@ html[data-theme="light"] a:not(.btn):not(.tw-dw-btn):not(.tw-bg-gradient-to-r) {
 html[data-theme="light"] a:not(.btn):not(.tw-dw-btn):not(.tw-bg-gradient-to-r):hover,
 html[data-theme="light"] a:not(.btn):not(.tw-dw-btn):not(.tw-bg-gradient-to-r):focus {
   color: #075985 !important;
+}
+
+/* Recommerce's Trade-In tab nav (.sb-ti-nav a.active) is a solid
+   accent-filled pill needing white text, same reason .btn/.tw-dw-btn/
+   .tw-bg-gradient-to-r are excluded above - but the rule above matches
+   plain <a> tags generically and its :not() exclusions can't reach into
+   a component-scoped stylesheet loaded after this one. Anchoring on the
+   page's own #recommerce-trade-ins id outranks the generic rule instead
+   of trying to out-specify it class-for-class. */
+html[data-theme="light"] #recommerce-trade-ins .sb-ti-filters a.active {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] #recommerce-trade-ins .sb-ti-nav a.active {
+  color: #ffffff !important;
 }
 
 /* Alerts and callouts ----------------------------------------------------- */

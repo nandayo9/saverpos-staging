@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-09-28T09:03:35.438Z",
+  "projectRoot": "C:\\Users\\cool9\\Documents\\github\\saverpos-staging",
+  "structure": {
+    "hasPackageJson": false,
+    "hasTsConfig": false,
+    "hasClaudeConfig": true,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1790586215438
+}

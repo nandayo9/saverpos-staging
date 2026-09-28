@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-09-28T06:57:05.723Z",
+  "target": "app",
+  "depth": "deep",
+  "type": "all",
+  "summary": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "total": 0
+  },
+  "findings": []
+}

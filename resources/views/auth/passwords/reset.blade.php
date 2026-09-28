@@ -1,6 +1,8 @@
 @extends('layouts.auth2')
 
 @section('title', __('lang_v1.reset_password'))
+{{-- Reset links carry a one-time token in the URL. --}}
+@section('meta_robots', 'noindex, nofollow')
 
 @section('content')
     <div class="col-md-4">

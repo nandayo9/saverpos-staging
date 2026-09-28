@@ -3,7 +3,7 @@
 @section('title', 'Recommerce reconciliation')
 
 @section('content')
-<section class="container" id="recommerce-reconciliation-index" data-location-id="{{ $locationId }}" aria-labelledby="recommerce-reconciliation-title">
+<section class="container" id="recommerce-reconciliation-index" data-location-id="{{ $locationId }}" aria-labelledby="recommerce-reconciliation-title" style="margin-top:24px">
     <div class="box box-success">
         <div class="box-header with-border">
             <div class="pull-right"><a class="btn btn-default btn-sm" href="{{ route('recommerce.dashboard') }}">Operations overview</a></div>

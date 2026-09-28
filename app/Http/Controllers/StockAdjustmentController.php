@@ -129,7 +129,9 @@ class StockAdjustmentController extends Controller
                 )
                 ->editColumn('transaction_date', '{{@format_datetime($transaction_date)}}')
                 ->editColumn('adjustment_type', function ($row) {
-                    return __('stock_adjustment.'.$row->adjustment_type);
+                    // Adjustments created outside the form (imports, older data)
+                    // can have no type; translating '' printed the raw key.
+                    return empty($row->adjustment_type) ? '-' : __('stock_adjustment.'.$row->adjustment_type);
                 })
                 ->setRowAttr([
                     'data-href' => function ($row) {

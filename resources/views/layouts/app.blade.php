@@ -28,6 +28,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <title>@yield('title') - {{ config('app.name', 'SAVERPOS') }} · {{ Session::get('business.name') }}</title>
+    {{-- Signed-in back office: never indexed. --}}
+    @include('layouts.partials.seo', ['robots' => 'noindex, nofollow'])
 
     @include('layouts.partials.css')
     

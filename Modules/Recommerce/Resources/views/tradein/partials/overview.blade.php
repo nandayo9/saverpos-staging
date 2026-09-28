@@ -1,5 +1,29 @@
 @php
     $money = static fn ($value) => number_format((float) $value, 2);
+    $walkInQuotes = $quickQuotes->where('channel', 'WALK_IN');
+    $deviceTradeInCalculations = $websiteIntakes
+        ->map(fn ($intake) => (object) [
+            'source' => 'Website',
+            'reference' => $intake->external_case_reference,
+            'sub_reference' => $intake->intake_uuid,
+            'device_label' => trim($intake->brand.' '.$intake->model),
+            'status' => $intake->status,
+            'submitted_at' => $intake->submitted_at,
+            'action_label' => 'Open request',
+            'action_url' => route('recommerce.tradeins.intakes.show', $intake->id),
+        ])
+        ->merge($walkInQuotes->map(fn ($quote) => (object) [
+            'source' => 'Walk-In',
+            'reference' => 'WI-'.$quote->id,
+            'sub_reference' => $quote->quote_uuid,
+            'device_label' => trim((string) data_get($quote->specifications_json, 'brand').' '.data_get($quote->specifications_json, 'model')),
+            'status' => $quote->status,
+            'submitted_at' => $quote->created_at,
+            'action_label' => 'View calculation',
+            'action_url' => route('recommerce.tradeins.acquisitions', ['filter' => 'considering']),
+        ]))
+        ->sortByDesc('submitted_at')
+        ->values();
 @endphp
 <div class="sb-ti-attention" aria-label="Needs attention">
     <a href="{{ route('recommerce.tradeins.approvals') }}"><strong>{{ $needsAttention['approvals'] }}</strong><div><span>Approval required</span><small>Manager decision needed</small></div></a>
@@ -18,11 +42,12 @@
 </div>
 
 <div class="sb-ti-panel">
-    <div class="sb-ti-panel-head"><div><h2>Website requests</h2><p>Submitted customer requests inside this Trade-In Acquisition workspace. No purchase, Device, stock, or payment is created at intake.</p></div><span class="sb-ti-badge info">Source: Website</span></div>
+    <div class="sb-ti-panel-head"><div><h2>Device Trade-In Calculations</h2><p>Estimates from either channel: a customer's Website submission, or a Walk-In counter estimate. No purchase, Device, stock, or payment is created here.</p></div>
+    </div>
     <div class="sb-ti-table-wrap"><table class="table"><thead><tr><th>Source</th><th>Request</th><th>Customer device</th><th>Status</th><th>Submitted</th><th>Next action</th></tr></thead><tbody>
-    @forelse($websiteIntakes as $intake)
-        <tr><td><span class="sb-ti-badge info">Website</span></td><td><strong>{{ $intake->external_case_reference }}</strong><br><small class="text-muted">POS {{ $intake->intake_uuid }}</small></td><td>{{ trim($intake->brand.' '.$intake->model) }}</td><td>{{ ucwords(strtolower(str_replace('_',' ',$intake->status))) }}</td><td>{{ optional($intake->submitted_at)->diffForHumans() }}</td><td><a class="sb-ti-next" href="{{ route('recommerce.tradeins.intakes.show',$intake->id) }}">Open request <i class="fa fa-arrow-right"></i></a></td></tr>
-    @empty<tr><td colspan="6"><div class="sb-ti-empty"><i class="fa fa-inbox"></i>No website requests have been submitted.</div></td></tr>
+    @forelse($deviceTradeInCalculations as $row)
+        <tr><td><span class="sb-ti-badge {{ $row->source === 'Walk-In' ? 'success' : 'info' }}">{{ $row->source }}</span></td><td><strong>{{ $row->reference }}</strong><br><small class="text-muted">{{ $row->sub_reference }}</small></td><td>{{ $row->device_label }}</td><td>{{ ucwords(strtolower(str_replace('_',' ',$row->status))) }}</td><td>{{ optional($row->submitted_at)->diffForHumans() }}</td><td><a class="sb-ti-next" href="{{ $row->action_url }}">{{ $row->action_label }} <i class="fa fa-arrow-right"></i></a></td></tr>
+    @empty<tr><td colspan="6"><div class="sb-ti-empty"><i class="fa fa-inbox"></i>No Website requests or Walk-In calculations yet.</div></td></tr>
     @endforelse
     </tbody></table></div>
 </div>

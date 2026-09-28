@@ -1,0 +1,1371 @@
+{
+  "timestamp": "2026-09-28T06:56:20.163Z",
+  "target": ".",
+  "depth": "deep",
+  "type": "all",
+  "summary": {
+    "critical": 0,
+    "high": 5,
+    "medium": 221,
+    "low": 0,
+    "total": 226
+  },
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "public\\js\\gridstack-all.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "public\\js\\init.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "HIGH",
+      "type": "SQL Injection",
+      "location": "public\\js\\init.js:2",
+      "description": "Possible SQL injection"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "public\\js\\tailwind\\app.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "HIGH",
+      "type": "SQL Injection",
+      "location": "public\\js\\tailwind\\app.js:2",
+      "description": "Possible SQL injection"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Eval Usage",
+      "location": "public\\js\\vendor.js:1",
+      "description": "eval() can execute arbitrary code"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "public\\js\\vendor.js:1",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "HIGH",
+      "type": "SQL Injection",
+      "location": "public\\js\\vendor.js:1",
+      "description": "Possible SQL injection"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "public\\modules\\productcatalogue\\plugins\\easy.qrcode.min.js:21",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-slider\\bootstrap-slider.js:473",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:820",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:822",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:1381",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:1439",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:1455",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:2391",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:2655",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:4348",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:4460",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:4461",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:4462",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:4979",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:5397",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:5434",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:5933",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:6844",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Eval Usage",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:6929",
+      "description": "eval() can execute arbitrary code"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:7121",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:8431",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:8432",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:8433",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:8434",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:8447",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:8455",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:8468",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:8836",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:9167",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:9279",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:10099",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:11338",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:11920",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:12050",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:12068",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:12135",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:12137",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:12138",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:12139",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:12140",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:12194",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:12415",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.js:12418",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.min.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.min.js:3",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.min.js:4",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.min.js:5",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\bootstrap-wysihtml5\\bootstrap3-wysihtml5.all.min.js:6",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\Buttons-1.4.2\\js\\buttons.flash.js:194",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\Buttons-1.4.2\\js\\buttons.flash.min.js:8",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\Buttons-1.4.2\\js\\buttons.print.js:137",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\Buttons-1.4.2\\js\\buttons.print.js:144",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\Buttons-1.4.2\\js\\buttons.print.min.js:3",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\Buttons-1.4.2\\js\\dataTables.buttons.js:1740",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\Buttons-1.4.2\\js\\dataTables.buttons.min.js:35",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.js:574",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.js:2888",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.js:3104",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.js:4514",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.js:5363",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.js:5370",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.js:10662",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.js:10726",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.min.js:22",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.min.js:24",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.min.js:45",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\DataTables-1.10.16\\js\\jquery.dataTables.min.js:58",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Eval Usage",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:70840",
+      "description": "eval() can execute arbitrary code"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:76351",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:78665",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:78881",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:80291",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:81140",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:81147",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:86439",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:86503",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:94151",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:94721",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:97507",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:97514",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.js:98751",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.min.js:91",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.min.js:93",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.min.js:114",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.min.js:127",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.min.js:314",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.min.js:343",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.min.js:401",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\datatables.min.js:430",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\FixedColumns-3.2.3\\js\\dataTables.fixedColumns.js:1191",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\FixedColumns-3.2.3\\js\\dataTables.fixedColumns.min.js:26",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Eval Usage",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\DataTables\\pdfmake-0.1.32\\pdfmake.js:61664",
+      "description": "eval() can execute arbitrary code"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\daterangepicker\\daterangepicker.js:158",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\daterangepicker\\daterangepicker.js:346",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\jQuery\\jquery-2.2.3.min.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\jQuery\\jquery-2.2.3.min.js:3",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\jQuery\\jquery-3.4.1.min.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\jQueryUI\\jquery-ui.js:1543",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\jQueryUI\\jquery-ui.min.js:6",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\pace\\pace.js:249",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\pace\\pace.min.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\seiyria-bootstrap-slider\\bootstrap-slider.js:544",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\seiyria-bootstrap-slider\\bootstrap-slider.min.js:4",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\select2\\select2.full.js:1275",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\select2\\select2.full.min.js:1",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\select2\\select2.js:1275",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\AdminLTE\\plugins\\select2\\select2.min.js:1",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\bootstrap-fileinput\\fileinput.min.js:10",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Eval Usage",
+      "location": "resources\\plugins\\calculator\\calculator.js:65",
+      "description": "eval() can execute arbitrary code"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\dropzone\\dropzone.js:778",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\dropzone\\dropzone.js:899",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\dropzone\\dropzone.js:964",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\dropzone\\dropzone.js:3066",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\gridstack\\gridstack-all.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Eval Usage",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\demo\\tinymce\\tiny_mce.js:1",
+      "description": "eval() can execute arbitrary code"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\demo\\tinymce\\tiny_mce.js:1",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:1103",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:1209",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:2578",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:2591",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:4166",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:4193",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:4198",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:5455",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:5493",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:5571",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:5844",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:6256",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:6375",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:7664",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Eval Usage",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.11.1.js:8210",
+      "description": "eval() can execute arbitrary code"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:1379",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:1572",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:1589",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:1604",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:1616",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:1621",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:5001",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:5065",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:5085",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:5234",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:5952",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:6306",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.7.2.js:6411",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:1260",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:1440",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:1453",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:1483",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:1491",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:3818",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:3825",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:3834",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:3849",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:5206",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:5225",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:5232",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:5893",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:6099",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:6239",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.8.3.js:6325",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:1316",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:1476",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:1489",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:1517",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:1524",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:4040",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:4049",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:4064",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:4083",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:4193",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:4212",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:6063",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:6298",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:6391",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-1.9.1.js:6469",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-3.1.1.js:1293",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-3.1.1.js:1332",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-3.1.1.js:2755",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-3.1.1.js:2768",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-3.1.1.js:4791",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-3.1.1.js:4872",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-3.1.1.js:6001",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-3.1.1.js:6098",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Eval Usage",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-3.1.1.js:7641",
+      "description": "eval() can execute arbitrary code"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\jquery-3.1.1.js:9731",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Eval Usage",
+      "location": "resources\\plugins\\jquery-validation-1.16.0\\lib\\require.js:36",
+      "description": "eval() can execute arbitrary code"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "resources\\plugins\\sweetalert\\sweetalert.min.js:1",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\filp\\whoops\\src\\Whoops\\Resources\\js\\prism.js:3",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\filp\\whoops\\src\\Whoops\\Resources\\js\\prism.js:7",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\filp\\whoops\\src\\Whoops\\Resources\\js\\prism.js:8",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\filp\\whoops\\src\\Whoops\\Resources\\js\\zepto.min.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\knuckleswtf\\scribe\\resources\\js\\theme-default.js:117",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\maximebf\\debugbar\\src\\DebugBar\\Resources\\vendor\\highlightjs\\highlight.pack.js:1",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "HIGH",
+      "type": "SQL Injection",
+      "location": "vendor\\maximebf\\debugbar\\src\\DebugBar\\Resources\\vendor\\highlightjs\\highlight.pack.js:1",
+      "description": "Possible SQL injection"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\phpunit\\php-code-coverage\\src\\Report\\Html\\Renderer\\Template\\js\\d3.min.js:3",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\phpunit\\php-code-coverage\\src\\Report\\Html\\Renderer\\Template\\js\\jquery.min.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\phpunit\\php-code-coverage\\src\\Report\\Html\\Renderer\\Template\\js\\nv.d3.min.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\spatie\\ignition\\resources\\compiled\\ignition.js:1",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "React XSS",
+      "location": "vendor\\spatie\\ignition\\resources\\compiled\\ignition.js:1",
+      "description": "React XSS risk"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\spatie\\ignition\\resources\\compiled\\ignition.js:4",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\spatie\\ignition\\resources\\compiled\\ignition.js:6",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "React XSS",
+      "location": "vendor\\spatie\\ignition\\resources\\compiled\\ignition.js:6",
+      "description": "React XSS risk"
+    },
+    {
+      "severity": "HIGH",
+      "type": "SQL Injection",
+      "location": "vendor\\spatie\\ignition\\resources\\compiled\\ignition.js:6",
+      "description": "Possible SQL injection"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery-3.5.1.js:1328",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery-3.5.1.js:1385",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery-3.5.1.js:2932",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery-3.5.1.js:2945",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery-3.5.1.js:4927",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery-3.5.1.js:4933",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery-3.5.1.js:5032",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery-3.5.1.js:6347",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "Eval Usage",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery-3.5.1.js:8166",
+      "description": "eval() can execute arbitrary code"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery-3.5.1.js:10291",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\jquery.js:2",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\srmklive\\paypal\\docs\\build\\html\\_static\\searchtools.js:63",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\symfony\\error-handler\\Resources\\assets\\js\\exception.js:63",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\symfony\\error-handler\\Resources\\assets\\js\\exception.js:167",
+      "description": "XSS risk with innerHTML"
+    },
+    {
+      "severity": "MEDIUM",
+      "type": "innerHTML",
+      "location": "vendor\\symfony\\error-handler\\Resources\\assets\\js\\exception.js:222",
+      "description": "XSS risk with innerHTML"
+    }
+  ]
+}

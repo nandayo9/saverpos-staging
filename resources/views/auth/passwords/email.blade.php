@@ -1,6 +1,7 @@
 @extends('layouts.auth2')
 
 @section('title', __('lang_v1.reset_password'))
+@section('meta_robots', 'noindex, nofollow')
 
 @section('content')
 

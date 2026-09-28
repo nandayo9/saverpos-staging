@@ -719,26 +719,20 @@ class Util
 
             $file = $request->file($file_name);
 
-            // Laravel inbuilt server-side file type validation
-            if ($file_type == 'image') {
-                if (!$file->isValid() || !Str::startsWith($file->getMimeType(), 'image/')) {
-                    throw new \Exception('Invalid image file');
-                }
-            }
-
-            if ($file_type == 'document') {
-                $allowed_mimes = array_keys(config('constants.document_upload_mimes_types'));
-                if (!in_array($file->getMimeType(), $allowed_mimes)) {
-                    throw new \Exception('Invalid document file');
-                }
+            // The extension comes from the server-detected MIME type, never from
+            // the client's file name: these files land under public/uploads, so
+            // an image-looking "x.php" (a GIF/PHP polyglot) must not be stored
+            // with an executable extension.
+            $extension = self::extensionForMime($file->getMimeType(), $file_type);
+            if ($extension === null) {
+                throw new \Exception($file_type == 'image' ? 'Invalid image file' : 'Invalid document file');
             }
 
             if ($file->getSize() <= config('constants.document_size_limit')) {
                 // Sanitize file name: slugify original name (without extension), prepend time, append extension
                 $original_name = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                $extension = $file->getClientOriginalExtension();
-                $sanitized_name = Str::slug($original_name);
-                $new_file_name = time() . '_' . $sanitized_name . ($extension ? '.' . $extension : '');
+                $sanitized_name = Str::slug($original_name) ?: Str::random(8);
+                $new_file_name = time() . '_' . $sanitized_name . '.' . $extension;
 
                 if ($file->storeAs($dir_name, $new_file_name)) {
                     $uploaded_file_name = $new_file_name;
@@ -747,6 +741,107 @@ class Util
         }
 
         return $uploaded_file_name;
+    }
+
+    /**
+     * Raster image types accepted for uploads, keyed by detected MIME type.
+     * SVG is deliberately absent: it can carry script and uploads are served
+     * from the app's own origin.
+     */
+    public const UPLOAD_IMAGE_EXTENSIONS = [
+        'image/jpeg' => 'jpg',
+        'image/jpg' => 'jpg',
+        'image/pjpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp',
+        'image/bmp' => 'bmp',
+    ];
+
+    /**
+     * The extension a file of this detected MIME type may be stored under,
+     * or null when the type is not allowed.
+     *
+     * $type 'image' allows raster images only; 'document' allows
+     * config('constants.document_upload_mimes_types'); 'any' allows both.
+     */
+    public static function extensionForMime(?string $mime, string $type = 'document'): ?string
+    {
+        $mime = strtolower((string) $mime);
+        $documents = [];
+        foreach ((array) config('constants.document_upload_mimes_types') as $docMime => $ext) {
+            $documents[strtolower($docMime)] = ltrim((string) $ext, '.');
+        }
+
+        $allowed = match ($type) {
+            'image' => self::UPLOAD_IMAGE_EXTENSIONS,
+            'any' => $documents + self::UPLOAD_IMAGE_EXTENSIONS,
+            default => $documents,
+        };
+
+        return $allowed[$mime] ?? null;
+    }
+
+    /**
+     * Download a file named by URL in an import spreadsheet into
+     * public/uploads/{$dir}, returning the stored file name, or null when the
+     * URL or its content is not acceptable.
+     *
+     * Guards against server-side request forgery and unsafe writes: http(s)
+     * only, no private/loopback/reserved targets, no redirects, a size cap,
+     * the content type checked from the downloaded bytes, and a random file
+     * name whose extension comes from that type.
+     */
+    public static function storeRemoteFile(string $url, string $dir, string $type = 'image'): ?string
+    {
+        $parts = parse_url($url);
+        $scheme = strtolower($parts['scheme'] ?? '');
+        $host = trim($parts['host'] ?? '', '[]');
+        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
+            return null;
+        }
+
+        // Every address the host resolves to must be public. gethostbynamel()
+        // is IPv4-only, so an IPv6-only host fails closed.
+        $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (gethostbynamel($host) ?: []);
+        if (empty($ips)) {
+            return null;
+        }
+        foreach ($ips as $ip) {
+            if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                return null;
+            }
+        }
+
+        $limit = (int) config('constants.document_size_limit', 5000000);
+        $context = stream_context_create(['http' => [
+            'timeout' => 10,
+            'follow_location' => 0,
+            'max_redirects' => 0,
+            // Many image hosts/CDNs answer 403 to requests without a User-Agent.
+            'user_agent' => config('app.name', 'SAVERPOS').'-import/1.0',
+        ]]);
+        $bytes = @file_get_contents($url, false, $context, 0, $limit + 1);
+        if ($bytes === false || $bytes === '' || strlen($bytes) > $limit) {
+            return null;
+        }
+
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
+        $extension = self::extensionForMime($mime, $type);
+        if ($extension === null) {
+            return null;
+        }
+
+        $name = time().'_'.Str::random(16).'.'.$extension;
+        $directory = public_path('uploads/'.trim($dir, '/'));
+        if (! is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+        if (file_put_contents($directory.'/'.$name, $bytes) === false) {
+            return null;
+        }
+
+        return $name;
     }
 
     public function serviceStaffDropdown($business_id, $location_id = null)

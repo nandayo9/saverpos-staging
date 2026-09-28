@@ -1,5 +1,6 @@
 @extends('layouts.auth2')
 @section('title', __('lang_v1.register'))
+@section('meta_description', 'Register your business on ' . config('app.name', 'SAVERPOS') . ' - point of sale, inventory, purchasing and device trade-ins in one system.')
 
 @section('content')
 

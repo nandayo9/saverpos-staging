@@ -18,6 +18,11 @@
     reads as a distinct chip without glaring the way the old pale grounds did
     (those measured 13-14:1 against this background).
 
+    These rules were dark-only until this pass: the page's data-theme can be
+    "light" on screen too, not just on the printed page, so the html[data-theme]
+    block below carries the same pale-ground/dark-type pairs the @media print
+    block already used for white paper - same surface problem, same fix.
+
     Include once per view: @include('recommerce::partials.status-tones')
 --}}
 <style>
@@ -27,6 +32,12 @@
     .sb-status-blocked { background:#78350f; color:#fde68a; }
     .sb-status-done { background:#064e3b; color:#a7f3d0; }
     .sb-status-closed { background:#334155; color:#e2e8f0; }
+
+    html[data-theme="light"] .sb-status-intake { background:#e0e7ff; color:#3730a3; }
+    html[data-theme="light"] .sb-status-active { background:#dbeafe; color:#1e40af; }
+    html[data-theme="light"] .sb-status-blocked { background:#fef3c7; color:#92400e; }
+    html[data-theme="light"] .sb-status-done { background:#d1fae5; color:#065f46; }
+    html[data-theme="light"] .sb-status-closed { background:#e5e7eb; color:#374151; }
 
     @media print {
         /* A printed record goes on white stock: restore the light pairs. */

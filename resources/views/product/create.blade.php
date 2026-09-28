@@ -365,7 +365,14 @@
             <div class="text-center">
                 <div class="btn-group">
                     @if($selling_price_group_count)
-                    <button type="submit" value="submit_n_add_selling_prices" class="tw-dw-btn tw-dw-btn-warning tw-dw-btn-lg tw-text-white submit_product_form">@lang('lang_v1.save_n_add_selling_price_group_prices')</button>
+                    <button type="submit" value="submit_n_add_selling_prices" class="tw-dw-btn tw-dw-btn-warning tw-dw-btn-lg tw-text-white submit_product_form sb-btn-spg-prices">@lang('lang_v1.save_n_add_selling_price_group_prices')</button>
+                    {{-- The global contrast rule forces dark ink on amber buttons; this
+                         one uses white ink, so deepen the fill to keep it readable. --}}
+                    {{-- Repeated class only raises specificity above that global rule. --}}
+                    <style>
+                        html .tw-dw-btn.tw-dw-btn-warning.tw-text-white.sb-btn-spg-prices.sb-btn-spg-prices.sb-btn-spg-prices{background:#d97706 !important;border-color:#d97706 !important;color:#fff !important}
+                        html .tw-dw-btn.tw-dw-btn-warning.tw-text-white.sb-btn-spg-prices.sb-btn-spg-prices.sb-btn-spg-prices:hover{background:#b45309 !important;border-color:#b45309 !important}
+                    </style>
                     @endif
 
                     @can('product.opening_stock')

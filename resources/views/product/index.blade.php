@@ -159,8 +159,10 @@
                         <div class="tab-content">
                             <div class="tab-pane active " id="product_list_tab">
                                 @if ($is_admin)
-
-                                    <a class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700 pull-right tw-m-2"
+                                    {{-- Hidden until DataTables is ready, then moved into the
+                                         toolbar row beside the search box (see script below). --}}
+                                    <a id="product_download_excel" style="display: none;"
+                                        class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700"
                                         href="{{ action([\App\Http\Controllers\ProductController::class, 'downloadExcel']) }}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -173,20 +175,6 @@
                                         </svg> @lang('lang_v1.download_excel')
                                     </a>
                                 @endif
-                                @can('product.create')
-
-                                    <a class="tw-inline-flex tw-items-center tw-bg-gradient-to-r tw-from-indigo-500 tw-to-blue-500 tw-font-semibold tw-text-xs tw-px-3 tw-py-1 tw-rounded-lg tw-shadow-md hover:tw-from-indigo-600 hover:tw-to-blue-600 hover:tw-shadow-lg tw-transition tw-duration-200 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-blue-500 focus:tw-ring-offset-2 active:tw-from-indigo-700 active:tw-to-blue-700 pull-right tw-m-2"
-                                        href="{{ action([\App\Http\Controllers\ProductController::class, 'create']) }}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                            stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-plus tw-mr-1">
-                                            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                                            <path d="M12 5l0 14" />
-                                            <path d="M5 12l14 0" />
-                                        </svg> @lang('messages.add')
-                                    </a>
-                                    <br><br>
-                                @endcan
                                 @include('product.partials.product_list')
                             </div>
                             @can('stock_report.view')
@@ -219,6 +207,44 @@
 
     </section>
     <!-- /.content -->
+
+    <style>
+        /* Length and export buttons centred against a right-hand stack of
+           Download Excel over the search box. */
+        .sb-product-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+        }
+        .sb-product-toolbar::before,
+        .sb-product-toolbar::after {
+            display: none; /* Bootstrap clearfix pseudo-elements would act as flex items. */
+        }
+        .sb-product-toolbar > [class*="col-"] {
+            float: none;
+            width: auto;
+        }
+        .sb-product-toolbar > [class*="col-"]:nth-child(2) {
+            flex: 1 1 auto;
+        }
+        .sb-product-toolbar .dataTables_length label,
+        .sb-product-toolbar .dataTables_filter label,
+        .sb-product-toolbar .dt-buttons .tw-dw-btn {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+        .sb-product-toolbar .dataTables_filter {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            float: none !important;
+        }
+        .sb-product-toolbar .dataTables_filter #product_download_excel {
+            white-space: nowrap;
+        }
+    </style>
 
 @endsection
 
@@ -382,6 +408,9 @@
                     __currency_convert_recursively($('#product_table'));
                 },
             });
+            // One toolbar row: page length | export buttons | Download Excel + search.
+            $('#product_table_wrapper > .row').first().addClass('sb-product-toolbar');
+            $('#product_download_excel').prependTo('#product_table_filter').css('display', '');
             // Convert loaded product images to base64 so they appear in the PDF.
             product_table.buttons('.buttons-pdf').action(function(e, dt, button, config) {
                 if ($(dt.table().node()).hasClass('hide-footer')) config.footer = false;

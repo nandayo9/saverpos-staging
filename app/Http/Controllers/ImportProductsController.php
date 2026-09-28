@@ -147,12 +147,14 @@ class ImportProductsController extends Controller
                     $image_name = trim($value[29]);
                     if (! empty($image_name)) {
                         if (filter_var($image_name, FILTER_VALIDATE_URL)) {
-                            $source_image = file_get_contents($image_name);
-
-                            $path = parse_url($image_name, PHP_URL_PATH);
-                            $new_name = time().'_'.basename($path);
-                            $dest_img = public_path().'/uploads/'.config('constants.product_img_path').'/'.$new_name;
-                            file_put_contents($dest_img, $source_image);
+                            // Validated download (public http(s) only, must really be an
+                            // image, random name) instead of saving whatever the URL returns.
+                            $new_name = $this->productUtil::storeRemoteFile($image_name, config('constants.product_img_path'), 'image');
+                            if ($new_name === null) {
+                                $is_valid = false;
+                                $error_msg = "Image URL in row no. $row_no could not be downloaded as a JPG, PNG, GIF, WEBP or BMP image from a public http(s) address";
+                                break;
+                            }
                             $product_array['image'] = $new_name;
                         } else {
                             $product_array['image'] = $image_name;

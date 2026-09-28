@@ -23,6 +23,7 @@
     .sb-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .sb-status { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 10px; font-size:11px; font-weight:800; text-transform:uppercase; }
     .sb-status-info { background:#1e3a8a; color:#bfdbfe; }
+    html[data-theme="light"] .sb-status-info { background:#dbeafe; color:#1e40af; }
     .sb-search { border:1px solid var(--sb-border,#dbe3ea); border-radius:7px; padding:11px 12px; background:var(--sb-surface,#f9fbfd); margin-bottom:15px; }
     .sb-search .form-control { min-height:34px; }
     .sb-search .search-help { margin:8px 0 0; font-size:12px; color:var(--sb-muted,#64748b); }
@@ -36,7 +37,7 @@
     }
 </style>
 
-<section class="container-fluid sb-repair-page" aria-labelledby="new-repair-title">
+<section class="container-fluid sb-repair-page" aria-labelledby="new-repair-title" style="margin-top:24px">
     <div class="sb-repair-hero">
         <div>
             <p class="sb-repair-muted" style="margin:0 0 5px">Customer Repair · Location {{ $locationId }}</p>
@@ -89,7 +90,7 @@
                                         <input id="repair-identifier-value" class="form-control" maxlength="255" autocomplete="off" placeholder="Serial, IMEI, or SAVERPOS code">
                                     </div>
                                     <div class="col-sm-3" style="padding-top:25px">
-                                        <button type="button" id="repair-device-search" class="btn btn-primary btn-block">Find device</button>
+                                        <button type="button" id="repair-device-search" class="tw-dw-btn tw-dw-btn-primary tw-w-full tw-text-white">Find device</button>
                                     </div>
                                 </div>
                                 <p id="repair-device-result" class="help-block search-help" style="margin:9px 0 0" role="status" aria-live="polite">Exact lookup. Scoped to this customer and branch. If no match is found, the form creates a new device.</p>
@@ -157,7 +158,7 @@
 
                     <div class="sb-actions" style="justify-content:flex-end; margin-bottom:24px">
                         <a class="btn btn-default" href="{{ route('recommerce.repair.index') }}">Return to workbench</a>
-                        <button id="repair-submit" class="btn btn-primary btn-lg" type="submit">Create customer repair</button>
+                        <button id="repair-submit" class="tw-dw-btn tw-dw-btn-primary tw-dw-btn-lg tw-text-white" type="submit">Create customer repair</button>
                     </div>
                 </div>
             </div>

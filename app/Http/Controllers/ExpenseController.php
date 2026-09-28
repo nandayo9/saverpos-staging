@@ -765,12 +765,14 @@ class ExpenseController extends Controller
 
                     if (!empty($image_name)) {
                         if (filter_var($image_name, FILTER_VALIDATE_URL)) {
-                            $source_image = file_get_contents($image_name);
-
-                            $path = parse_url($image_name, PHP_URL_PATH);
-                            $new_name = time() . '_' . basename($path);
-                            $dest_img = public_path() . '/uploads/documents/' . $new_name;
-                            file_put_contents($dest_img, $source_image);
+                            // Validated download (public http(s) only, must be an allowed
+                            // image/document type, random name) instead of saving the raw response.
+                            $new_name = \App\Utils\Util::storeRemoteFile($image_name, 'documents', 'any');
+                            if ($new_name === null) {
+                                $is_valid = false;
+                                $error_msg = "Document URL in row no. $row_no could not be downloaded as an allowed image or document from a public http(s) address";
+                                break;
+                            }
                             $expense_array['document'] = $new_name;
                         } else {
                             $expense_array['document'] = $image_name;

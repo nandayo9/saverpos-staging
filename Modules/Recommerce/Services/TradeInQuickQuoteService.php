@@ -138,6 +138,81 @@ class TradeInQuickQuoteService
         });
     }
 
+    /**
+     * Walk-in counter intake. Deliberately a sibling of create(), not a
+     * branch inside it: create() is laptop-shaped (hardcoded category,
+     * cosmetic_grade A-D, battery_health_percent) and used by the existing
+     * in-branch wizard's Quick Quote panel - touching it risks that path.
+     * This method accepts any category and an already-computed pricing
+     * result (from TradeInWalkInPricingService, called by the controller)
+     * instead of calling TradeInPricingService itself.
+     */
+    public function createWalkIn(User $user, array $input, array $pricing): TradeInQuickQuote
+    {
+        $businessId = (int) $user->business_id;
+        $locationId = (int) ($input['location_id'] ?? 0);
+        $commandUuid = strtolower(trim((string) ($input['command_uuid'] ?? '')));
+        if (! Str::isUuid($commandUuid)) {
+            throw new LogicException('Walk-In quote requires a valid idempotency reference.');
+        }
+        $categoryCode = strtoupper(trim((string) ($input['category_code'] ?? '')));
+        if (! in_array($categoryCode, ['PHONE', 'TABLET', 'LAPTOP'], true)) {
+            throw new LogicException('Choose a device type of Phone, Tablet, or Laptop.');
+        }
+        $canManage = $this->authorizationGate->allowsWriteLocation($user, TradeInService::PERMISSION_MANAGE, $businessId, $locationId);
+        if (! $canManage) {
+            throw new AuthorizationException('Trade-in Quick Quote scope denied.');
+        }
+
+        $brand = $this->requiredText($input['brand'] ?? null, 'Brand', 100);
+        $model = $this->requiredText($input['model'] ?? null, 'Model', 160);
+        $identifier = $categoryCode === 'LAPTOP'
+            ? $this->optionalText($input['identifier'] ?? null, 80)
+            : $this->requiredText($input['identifier'] ?? null, 'IMEI', 80);
+        $marketPrice = $this->money($input['market_price'] ?? null, 'Market price');
+        $rule = $this->ruleResolver->resolve($businessId, 0, $categoryCode);
+        $validDays = max(1, min(30, (int) config('recommerce.tradein_quote_valid_days', 7)));
+        $status = ! empty($pricing['rejected']) ? TradeInQuickQuote::STATUS_CUSTOMER_DECLINED : TradeInQuickQuote::STATUS_CONSIDERING;
+
+        return DB::transaction(function () use ($user, $input, $businessId, $locationId, $rule, $commandUuid, $categoryCode, $brand, $model, $identifier, $marketPrice, $pricing, $status, $validDays) {
+            $existing = TradeInQuickQuote::query()->where('business_id', $businessId)->where('command_uuid', $commandUuid)->first();
+            if ($existing) {
+                return $existing;
+            }
+
+            return TradeInQuickQuote::create([
+                'quote_uuid' => (string) Str::uuid(),
+                'command_uuid' => $commandUuid,
+                'business_id' => $businessId,
+                'location_id' => $locationId,
+                'rule_set_id' => $rule->id,
+                'category_code' => $categoryCode,
+                'channel' => 'WALK_IN',
+                'status' => $status,
+                'acquisition_type' => 'SELL_TO_SAVERBRO',
+                'specifications_json' => array_filter([
+                    'brand' => $brand, 'model' => $model, 'identifier' => $identifier,
+                    'ram' => $this->optionalText($input['ram'] ?? null, 40),
+                    'storage_type' => $this->optionalText($input['storage_type'] ?? null, 40),
+                    'storage_size' => $this->optionalText($input['storage_size'] ?? null, 40),
+                    'cpu' => $this->optionalText($input['cpu'] ?? null, 160),
+                    'gpu' => $this->optionalText($input['gpu'] ?? null, 160),
+                ], fn ($value) => $value !== null && $value !== ''),
+                'condition_json' => (array) ($input['condition'] ?? []),
+                'expected_resale_amount' => round($marketPrice, 4),
+                'market_price_source' => $input['market_price_source'] ?? 'MANUAL',
+                'market_price_fetched_at' => $input['market_price_fetched_at'] ?? null,
+                'pricing_snapshot_json' => $pricing,
+                'estimated_low_amount' => $pricing['final_amount'] ?? 0,
+                'estimated_high_amount' => $pricing['final_amount'] ?? 0,
+                'lost_reason_code' => $status === TradeInQuickQuote::STATUS_CUSTOMER_DECLINED ? 'OTHER' : null,
+                'lost_reason' => $status === TradeInQuickQuote::STATUS_CUSTOMER_DECLINED ? mb_substr((string) ($pricing['rejected_reason'] ?? 'Device ineligible'), 0, 255) : null,
+                'expires_at' => now()->addDays($validDays)->endOfDay(),
+                'created_by' => $user->id,
+            ]);
+        });
+    }
+
     public function decline(User $user, TradeInQuickQuote $quote, string $reasonCode, string $reason): TradeInQuickQuote
     {
         $canManage = $quote->variation_id

@@ -29,7 +29,7 @@
     </thead>
     <tfoot>
         <tr class="bg-gray font-17 text-center footer-total">
-            <td colspan="{{ !empty($deviceReceivingEnabled) ? 6 : 5 }}"><strong>@lang('sale.total'):</strong></td>
+            <td colspan="5"><strong>@lang('sale.total'):</strong></td>
             <td class="footer_status_count"></td>
             @if (!empty($deviceReceivingEnabled))<td></td>@endif
             <td class="footer_payment_status_count add_without_price_hide"></td>
@@ -38,8 +38,9 @@
             @lang('lang_v1.purchase_return') - <span class="footer_total_purchase_return_due"></span>
             </small></td>
             {{-- One cell per remaining column (custom_field_1..4 + added_by) so the
-                 footer spans the same 14 columns as the header. Without these the
-                 footer row is short and every cell drifts left of its column. --}}
+                 footer spans the same 14 (or 15 with device receiving) columns as
+                 the header. Without these the footer row is short and every cell
+                 drifts left of its column. --}}
             <td></td>
             <td></td>
             <td></td>

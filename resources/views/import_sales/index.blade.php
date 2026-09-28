@@ -33,7 +33,10 @@
                         <div class="col-sm-8">
                             <div class="form-group">
                                 {!! Form::label('name', __( 'product.file_to_import' ) . ':') !!}
-                                {!! Form::file('sales', ['required' => 'required']); !!}
+                                {!! Form::file('sales', ['required' => 'required', 'accept' => '.xlsx,.xls,.csv']); !!}
+                                @error('sales')
+                                    <span class="help-block text-danger">{{ $message }}</span>
+                                @enderror
                               </div>
                         </div>
                         <div class="col-sm-4">

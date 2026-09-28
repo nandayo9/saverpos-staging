@@ -11,6 +11,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title') - {{ config('app.name', 'SAVERPOS') }}</title>
+    @include('layouts.partials.seo')
 
     @include('layouts.partials.css')
 
@@ -20,7 +21,8 @@
     <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
     <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
-    <script src='https://www.google.com/recaptcha/api.js'></script>
+    {{-- async/defer: the widget auto-renders into .g-recaptcha, so it need not block first paint. --}}
+    <script src='https://www.google.com/recaptcha/api.js' async defer></script>
 
 </head>
 

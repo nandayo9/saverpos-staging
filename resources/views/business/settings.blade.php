@@ -19,7 +19,7 @@
        <!--  <pos-tab-container> -->
         {{-- <div class="col-xs-12 pos-tab-container"> --}}
         @component('components.widget', ['class' =>  'pos-tab-container'])
-            <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 pos-tab-menu tw-rounded-lg">
+            <div class="col-lg-2 col-md-2 col-sm-2 col-xs-2 pos-tab-menu sb-settings-nav tw-rounded-lg">
                 <div class="list-group">
                     <a href="#" class="list-group-item text-center tw-font-bold tw-text-sm md:tw-text-base  active">@lang('business.business')</a>
                     <a href="#" class="list-group-item text-center tw-font-bold tw-text-sm md:tw-text-base">@lang('business.tax') @show_tooltip(__('tooltip.business_tax'))</a>
@@ -93,7 +93,7 @@
 
     <div class="row">
         <div class="col-sm-12 text-center">
-            <button class="tw-dw-btn tw-dw-btn-error tw-dw-btn-lg tw-text-white" type="submit">@lang('business.update_settings')</button>
+            <button class="tw-dw-btn tw-dw-btn-error tw-dw-btn-lg tw-text-white sb-btn-ink-white" type="submit">@lang('business.update_settings')</button>
         </div>
     </div>
 {!! Form::close() !!}

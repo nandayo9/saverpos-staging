@@ -8,7 +8,7 @@
         #recommerce-scan-entry .scan-camera.is-open { display:block; }
         @media (max-width:767px) { #recommerce-scan-entry { padding-left:10px; padding-right:10px; } #recommerce-scan-entry .btn { margin-bottom:6px; } }
     </style>
-    <section class="container" id="recommerce-scan-entry" data-csrf-token="{{ csrf_token() }}">
+    <section class="container" id="recommerce-scan-entry" data-csrf-token="{{ csrf_token() }}" style="margin-top:24px">
         <div class="row">
             <div class="col-md-8">
                 <div class="box box-primary">

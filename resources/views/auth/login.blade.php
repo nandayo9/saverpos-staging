@@ -1,5 +1,6 @@
 @extends('layouts.auth2')
 @section('title', __('lang_v1.login'))
+@section('meta_description', 'Sign in to ' . config('app.name', 'SAVERPOS') . ' to manage sales, stock, purchases, repairs and trade-ins for your business.')
 @inject('request', 'Illuminate\Http\Request')
 @section('content')
     @php

@@ -57,6 +57,44 @@ return [
         'bearer_token' => env('RECOMMERCE_TRADEIN_WEBSITE_EVIDENCE_TOKEN'),
         'allowed_hosts' => array_values(array_filter(array_map('trim', explode(',', strtolower((string) env('RECOMMERCE_TRADEIN_WEBSITE_ALLOWED_HOSTS', '')))))),
     ],
+
+    // Walk-In pricing calculator's "current market price" lookup. No provider
+    // is configured by default: TradeInMarketPriceApiClient returns null and
+    // the Walk-In form falls back to manual price entry until these env vars
+    // are set to a real provider.
+    'tradein_market_price_api' => [
+        'base_url' => env('RECOMMERCE_TRADEIN_MARKET_PRICE_BASE_URL'),
+        'bearer_token' => env('RECOMMERCE_TRADEIN_MARKET_PRICE_TOKEN'),
+        'allowed_hosts' => array_values(array_filter(array_map('trim', explode(',', strtolower((string) env('RECOMMERCE_TRADEIN_MARKET_PRICE_ALLOWED_HOSTS', '')))))),
+        'timeout' => env('RECOMMERCE_TRADEIN_MARKET_PRICE_TIMEOUT', 5),
+
+        // 'apify' = brand-new retail listings from Malaysian marketplaces via
+        // Apify Actors, run in parallel; the median of all matching prices is
+        // the market price. Supported: fatihtahta~lazada-scraper and
+        // zen-studio~shopee-product-scraper.
+        'provider' => env('RECOMMERCE_TRADEIN_MARKET_PRICE_PROVIDER', 'apify'),
+        'apify_token' => env('RECOMMERCE_TRADEIN_APIFY_TOKEN'),
+        'apify_actors' => array_values(array_filter(array_map('trim', explode(',', (string) env('RECOMMERCE_TRADEIN_APIFY_ACTORS', 'fatihtahta~lazada-scraper,zen-studio~shopee-product-scraper'))))),
+        'apify_country' => env('RECOMMERCE_TRADEIN_APIFY_COUNTRY', 'my'),
+        'apify_max_items' => (int) env('RECOMMERCE_TRADEIN_APIFY_MAX_ITEMS', 20),
+        'apify_timeout' => (int) env('RECOMMERCE_TRADEIN_APIFY_TIMEOUT', 120),
+        'apify_min_samples' => (int) env('RECOMMERCE_TRADEIN_APIFY_MIN_SAMPLES', 3),
+        // Listings below this price (RM) are skipped at the source: cases, cables.
+        'apify_min_listing_price' => (int) env('RECOMMERCE_TRADEIN_APIFY_MIN_LISTING_PRICE', 200),
+    ],
+
+    // Walk-In form dropdown option lists (no structured device catalogue is
+    // reachable outside the staging-gated CanonicalDeviceCatalogue today).
+    'walk_in_options' => [
+        'ram' => ['2GB', '3GB', '4GB', '6GB', '8GB', '12GB', '16GB', '32GB', '64GB'],
+        'storage_type' => ['eMMC', 'UFS', 'SSD', 'HDD', 'SSD + HDD'],
+        'storage_size' => ['32GB', '64GB', '128GB', '256GB', '512GB', '1TB', '2TB'],
+        'brands' => [
+            'PHONE' => ['Apple', 'Samsung', 'Xiaomi', 'Oppo', 'Vivo', 'Huawei', 'OnePlus', 'Realme', 'Google', 'Honor'],
+            'TABLET' => ['Apple', 'Samsung', 'Xiaomi', 'Huawei', 'Lenovo'],
+            'LAPTOP' => ['Apple'],
+        ],
+    ],
     // One SAVER Value implementation lives in SAVERPOS. Website requests use
     // the authenticated indicative endpoint and retain its immutable result.
     'saver_value' => [

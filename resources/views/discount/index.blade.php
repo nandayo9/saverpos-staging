@@ -31,8 +31,11 @@
                     @endcan
                 </div>
                 <div class="tw-flow-root tw-mt-5 tw-border-b tw-border-gray-200">
-                    <div class="tw-mx-4 tw--my-2 tw-overflow-x-auto sm:tw--mx-5">
-                        <div class="tw-inline-block tw-min-w-full tw-py-2 tw-align-middle sm:tw-px-5">
+                    {{-- No overflow-x wrapper here: DataTables' scrollX scrolls only the
+                         table body. Wrapping the whole DataTable in a scroll box made the
+                         length picker, buttons, search and pager slide away with it. --}}
+                    <div>
+                        <div class="tw-py-2">
                             @can('brand.view')
                                 <table class="table table-bordered table-striped" id="discounts_table">
                                     <thead>
@@ -83,6 +86,13 @@
 
     </section>
     <!-- /.content -->
+    <style>
+        /* Class set per column in app.js (discounts_table columnDefs). */
+        #discounts_table td.sb-discount-center {
+            text-align: center !important;
+            vertical-align: middle !important;
+        }
+    </style>
 @stop
 @section('javascript')
     <script type="text/javascript">

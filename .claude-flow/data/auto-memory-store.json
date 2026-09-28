@@ -1,0 +1,14 @@
+[
+  {
+    "id": "task-security-scan",
+    "key": "security-scan",
+    "content": "Task completed: standard security scan of saverpos-staging Laravel app with manual triage of false positives",
+    "namespace": "tasks",
+    "type": "task-outcome",
+    "metadata": {
+      "success": true,
+      "quality": 0.8
+    },
+    "createdAt": 1790578092203
+  }
+]

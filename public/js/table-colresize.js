@@ -589,7 +589,23 @@
     // Sorting, searching and paging regenerate the scroll header, which drops
     // the handles, so they have to be put back after every redraw.
     $(document).on('draw.dt', function (event, settings) {
-        attach(new $.fn.dataTable.Api(settings));
+        var api = new $.fn.dataTable.Api(settings);
+        attach(api);
+
+        // Server-side tables fire column-sizing while the body still holds the
+        // "Processing..." row, so shrink-to-fit columns (Action) get measured
+        // against nothing and collapse to the heading's width. attach() bails
+        // early once the handles exist, so re-fit here now the real rows are in.
+        var r = regions(api);
+        var headerRow = r.headTable.length
+            ? r.headTable.find('thead tr').first()
+            : r.bodyTable.find('thead tr').first();
+
+        if (headerRow.length) {
+            setTimeout(function () {
+                widenColumns(r, headerRow);
+            }, 0);
+        }
     });
 
     /**

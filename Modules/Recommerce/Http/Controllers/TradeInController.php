@@ -6,6 +6,7 @@ use App\Contact;
 use App\User;
 use App\Variation;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -28,6 +29,8 @@ use Modules\Recommerce\Services\TradeInDeviceIntakeService;
 use Modules\Recommerce\Services\TradeInNegotiationService;
 use Modules\Recommerce\Services\TradeInPhotoService;
 use Modules\Recommerce\Services\TradeInQuickQuoteService;
+use Modules\Recommerce\Services\TradeInWalkInPricingService;
+use Modules\Recommerce\Services\TradeInMarketPriceApiClient;
 use Modules\Recommerce\Services\TradeInCatalogueService;
 use Modules\Recommerce\Services\TradeInAuthorityService;
 use Modules\Recommerce\Services\TradeInQcReleaseService;
@@ -65,6 +68,109 @@ class TradeInController extends Controller
     public function create(Request $request, AuthorizationGate $authorizationGate)
     {
         return $this->renderWorkspace('create', $request, $authorizationGate);
+    }
+
+    public function walkIn(Request $request, AuthorizationGate $authorizationGate)
+    {
+        return $this->renderWorkspace('walk-in', $request, $authorizationGate);
+    }
+
+    /** Market price lookup for the Walk-In form, called once brand and model are filled. */
+    public function walkInMarketPrice(Request $request, AuthorizationGate $authorizationGate, TradeInMarketPriceApiClient $marketPriceClient): JsonResponse
+    {
+        $user = auth()->user();
+        $locationId = (int) config('recommerce.cohort.location_id');
+        if (! $authorizationGate->allowsRead($user, TradeInService::PERMISSION_VIEW, (int) $user->business_id, $locationId)) {
+            abort(404);
+        }
+        $input = $request->validate([
+            'category_code' => ['required', 'string', 'in:PHONE,TABLET,LAPTOP'],
+            'brand' => ['required', 'string', 'max:100'],
+            'model' => ['required', 'string', 'max:160'],
+        ]);
+
+        $lookup = $marketPriceClient->lookup($input['category_code'], $input['brand'], $input['model'], []);
+        if (! $lookup) {
+            return response()->json(['found' => false, 'message' => 'No market price found: '.($marketPriceClient->lastFailureReason() ?? 'the price source is unavailable').'. Enter the price manually.']);
+        }
+
+        return response()->json([
+            'found' => true,
+            'amount' => round((float) $lookup['amount'], 2),
+            'sample_count' => $lookup['sample_count'] ?? null,
+        ]);
+    }
+
+    public function storeWalkIn(Request $request, AuthorizationGate $authorizationGate, TradeInQuickQuoteService $quoteService, TradeInWalkInPricingService $pricingService, TradeInMarketPriceApiClient $marketPriceClient)
+    {
+        try {
+            $categoryCode = strtoupper((string) $request->input('category_code'));
+            $brand = (string) $request->input('brand');
+            $model = (string) $request->input('model');
+            $brandFamily = strtoupper((string) $request->input('brand_family', 'ANDROID'));
+
+            // A price in the field wins: it is either the auto-filled lookup
+            // (recorded as API when it matches the cached result) or one staff
+            // typed. Only an empty field triggers a lookup here.
+            $manualPrice = is_numeric($request->input('market_price')) ? (float) $request->input('market_price') : 0.0;
+            if ($manualPrice > 0) {
+                $lookup = $marketPriceClient->cachedLookup($brand, $model);
+                if ($lookup && abs((float) $lookup['amount'] - $manualPrice) >= 0.005) {
+                    $lookup = null;
+                }
+                $marketPrice = $manualPrice;
+            } else {
+                $lookup = $marketPriceClient->lookup($categoryCode, $brand, $model, [
+                    'ram' => $request->input('ram'), 'storage_size' => $request->input('storage_size'),
+                ]);
+                $marketPrice = (float) ($lookup['amount'] ?? 0.0);
+            }
+            if ($marketPrice <= 0) {
+                $reason = $marketPriceClient->lastFailureReason();
+                $priceError = $reason
+                    ? 'No market price found: '.$reason.'. Enter the current market price manually to continue.'
+                    : 'Enter a current market price, or configure the market price API.';
+                throw new LogicException($priceError);
+            }
+
+            $answers = (array) $request->input('condition', []);
+            $answers['warranty_status'] = $request->input('warranty_status');
+            $answers['appearance_severity'] = $request->input('appearance_severity');
+            $pricing = $pricingService->calculate($categoryCode, $brandFamily, $marketPrice, $answers);
+
+            $quote = $quoteService->createWalkIn(auth()->user(), [
+                'location_id' => (int) config('recommerce.cohort.location_id'),
+                'command_uuid' => $request->input('command_uuid'),
+                'category_code' => $categoryCode,
+                'brand' => $brand,
+                'model' => $model,
+                'identifier' => $request->input('identifier'),
+                'ram' => $request->input('ram'),
+                'storage_type' => $request->input('storage_type'),
+                'storage_size' => $request->input('storage_size'),
+                'cpu' => $request->input('cpu'),
+                'gpu' => $request->input('gpu'),
+                'condition' => $answers,
+                'market_price' => $marketPrice,
+                'market_price_source' => $lookup ? 'API' : 'MANUAL',
+                'market_price_fetched_at' => $lookup['fetched_at'] ?? null,
+            ], $pricing);
+
+            // The result is read back from the saved quote, not flashed: a slow
+            // market price lookup lets the header's /get-total-unread poll
+            // consume flash data before the redirected page loads.
+            return redirect()->route('recommerce.tradeins.index', ['walk_in_quote' => $quote->id]);
+        } catch (AuthorizationException $exception) {
+            abort(404);
+        } catch (LogicException $exception) {
+            // Render in place rather than redirect: the market price lookup can
+            // outlast the header's /get-total-unread poll, which would consume
+            // the flashed message and input before the redirected page loads.
+            $request->flash();
+            session()->now('status', ['success' => false, 'msg' => $exception->getMessage(), 'field' => isset($priceError) ? 'market_price' : null]);
+
+            return $this->renderWorkspace('walk-in', $request, $authorizationGate);
+        }
     }
 
     public function show(int $valuationId, Request $request, AuthorizationGate $authorizationGate)
@@ -512,6 +618,10 @@ class TradeInController extends Controller
         $readyToday = $todayAccepted->filter(fn (TradeInValuation $valuation) => optional($valuation->device)->ownership_kind === 'BUSINESS'
             && optional($valuation->device)->lifecycle_state === 'AVAILABLE');
 
+        $savedWalkInQuote = $page === 'overview' && $request->filled('walk_in_quote')
+            ? $quickQuotes->first(fn (TradeInQuickQuote $quote) => $quote->id === (int) $request->input('walk_in_quote') && $quote->channel === 'WALK_IN')
+            : null;
+
         $selectedQuote = null;
         if ($page === 'create' && $request->filled('quote') && Schema::hasTable('recommerce_trade_in_quick_quotes')) {
             $selectedQuote = $quickQuotes->firstWhere('id', (int) $request->input('quote'));
@@ -528,6 +638,7 @@ class TradeInController extends Controller
 
         $data = [
             'workspacePage' => $page,
+            'savedWalkInQuote' => $savedWalkInQuote,
             'businessId' => $businessId,
             'locationId' => $locationId,
             'variations' => $variations,
@@ -595,6 +706,7 @@ class TradeInController extends Controller
             'canCreateCatalogue' => $authorizationGate->allowsWriteLocation($user, TradeInCatalogueService::PERMISSION_CREATE, $businessId, $locationId),
             'canOverrideCatalogueDuplicate' => $authorizationGate->allowsWriteLocation($user, TradeInCatalogueService::PERMISSION_OVERRIDE_DUPLICATE, $businessId, $locationId),
             'sellerDeclarationText' => (string) config('recommerce.tradein_seller_declaration'),
+            'walkInOptions' => (array) config('recommerce.walk_in_options'),
         ];
 
         return response()->view('recommerce::tradein.index', $data)
