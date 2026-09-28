@@ -195,3 +195,5 @@
 [2026-09-28T14:24:45.795Z] [INFO] Worker map completed in 4ms
 [2026-09-28T14:27:45.802Z] [INFO] Starting worker: testgaps (1/2 concurrent)
 [2026-09-28T14:27:45.803Z] [INFO] Worker testgaps completed in 3ms
+[2026-09-28T14:28:45.853Z] [INFO] Starting worker: optimize (1/2 concurrent)
+[2026-09-28T14:28:45.854Z] [INFO] Worker optimize completed in 4ms
