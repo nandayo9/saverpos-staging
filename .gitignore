@@ -54,3 +54,6 @@ npm-debug.log
 .swarm/agentdb-memory.db
 .swarm/agentdb-memory.db
 /.swarm
+/.claude-flow
+/.claude-flow/logs
+/.claude-flow/metrics
