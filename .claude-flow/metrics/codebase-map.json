@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-28T16:39:45.913Z",
+  "timestamp": "2026-09-30T09:34:03.902Z",
   "projectRoot": "C:\\Users\\cool9\\Documents\\github\\saverpos-staging",
   "structure": {
     "hasPackageJson": false,
@@ -7,5 +7,5 @@
     "hasClaudeConfig": true,
     "hasClaudeFlow": true
   },
-  "scannedAt": 1790613585913
+  "scannedAt": 1790760843902
 }

@@ -57,3 +57,6 @@ npm-debug.log
 /.claude-flow
 /.claude-flow/logs
 /.claude-flow/metrics
+/.claude-flow
+/.swarm
+ruvector.db
